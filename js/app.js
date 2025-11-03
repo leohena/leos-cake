@@ -83,7 +83,8 @@ class PreVendasApp {
         const password = document.getElementById('login-password').value;
         
         // Verificar senha via configurações (carregadas no init)
-        const senhaCorreta = this.configuracoes?.sistemaSenha || 'leoscake2024';
+        const senhaCorreta = this.configuracoes?.sistemaSenha || 
+                              (window.ENV_CONFIG ? window.ENV_CONFIG.SYSTEM_PASSWORD : 'leoscake2024');
         
         if (password === senhaCorreta) {
             // Autenticar por 24 horas
@@ -213,7 +214,7 @@ class PreVendasApp {
                     console.log('❌ ConfigManager ainda não disponível, usando configurações padrão');
                     this.configuracoes = {
                         empresa: { nome: "Leo's Cake", telefone: "", endereco: "", email: "" },
-                        sistemaSenha: "leoscake2024",
+                        sistemaSenha: window.ENV_CONFIG ? window.ENV_CONFIG.SYSTEM_PASSWORD : "leoscake2024",
                         usuarios: []
                     };
                     return;
@@ -231,7 +232,7 @@ class PreVendasApp {
             // Usar configurações padrão em caso de erro
             this.configuracoes = {
                 empresa: { nome: "Leo's Cake", telefone: "", endereco: "", email: "" },
-                sistemaSenha: "leoscake2024",
+                sistemaSenha: window.ENV_CONFIG ? window.ENV_CONFIG.SYSTEM_PASSWORD : "leoscake2024",
                 usuarios: []
             };
         }
@@ -534,8 +535,8 @@ class PreVendasApp {
 
     // INICIALIZAÇÃO DO SUPABASE
     initSupabase() {
-        // ⚠️ CREDENCIAIS SUPABASE HARDCODED - SUBSTITUA PELOS SEUS DADOS
-        const SUPABASE_CONFIG = {
+        // Obter configuração do ambiente (com fallback para valores hardcoded)
+        const SUPABASE_CONFIG = window.ENV_CONFIG ? window.ENV_CONFIG.getSupabaseConfig() : {
             url: 'https://qzuccgbxddzpbotxvjug.supabase.co',
             anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6dWNjZ2J4ZGR6cGJvdHh2anVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxODE1NTQsImV4cCI6MjA3Nzc1NzU1NH0.jMtCOeyS3rLLanJzeWv0j1cYQFnFUBjZmnwMe5aUNk4',
             realtime: true
