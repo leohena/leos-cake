@@ -27,20 +27,26 @@ class PreVendasApp {
 
     // SISTEMA DE AUTENTICAÇÃO SIMPLIFICADO
     checkAuthentication() {
+        console.log('🔐 Verificando autenticação...');
         const isAuthenticated = localStorage.getItem('leos_cake_auth');
         const authExpiry = localStorage.getItem('leos_cake_auth_expiry');
         
+        console.log('📝 Auth status:', { isAuthenticated, authExpiry });
+        
         // Verificar se autenticação ainda é válida (24 horas)
         if (isAuthenticated && authExpiry && new Date().getTime() < parseInt(authExpiry)) {
+            console.log('✅ Usuário autenticado e token válido');
             return true;
         }
         
+        console.log('❌ Usuário não autenticado ou token expirado');
         // Se não autenticado, mostrar tela de login
         this.showLoginScreen();
         return false;
     }
 
     showLoginScreen() {
+        console.log('🔐 Mostrando tela de login...');
         document.body.innerHTML = `
             <div class="login-container">
                 <div class="login-form">
@@ -59,6 +65,7 @@ class PreVendasApp {
             e.preventDefault();
             this.authenticate();
         });
+        console.log('✅ Tela de login configurada');
     }
 
     async authenticate() {
@@ -89,14 +96,20 @@ class PreVendasApp {
         
         try {
             // 1. Carregar configurações primeiro (precisamos para autenticação)
+            console.log('📋 Passo 1: Carregando configurações...');
             await this.initializeConfig();
+            console.log('✅ Configurações carregadas');
             
             // 2. Verificar autenticação ANTES de mostrar splash
+            console.log('🔐 Passo 2: Verificando autenticação...');
             if (!this.checkAuthentication()) {
+                console.log('❌ Usuário não autenticado - mostrando login');
                 return; // Se não autenticado, para aqui e mostra login
             }
+            console.log('✅ Usuário autenticado');
             
             // 3. Se autenticado, mostrar splash e continuar
+            console.log('🎬 Passo 3: Mostrando splash screen...');
             this.showSplashScreen();
             
             // 4. Inicializar Supabase
@@ -144,16 +157,38 @@ class PreVendasApp {
     async initializeConfig() {
         console.log('🔧 Carregando configurações...');
         
-        if (!window.configManager) {
-            throw new Error('ConfigManager não disponível');
+        try {
+            if (!window.configManager) {
+                console.log('⚠️ ConfigManager não encontrado, tentando aguardar...');
+                // Aguardar um pouco pelo ConfigManager
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                if (!window.configManager) {
+                    console.log('❌ ConfigManager ainda não disponível, usando configurações padrão');
+                    this.configuracoes = {
+                        empresa: { nome: "Leo's Cake", telefone: "", endereco: "", email: "" },
+                        sistemaSenha: "leoscake2024",
+                        usuarios: []
+                    };
+                    return;
+                }
+            }
+            
+            this.configuracoes = await window.configManager.init();
+            
+            // Inicialize EmailJS se configurado
+            this.initEmailJS();
+            
+            console.log('✅ Configurações carregadas:', window.configManager.getPublicConfig());
+        } catch (error) {
+            console.error('❌ Erro ao carregar configurações:', error);
+            // Usar configurações padrão em caso de erro
+            this.configuracoes = {
+                empresa: { nome: "Leo's Cake", telefone: "", endereco: "", email: "" },
+                sistemaSenha: "leoscake2024",
+                usuarios: []
+            };
         }
-        
-        this.configuracoes = await window.configManager.init();
-        
-        // Inicialize EmailJS se configurado
-        this.initEmailJS();
-        
-        console.log('✅ Configurações carregadas:', window.configManager.getPublicConfig());
     }
 
     /**
@@ -683,11 +718,17 @@ const app = new PreVendasApp();
 
 // Aguardar configurações antes de iniciar
 document.addEventListener('DOMContentLoaded', async () => {
+    console.log('📄 DOM carregado, iniciando aplicação...');
+    
+    // Aguardar um pouco para garantir que todos os scripts carregaram
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     try {
         await app.init();
     } catch (error) {
         console.error('❌ Erro crítico na inicialização:', error);
-        alert('Erro na inicialização do sistema. Verifique as configurações.');
+        console.error('Stack trace:', error.stack);
+        alert('Erro na inicialização do sistema. Verifique o console para mais detalhes.');
     }
 });
 
