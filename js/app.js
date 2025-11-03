@@ -170,7 +170,12 @@ class PreVendasApp {
             console.log('✅ Passo 7: Interface configurada');
             
             // 8. Esconder splash screen ao final
+            console.log('🔄 Passo 8: Escondendo splash screen...');
             this.hideSplashScreen();
+            console.log('✅ Passo 8: Sistema totalmente inicializado!');
+            
+            // 9. Mostrar página inicial
+            this.showPage('dashboard');
             
         } catch (error) {
             console.error('❌ Erro na inicialização:', error);
@@ -327,11 +332,16 @@ class PreVendasApp {
     }
 
     hideSplashScreen() {
+        console.log('🔄 Tentando esconder splash screen...');
         const splash = document.getElementById('splash-screen');
         if (splash) {
+            console.log('✅ Elemento splash-screen encontrado, escondendo em 1s...');
             setTimeout(() => {
                 splash.style.display = 'none';
+                console.log('✅ Splash screen escondido!');
             }, 1000);
+        } else {
+            console.error('❌ Elemento splash-screen não encontrado!');
         }
     }
 
