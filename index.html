@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leo's Cake - Sistema de Pré-Vendas</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="images/logo-png.png">
+    <link rel="apple-touch-icon" href="images/logo-png.png">
+    <meta name="theme-color" content="#ff6b9d">
+    <!-- Bibliotecas para PDF e Email -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.emailjs.com/sdk/dist/email.min.js"></script>
+    <!-- Google APIs -->
+    <script src="https://apis.google.com/js/api.js"></script>
+</head>
+<body>
+    <!-- Splash Screen -->
+    <div id="splash-screen" class="splash-screen">
+        <div class="splash-content">
+            <img src="images/logo-png.png" alt="Leo's Cake" class="splash-logo">
+            <h1 class="splash-title">Leo's Cake</h1>
+            <p class="splash-subtitle">Sistema de Pré-Vendas</p>
+            <div class="splash-loader"></div>
+        </div>
+    </div>
+
+    <!-- Menu de Navegação -->
+    <nav class="bottom-nav">
+        <button class="nav-btn active" data-page="dashboard">
+            <span class="nav-icon">📊</span>
+            <span class="nav-text">Dashboard</span>
+        </button>
+        <button class="nav-btn" data-page="produtos">
+            <span class="nav-icon">🧁</span>
+            <span class="nav-text">Produtos</span>
+        </button>
+        <button class="nav-btn" data-page="clientes">
+            <span class="nav-icon">👥</span>
+            <span class="nav-text">Clientes</span>
+        </button>
+        <button class="nav-btn" data-page="pedidos">
+            <span class="nav-icon">📋</span>
+            <span class="nav-text">Pedidos</span>
+        </button>
+        <button class="nav-btn" data-page="entregas">
+            <span class="nav-icon">🚚</span>
+            <span class="nav-text">Entregas</span>
+        </button>
+    </nav>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-logo">
+            <img src="images/logo-png.png" alt="Leo's Cake" class="logo">
+            <h1 id="page-title">Dashboard</h1>
+        </div>
+        <div class="header-actions">
+            <div class="sync-indicator" id="sync-indicator">
+                <span class="sync-status" id="sync-status">🔄</span>
+                <span class="sync-text" id="sync-text">Local</span>
+            </div>
+            <button class="header-btn" id="config-btn">⚙️</button>
+            <button class="header-btn" id="sync-btn">💾</button>
+        </div>
+    </header>
+
+    <!-- Páginas -->
+    <main class="main-content">
+        <!-- Dashboard -->
+        <div class="page active" id="dashboard">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="total-produtos">0</div>
+                    <div class="stat-label">Produtos</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="total-clientes">0</div>
+                    <div class="stat-label">Clientes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="total-pedidos">0</div>
+                    <div class="stat-label">Pedidos</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="total-entregas">0</div>
+                    <div class="stat-label">Entregas Hoje</div>
+                </div>
+            </div>
+            
+            <div class="recent-section">
+                <h3>Entregas de Hoje</h3>
+                <div id="entregas-hoje" class="entregas-list">
+                    <!-- Entregas serão inseridas aqui -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Produtos -->
+        <div class="page" id="produtos">
+            <div class="page-header">
+                <button class="btn btn-primary" id="add-produto-btn">+ Adicionar Produto</button>
+            </div>
+            <div class="search-box">
+                <input type="text" id="search-produtos" placeholder="Buscar produtos...">
+            </div>
+            <div id="produtos-list" class="produtos-grid">
+                <!-- Produtos serão inseridos aqui -->
+            </div>
+        </div>
+
+        <!-- Clientes -->
+        <div class="page" id="clientes">
+            <div class="page-header">
+                <button class="btn btn-primary" id="add-cliente-btn">+ Adicionar Cliente</button>
+            </div>
+            <div class="search-box">
+                <input type="text" id="search-clientes" placeholder="Buscar clientes...">
+            </div>
+            <div id="clientes-list" class="clientes-list">
+                <!-- Clientes serão inseridos aqui -->
+            </div>
+        </div>
+
+        <!-- Pedidos -->
+        <div class="page" id="pedidos">
+            <div class="page-header">
+                <button class="btn btn-primary" id="add-pedido-btn">+ Novo Pedido</button>
+            </div>
+            <div class="filters">
+                <select id="filter-status">
+                    <option value="">Todos os Status</option>
+                    <option value="pendente">Pendente</option>
+                    <option value="pago">Pago</option>
+                    <option value="entregue">Entregue</option>
+                </select>
+            </div>
+            <div id="pedidos-list" class="pedidos-list">
+                <!-- Pedidos serão inseridos aqui -->
+            </div>
+        </div>
+
+        <!-- Entregas -->
+        <div class="page" id="entregas">
+            <div class="page-header">
+                <input type="date" id="date-filter" class="date-input">
+            </div>
+            <div id="entregas-list" class="entregas-agenda">
+                <!-- Agenda de entregas será inserida aqui -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Modals -->
+    <!-- Modal Produto -->
+    <div class="modal" id="produto-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="produto-modal-title">Adicionar Produto</h3>
+                <button class="close-btn">&times;</button>
+            </div>
+            <form id="produto-form">
+                <div class="form-group">
+                    <label for="produto-nome">Nome do Produto</label>
+                    <input type="text" id="produto-nome" required>
+                </div>
+                <div class="form-group">
+                    <label for="produto-descricao">Descrição</label>
+                    <textarea id="produto-descricao" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="produto-preco">Preço (R$)</label>
+                    <input type="number" id="produto-preco" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="produto-estoque">Quantidade em Estoque</label>
+                    <input type="number" id="produto-estoque" required>
+                </div>
+                <div class="form-group">
+                    <label for="produto-imagem">Imagem do Produto</label>
+                    <input type="file" id="produto-imagem" accept="image/*">
+                    <div id="preview-imagem" class="image-preview"></div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancel-produto">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Cliente -->
+    <div class="modal" id="cliente-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="cliente-modal-title">Adicionar Cliente</h3>
+                <button class="close-btn">&times;</button>
+            </div>
+            <form id="cliente-form">
+                <div class="form-group">
+                    <label for="cliente-nome">Nome Completo</label>
+                    <input type="text" id="cliente-nome" required>
+                </div>
+                <div class="form-group">
+                    <label for="cliente-telefone">Telefone</label>
+                    <input type="tel" id="cliente-telefone" required>
+                </div>
+                <div class="form-group">
+                    <label for="cliente-endereco">Endereço</label>
+                    <textarea id="cliente-endereco" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="cliente-email">Email (opcional)</label>
+                    <input type="email" id="cliente-email">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancel-cliente">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Pedido -->
+    <div class="modal" id="pedido-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="pedido-modal-title">Novo Pedido</h3>
+                <button class="close-btn">&times;</button>
+            </div>
+            <form id="pedido-form">
+                <div class="form-group">
+                    <label for="pedido-cliente">Cliente</label>
+                    <select id="pedido-cliente" required>
+                        <option value="">Selecione um cliente</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Produtos</label>
+                    <div id="produtos-pedido" class="produtos-pedido">
+                        <!-- Produtos do pedido serão inseridos aqui -->
+                    </div>
+                    <button type="button" class="btn btn-secondary" id="add-produto-pedido">+ Adicionar Produto</button>
+                </div>
+                <div class="form-group">
+                    <label for="pedido-valor-total">Valor Total (R$)</label>
+                    <input type="number" id="pedido-valor-total" step="0.01" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="pedido-valor-pago">Valor Pago (R$)</label>
+                    <input type="number" id="pedido-valor-pago" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="pedido-saldo">Saldo Restante (R$)</label>
+                    <input type="number" id="pedido-saldo" step="0.01" readonly>
+                </div>
+                <div class="form-group">
+                    <label>📅 Seleção de Data e Horário de Entrega</label>
+                    <div class="delivery-scheduler">
+                        <!-- Calendário -->
+                        <div class="calendar-container">
+                            <div class="calendar-header">
+                                <button type="button" id="prev-month" class="calendar-nav" onclick="app.previousMonth()">‹</button>
+                                <span id="current-month-year"></span>
+                                <button type="button" id="next-month" class="calendar-nav" onclick="app.nextMonth()">›</button>
+                            </div>
+                            <div class="calendar-weekdays">
+                                <div class="weekday">Dom</div>
+                                <div class="weekday">Seg</div>
+                                <div class="weekday">Ter</div>
+                                <div class="weekday">Qua</div>
+                                <div class="weekday">Qui</div>
+                                <div class="weekday">Sex</div>
+                                <div class="weekday">Sáb</div>
+                            </div>
+                            <div id="calendar-days" class="calendar-days">
+                                <!-- Dias do calendário serão inseridos aqui -->
+                            </div>
+                        </div>
+                        
+                        <!-- Horários Disponíveis -->
+                        <div class="time-slots-container">
+                            <h4>🕐 Horários Disponíveis</h4>
+                            <div class="selected-date-info">
+                                <span id="selected-date-display">Selecione uma data</span>
+                            </div>
+                            <div id="available-times" class="time-slots">
+                                <!-- Horários disponíveis serão inseridos aqui -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Campos ocultos para armazenar valores -->
+                    <input type="hidden" id="pedido-data-entrega" required>
+                    <input type="hidden" id="pedido-horario-entrega" required>
+                </div>
+                <div class="form-group">
+                    <label for="pedido-observacoes">Observações</label>
+                    <textarea id="pedido-observacoes" rows="3"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancel-pedido">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Configurações -->
+    <div class="modal" id="config-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Configurações do Sistema</h3>
+                <button class="close-btn">&times;</button>
+            </div>
+            <form id="config-form">
+                <h4>Informações da Empresa</h4>
+                <div class="form-group">
+                    <label for="empresa-nome">Nome da Empresa</label>
+                    <input type="text" id="empresa-nome" value="Leo's Cake" required>
+                </div>
+                <div class="form-group">
+                    <label for="empresa-telefone">Telefone</label>
+                    <input type="tel" id="empresa-telefone" placeholder="(11) 99999-9999">
+                </div>
+                <div class="form-group">
+                    <label for="empresa-endereco">Endereço</label>
+                    <input type="text" id="empresa-endereco" placeholder="Rua, número, bairro, cidade">
+                </div>
+                <div class="form-group">
+                    <label for="empresa-email">Email da Empresa</label>
+                    <input type="email" id="empresa-email" placeholder="contato@leoscake.com">
+                </div>
+
+                <h4>Segurança do Sistema</h4>
+                <div class="form-group">
+                    <label for="sistema-senha-atual">Senha Atual</label>
+                    <input type="password" id="sistema-senha-atual" placeholder="Digite a senha atual">
+                </div>
+                <div class="form-group">
+                    <label for="sistema-senha-nova">Nova Senha</label>
+                    <input type="password" id="sistema-senha-nova" placeholder="Digite a nova senha">
+                </div>
+                <div class="form-group">
+                    <label for="sistema-senha-confirmar">Confirmar Nova Senha</label>
+                    <input type="password" id="sistema-senha-confirmar" placeholder="Confirme a nova senha">
+                </div>
+                <div class="form-group">
+                    <button type="button" class="btn btn-warning" id="alterar-senha-btn">
+                        🔒 Alterar Senha do Sistema
+                    </button>
+                    <small>A senha será mantida mesmo após atualizações do sistema</small>
+                </div>
+                
+                <h4>Configurações de Email (EmailJS)</h4>
+                <div class="form-group">
+                    <label for="emailjs-service">Service ID</label>
+                    <input type="text" id="emailjs-service" placeholder="service_xxxxx">
+                    <small>Crie uma conta em <a href="https://emailjs.com" target="_blank">EmailJS.com</a></small>
+                </div>
+                <div class="form-group">
+                    <label for="emailjs-template">Template ID</label>
+                    <input type="text" id="emailjs-template" placeholder="template_xxxxx">
+                </div>
+                <div class="form-group">
+                    <label for="emailjs-user">User ID</label>
+                    <input type="text" id="emailjs-user" placeholder="user_xxxxx">
+                </div>
+
+                <h4>� Gerenciamento de Usuários</h4>
+                <div class="form-group">
+                    <button type="button" class="btn btn-primary" id="load-users-btn">
+                        📊 Carregar Usuários do Google Sheets
+                    </button>
+                    <small>Carrega lista de usuários salvos na planilha</small>
+                </div>
+                <div class="form-group">
+                    <button type="button" class="btn btn-success" id="add-user-btn">
+                        ➕ Adicionar Novo Usuário
+                    </button>
+                    <small>Adiciona um novo usuário ao sistema</small>
+                </div>
+                <div class="form-group" id="users-list" style="display: none;">
+                    <label>Usuários Cadastrados:</label>
+                    <div id="users-container" class="users-grid">
+                        <!-- Lista de usuários será carregada aqui -->
+                    </div>
+                </div>
+
+                <h4>🔐 Segurança do Sistema</h4>
+                <div class="form-group">
+                    <button type="button" id="logout-btn" class="btn-secondary">🚪 Forçar Logout (Todos os Dispositivos)</button>
+                    <small>Use se suspeitar que alguém tem acesso não autorizado</small>
+                </div>
+
+                <h4>Configurações do Google Sheets</h4>
+                <div class="form-group">
+                    <label for="sheets-api-key">API Key</label>
+                    <input type="password" id="sheets-api-key" placeholder="AIzaSyC...">
+                    <small>Configure no <a href="https://console.cloud.google.com" target="_blank">Google Cloud Console</a></small>
+                </div>
+                <div class="form-group">
+                    <label for="sheets-client-id">Client ID</label>
+                    <input type="text" id="sheets-client-id" placeholder="123456789-abc.apps.googleusercontent.com">
+                </div>
+                <div class="form-group">
+                    <label for="sheets-spreadsheet-id">Spreadsheet ID</label>
+                    <input type="text" id="sheets-spreadsheet-id" placeholder="1ABC...XYZ">
+                    <small>ID da planilha Google Sheets (veja GOOGLE_SHEETS_SETUP.md)</small>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="sheets-auto-sync"> 
+                        Sincronização automática
+                    </label>
+                    <small>Sincronizar dados automaticamente com Google Sheets</small>
+                </div>
+                <div class="form-group">
+                    <button type="button" class="btn btn-secondary" id="test-sheets-connection">
+                        🔗 Testar Conexão
+                    </button>
+                    <span id="sheets-status" class="sheets-status"></span>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="load-from-sheets">
+                        📥 Carregar do Sheets
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="cancel-config">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Recibo -->
+    <div class="modal" id="recibo-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Gerar Recibo</h3>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div id="recibo-preview" class="recibo-preview">
+                <!-- Preview do recibo será gerado aqui -->
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="app.closeReciboModal()">Fechar</button>
+                <button type="button" class="btn btn-primary" onclick="app.baixarReciboPDF()">📥 Baixar PDF</button>
+                <button type="button" class="btn btn-success" onclick="app.enviarReciboEmail()">📧 Enviar Email</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Usuário -->
+    <div class="modal" id="user-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="user-modal-title">Novo Usuário</h3>
+                <button class="close-btn">&times;</button>
+            </div>
+            <form id="user-form">
+                <div class="form-group">
+                    <label for="user-nome">Nome Completo</label>
+                    <input type="text" id="user-nome" required>
+                </div>
+                <div class="form-group">
+                    <label for="user-email">Email</label>
+                    <input type="email" id="user-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="user-senha">Senha</label>
+                    <input type="password" id="user-senha" required minlength="6">
+                    <small>Mínimo 6 caracteres</small>
+                </div>
+                <div class="form-group">
+                    <label for="user-tipo">Tipo de Usuário</label>
+                    <select id="user-tipo" required>
+                        <option value="user">Usuário Comum</option>
+                        <option value="admin">Administrador</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="user-ativo" checked>
+                        Usuário Ativo
+                    </label>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-primary">Salvar Usuário</button>
+                    <button type="button" class="btn btn-secondary" id="cancel-user">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast para notificações -->
+    <div id="toast" class="toast"></div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

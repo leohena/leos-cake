@@ -1,0 +1,24 @@
+# Arquivos temporários
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Arquivos de configuração local
+.vscode/
+.idea/
+
+# Backups
+*.bak
+backup/
+
+# Logs
+*.log
+
+# Arquivos de sistema Windows
+desktop.ini
+$RECYCLE.BIN/
+
+# Arquivos de teste
+test/
+*.test.html
