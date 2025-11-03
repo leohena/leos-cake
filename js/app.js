@@ -1,10 +1,13 @@
 // Sistema de Gerenciamento de Pré-Vendas - Leo's Cake
 class PreVendasApp {
     constructor() {
-        this.produtos = JSON.parse(localStorage.getItem('produtos')) || [];
-        this.clientes = JSON.parse(localStorage.getItem('clientes')) || [];
-        this.pedidos = JSON.parse(localStorage.getItem('pedidos')) || [];
-        this.configuracoes = null; // Será carregado via ConfigManager
+        // DADOS AGORA VÊM DO SUPABASE - NÃO DO LOCALSTORAGE
+        this.produtos = [];
+        this.clientes = [];
+        this.pedidos = [];
+        this.configuracoes = null; // ConfigManager
+        this.dataManager = null; // DataManager para Supabase
+        
         this.horariosDisponiveis = ['08:00', '09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
         this.currentEditId = null;
         this.currentEditType = null;
@@ -558,11 +561,20 @@ class PreVendasApp {
         this.showSplashScreen();
         
         try {
-            // Carregar configurações de forma segura
+            // 1. Carregar configurações de forma segura
             await this.initializeConfig();
             
+            // 2. Inicializar Supabase
             this.setupLoginLogo();
             this.initSupabase();
+            
+            // 3. Carregar dados do banco (substitui localStorage)
+            await this.initializeData();
+            
+            // 4. Verificar e migrar dados antigos do localStorage
+            await this.checkAndMigrateLegacyData();
+            
+            // 5. Configurar interface
             this.setupOnlineListeners();
             this.setupEventListeners();
             this.updateDashboard();
@@ -607,6 +619,75 @@ class PreVendasApp {
         this.initEmailJS();
         
         console.log('✅ Configurações carregadas:', window.configManager.getPublicConfig());
+    }
+
+    /**
+     * Inicializa o DataManager e carrega dados do Supabase
+     */
+    async initializeData() {
+        console.log('📊 Inicializando DataManager...');
+        
+        if (!this.supabase) {
+            throw new Error('Supabase não inicializado');
+        }
+        
+        this.dataManager = new DataManager(this.supabase);
+        
+        // Carregar todos os dados do banco
+        const data = await this.dataManager.loadAllData();
+        
+        this.produtos = data.produtos;
+        this.clientes = data.clientes;  
+        this.pedidos = data.pedidos;
+        
+        // Configurações da empresa vindas do banco
+        if (data.empresa) {
+            this.configuracoes.empresa = data.empresa;
+        }
+        
+        console.log('✅ Dados carregados do Supabase:', {
+            produtos: this.produtos.length,
+            clientes: this.clientes.length,
+            pedidos: this.pedidos.length
+        });
+    }
+
+    /**
+     * Verifica e migra dados antigos do localStorage
+     */
+    async checkAndMigrateLegacyData() {
+        if (!window.DataMigration) {
+            console.log('⚠️ DataMigration não disponível');
+            return;
+        }
+
+        const migration = new DataMigration(this);
+        
+        if (migration.hasLegacyData()) {
+            console.log('📦 Dados antigos encontrados no localStorage');
+            
+            try {
+                // Criar backup antes da migração
+                migration.createBackup();
+                
+                // Executar migração automática
+                const result = await migration.migrateLegacyData();
+                
+                if (result.migrated) {
+                    const stats = migration.showMigrationStats(result.results);
+                    this.showToast('Dados migrados para o banco!', 'success');
+                    
+                    // Recarregar dados após migração
+                    await this.initializeData();
+                } else {
+                    console.log('ℹ️ Migração não executada:', result.message);
+                }
+                
+            } catch (error) {
+                console.error('❌ Erro na migração:', error);
+                this.showToast('Erro ao migrar dados antigos', 'error');
+            }
+        }
     }
 
     showSplashScreen() {
@@ -920,28 +1001,47 @@ class PreVendasApp {
         }
     }
 
-    finalizeSaveProduto(produto) {
-        if (this.currentEditId) {
-            const index = this.produtos.findIndex(p => p.id === this.currentEditId);
-            this.produtos[index] = produto;
-        } else {
-            this.produtos.push(produto);
-        }
+    async finalizeSaveProduto(produto) {
+        try {
+            // Salvar no Supabase via DataManager
+            const savedProduto = await this.dataManager.saveProduto(produto);
+            
+            // Atualizar array local (cache já é atualizado pelo DataManager)
+            if (this.currentEditId) {
+                const index = this.produtos.findIndex(p => p.id === this.currentEditId);
+                this.produtos[index] = savedProduto;
+            } else {
+                this.produtos.push(savedProduto);
+            }
 
-        this.saveToStorage('produtos');
-        this.renderProdutos();
-        this.closeProdutoModal();
-        this.updateDashboard();
-        this.showToast('Produto salvo com sucesso!', 'success');
+            this.renderProdutos();
+            this.closeProdutoModal();
+            this.updateDashboard();
+            this.showToast('Produto salvo com sucesso!', 'success');
+            
+        } catch (error) {
+            console.error('❌ Erro ao salvar produto:', error);
+            this.showToast('Erro ao salvar produto', 'error');
+        }
     }
 
-    deleteProduto(id) {
+    async deleteProduto(id) {
         if (confirm('Tem certeza que deseja excluir este produto?')) {
-            this.produtos = this.produtos.filter(p => p.id !== id);
-            this.saveToStorage('produtos');
-            this.renderProdutos();
-            this.updateDashboard();
-            this.showToast('Produto excluído com sucesso!', 'success');
+            try {
+                // Deletar no Supabase via DataManager
+                await this.dataManager.deleteProduto(id);
+                
+                // Atualizar array local
+                this.produtos = this.produtos.filter(p => p.id !== id);
+                
+                this.renderProdutos();
+                this.updateDashboard();
+                this.showToast('Produto excluído com sucesso!', 'success');
+                
+            } catch (error) {
+                console.error('❌ Erro ao excluir produto:', error);
+                this.showToast('Erro ao excluir produto', 'error');
+            }
         }
     }
 
@@ -1855,35 +1955,48 @@ class PreVendasApp {
         document.getElementById('config-modal').classList.remove('active');
     }
 
-    saveConfig() {
-        // Salvar apenas configurações não-sensíveis
-        const updates = {
-            empresa: {
+    async saveConfig() {
+        try {
+            // Configurações da empresa vão para o Supabase
+            const empresaConfig = {
                 nome: document.getElementById('empresa-nome').value,
                 telefone: document.getElementById('empresa-telefone').value,
                 endereco: document.getElementById('empresa-endereco').value,
                 email: document.getElementById('empresa-email').value
-            },
-            sistemaSenha: document.getElementById('sistema-senha').value
-        };
-        
-        // Verificar se senha foi alterada
-        if (updates.sistemaSenha !== this.configuracoes.sistemaSenha) {
-            // Forçar novo login com nova senha
-            localStorage.removeItem('leos_cake_auth');
-            localStorage.removeItem('leos_cake_auth_expiry');
+            };
+            
+            // Salvar configurações da empresa no Supabase
+            if (this.dataManager) {
+                await this.dataManager.saveEmpresaConfig(empresaConfig);
+                this.configuracoes.empresa = empresaConfig;
+            }
+            
+            // Apenas preferências funcionais no localStorage
+            const preferences = {
+                session: {
+                    rememberLogin: false
+                },
+                sistemaSenha: document.getElementById('sistema-senha').value
+            };
+            
+            // Verificar se senha foi alterada
+            if (preferences.sistemaSenha !== this.configuracoes.sistemaSenha) {
+                // Forçar novo login com nova senha
+                localStorage.removeItem('leos_cake_auth');
+                localStorage.removeItem('leos_cake_auth_expiry');
+            }
+            
+            // Salvar preferências via ConfigManager
+            window.configManager.saveLocalPreferences(preferences);
+            
+            this.initEmailJS();
+            this.closeConfigModal();
+            this.showToast('Configurações salvas no banco de dados!', 'success');
+            
+        } catch (error) {
+            console.error('❌ Erro ao salvar configurações:', error);
+            this.showToast('Erro ao salvar configurações', 'error');
         }
-        
-        // Salvar via ConfigManager (seguro)
-        window.configManager.saveLocalConfig(updates);
-        
-        // Atualizar configurações locais
-        this.configuracoes = window.configManager.getConfig();
-        
-        this.initEmailJS();
-        this.initSupabase();
-        this.closeConfigModal();
-        this.showToast('Configurações salvas com sucesso!', 'success');
     }
 
     // RECIBOS
@@ -2743,25 +2856,15 @@ class PreVendasApp {
         }
     }
 
-    // Override do método saveToStorage para incluir sincronização
+    // MÉTODO OBSOLETO - DADOS AGORA VÃO DIRETO PARA O SUPABASE
     saveToStorage(key) {
-        localStorage.setItem(key, JSON.stringify(this[key]));
-        
-        // Auto sincronizar se configurado
-        if (this.configuracoes.googleSheets.autoSync && this.sheetsAPI && this.isOnline) {
-            setTimeout(() => {
-                this.syncWithSheets();
-            }, 1000); // Aguardar 1 segundo para evitar múltiplas sincronizações
-        }
+        console.log(`⚠️ saveToStorage(${key}) obsoleto - dados salvos no Supabase via DataManager`);
+        // Não faz mais nada - dados são salvos automaticamente no Supabase
     }
 
-    // Override do método syncData para incluir Google Sheets
+    // Dados sempre sincronizados em tempo real via Supabase
     syncData() {
-        if (this.sheetsAPI && this.isOnline && this.configuracoes.googleSheets.spreadsheetId) {
-            this.syncWithSheets();
-        } else {
-            this.showToast('Dados sincronizados localmente!', 'success');
-        }
+        this.showToast('Dados sincronizados em tempo real!', 'success');
     }
 
     // UTILITIES

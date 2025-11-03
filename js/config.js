@@ -53,15 +53,16 @@ class ConfigManager {
      * Mescla configurações não-sensíveis do localStorage
      */
     mergeLocalStorageConfig() {
-        const localConfig = JSON.parse(localStorage.getItem('leos_cake_config') || '{}');
+        const localConfig = JSON.parse(localStorage.getItem('leos_cake_preferences') || '{}');
         
-        // Apenas configurações não-sensíveis podem vir do localStorage
+        // APENAS configurações funcionais/de preferência do usuário
         const allowedLocalKeys = [
-            'empresa.nome',
-            'empresa.telefone', 
-            'empresa.endereco',
-            'empresa.email',
-            'sistemaSenha'
+            'ui.theme',              // Tema da interface
+            'ui.language',           // Idioma
+            'ui.notifications',      // Preferências de notificação
+            'cache.lastSync',        // Timestamp da última sincronização
+            'session.rememberLogin', // Lembrar login
+            'sistemaSenha'           // Senha do sistema (temporário até auth completo)
         ];
 
         allowedLocalKeys.forEach(key => {
@@ -91,12 +92,14 @@ class ConfigManager {
      */
     getDefaultConfig() {
         return {
+            // Configurações da empresa (vindas do Supabase)
             empresa: {
                 nome: "Leo's Cake",
                 telefone: "",
                 endereco: "",
                 email: ""
             },
+            // Configurações de conexão
             supabase: {
                 url: process.env.SUPABASE_URL || "",
                 anonKey: process.env.SUPABASE_ANON_KEY || "",
@@ -107,10 +110,25 @@ class ConfigManager {
                 templateId: process.env.EMAILJS_TEMPLATE_ID || "",
                 userId: process.env.EMAILJS_USER_ID || ""
             },
-            sistemaSenha: "leoscake2024", // Deve ser alterada pelo usuário
+            // Configurações funcionais/temporárias (localStorage)
+            ui: {
+                theme: "light",
+                language: "pt-BR",
+                notifications: true
+            },
+            cache: {
+                lastSync: null,
+                syncInterval: 30000 // 30 segundos
+            },
+            session: {
+                rememberLogin: false,
+                authExpiry: 24 // horas
+            },
+            sistemaSenha: "leoscake2024", // Temporário até auth completo
             security: {
-                allowConfigEdit: !this.isProduction, // Bloquear edição em produção
-                requireHttps: this.isProduction
+                allowConfigEdit: !this.isProduction,
+                requireHttps: this.isProduction,
+                useDatabase: true // Forçar uso do banco
             }
         };
     }
@@ -148,13 +166,15 @@ class ConfigManager {
     /**
      * Salva configurações não-sensíveis no localStorage
      */
-    saveLocalConfig(updates) {
-        const currentLocal = JSON.parse(localStorage.getItem('leos_cake_config') || '{}');
+    saveLocalPreferences(updates) {
+        const currentLocal = JSON.parse(localStorage.getItem('leos_cake_preferences') || '{}');
         
-        // Apenas permitir alteração de campos não-sensíveis
+        // APENAS preferências funcionais do usuário
         const allowedUpdates = {
-            empresa: updates.empresa || {},
-            sistemaSenha: updates.sistemaSenha
+            ui: updates.ui || {},
+            cache: updates.cache || {},
+            session: updates.session || {},
+            sistemaSenha: updates.sistemaSenha // Temporário
         };
 
         // Mesclar atualizações
@@ -163,12 +183,12 @@ class ConfigManager {
             ...allowedUpdates
         };
 
-        localStorage.setItem('leos_cake_config', JSON.stringify(newLocal));
+        localStorage.setItem('leos_cake_preferences', JSON.stringify(newLocal));
         
         // Atualizar configuração atual
         this.mergeLocalStorageConfig();
         
-        console.log('💾 Configurações locais salvas');
+        console.log('⚙️ Preferências do usuário salvas');
     }
 
     /**
