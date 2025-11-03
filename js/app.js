@@ -53,33 +53,30 @@ class PreVendasApp {
 
     showLoginScreen() {
         console.log('🔐 Mostrando tela de login...');
-        document.body.innerHTML = `
-            <div class="login-screen">
-                <div class="login-container">
-                    <div class="login-form">
-                        <div class="login-logo">
-                            <img src="images/logo-png.png" alt="Leo's Cake">
-                        </div>
-                        <h1>Leo's Cake</h1>
-                        <p>Sistema de Pré-Vendas</p>
-                        <form id="login-form">
-                            <input type="password" id="login-password" placeholder="Digite a senha" required>
-                            <button type="submit">Entrar</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        `;
+        
+        // Esconder outros containers
+        const splash = document.getElementById('splash-screen');
+        const mainContainer = document.getElementById('main-container');
+        const loginContainer = document.getElementById('login-container');
+        
+        if (splash) splash.style.display = 'none';
+        if (mainContainer) mainContainer.style.display = 'none';
+        if (loginContainer) {
+            loginContainer.style.display = 'flex';
+            console.log('✅ Tela de login mostrada');
+        } else {
+            console.error('❌ Container de login não encontrado no HTML');
+        }
 
+        // Configurar event listener do form (só uma vez)
         const loginForm = document.getElementById('login-form');
-        if (loginForm) {
+        if (loginForm && !loginForm.hasAttribute('data-configured')) {
             loginForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.authenticate();
             });
-            console.log('✅ Tela de login configurada');
-        } else {
-            console.error('❌ Elemento login-form não encontrado');
+            loginForm.setAttribute('data-configured', 'true');
+            console.log('✅ Event listener de login configurado');
         }
     }
 
@@ -96,44 +93,38 @@ class PreVendasApp {
             localStorage.setItem('leos_cake_auth', 'true');
             localStorage.setItem('leos_cake_auth_expiry', expiry.toString());
             
-            // Recarregar a página para mostrar o sistema
-            window.location.reload();
+            console.log('✅ Login bem-sucedido! Inicializando sistema...');
+            
+            // Esconder tela de login e mostrar sistema
+            const loginContainer = document.getElementById('login-container');
+            const mainContainer = document.getElementById('main-container');
+            
+            if (loginContainer) loginContainer.style.display = 'none';
+            if (mainContainer) mainContainer.style.display = 'block';
+            
+            // Continuar inicialização do sistema
+            await this.continueInitialization();
         } else {
             alert('Senha incorreta!');
         }
     }
 
-    setupLoginLogo() {
-        // Configurar logo na tela de login se necessário
-    }
-
-    async init() {
-        console.log('🚀 Iniciando sistema Leo\'s Cake...');
+    async continueInitialization() {
+        console.log('🔄 Continuando inicialização após login...');
         
         try {
-            // 1. Carregar configurações primeiro (precisamos para autenticação)
-            console.log('📋 Passo 1: Carregando configurações...');
-            await this.initializeConfig();
-            console.log('✅ Configurações carregadas');
+            // 3. Inicializar Supabase
+            console.log('🔄 Passo 3: Inicializando Supabase...');
+            await this.initSupabase();
+            console.log('✅ Passo 3: Supabase inicializado');
             
-            // 2. Verificar autenticação ANTES de mostrar splash
-            console.log('🔐 Passo 2: Verificando autenticação...');
-            if (!this.checkAuthentication()) {
-                console.log('❌ Usuário não autenticado - mostrando login');
-                return; // Se não autenticado, para aqui e mostra login
-            }
-            console.log('✅ Usuário autenticado');
+            // 4. Inicializar DataManager
+            console.log('🔄 Passo 4: Inicializando DataManager...');
+            this.dataManager = new DataManager(this.supabase, this.isSupabaseEnabled);
+            console.log('✅ Passo 4: DataManager inicializado');
             
-            // 3. Se autenticado, mostrar splash e continuar
-            console.log('🎬 Passo 3: Mostrando splash screen...');
-            this.showSplashScreen();
-            
-            // 4. Inicializar Supabase
-            this.setupLoginLogo();
-            this.initSupabase();
-            
-            // 5. Carregar dados do banco (substitui localStorage)
-            console.log('🔄 Passo 5: Inicializando dados...');
+            // 5. Carregar dados
+            console.log('🔄 Passo 5: Carregando dados...');
             await this.initializeData();
             console.log('✅ Passo 5: Dados inicializados');
             
@@ -176,18 +167,43 @@ class PreVendasApp {
             
             console.log('✅ Passo 7: Interface configurada');
             
-            // 8. Esconder splash screen ao final
-            console.log('🔄 Passo 8: Escondendo splash screen...');
-            this.hideSplashScreen();
-            console.log('✅ Passo 8: Sistema totalmente inicializado!');
-            
-            // 9. Mostrar página inicial
+            // 8. Mostrar página inicial
+            console.log('🔄 Passo 8: Mostrando dashboard...');
             this.showPage('dashboard');
+            console.log('✅ Passo 8: Sistema totalmente inicializado!');
             
         } catch (error) {
             console.error('❌ Erro na inicialização:', error);
             this.showToast('Erro na inicialização do sistema', 'error');
-            this.hideSplashScreen();
+        }
+    }
+
+    setupLoginLogo() {
+        // Configurar logo na tela de login se necessário
+    }
+
+    async init() {
+        console.log('🚀 Iniciando sistema Leo\'s Cake...');
+        
+        try {
+            // 1. Carregar configurações primeiro (precisamos para autenticação)
+            console.log('📋 Passo 1: Carregando configurações...');
+            await this.initializeConfig();
+            console.log('✅ Passo 1: Configurações carregadas');
+            
+            // 2. Verificar autenticação
+            console.log('🔐 Passo 2: Verificando autenticação...');
+            if (!this.checkAuthentication()) {
+                console.log('❌ Usuário não autenticado - mostrando login');
+                return; // Para aqui e mostra login
+            }
+            
+            console.log('✅ Passo 2: Usuário autenticado - continuando inicialização...');
+            await this.continueInitialization();
+            
+        } catch (error) {
+            console.error('❌ Erro na inicialização:', error);
+            this.showToast('Erro na inicialização do sistema', 'error');
         }
 
         // Initialize calendar variables

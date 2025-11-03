@@ -16,6 +16,23 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+    <!-- Login Screen -->
+    <div id="login-container" class="login-screen" style="display: none;">
+        <div class="login-container">
+            <div class="login-form">
+                <div class="login-logo">
+                    <img src="images/logo-png.png" alt="Leo's Cake">
+                </div>
+                <h1>Leo's Cake</h1>
+                <p>Sistema de Pré-Vendas</p>
+                <form id="login-form">
+                    <input type="password" id="login-password" placeholder="Digite a senha" required>
+                    <button type="submit">Entrar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Splash Screen -->
     <div id="splash-screen" class="splash-screen">
         <div class="splash-content">
@@ -26,8 +43,11 @@
         </div>
     </div>
 
-    <!-- Menu de Navegação -->
-    <nav class="bottom-nav">
+    <!-- Main Container - Todo o sistema -->
+    <div id="main-container" class="main-container" style="display: none;">
+        
+        <!-- Menu de Navegação -->
+        <nav class="bottom-nav">
         <button class="nav-btn active" data-page="dashboard">
             <span class="nav-icon">📊</span>
             <span class="nav-text">Dashboard</span>
@@ -467,8 +487,10 @@
         </div>
     </div>
 
-    <!-- Toast para notificações -->
-    <div id="toast" class="toast"></div>
+        <!-- Toast para notificações -->
+        <div id="toast" class="toast"></div>
+        
+    </div> <!-- Fim Main Container -->
 
     <!-- Scripts -->
     <script src="js/env-config.js"></script>
