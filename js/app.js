@@ -413,12 +413,12 @@ class PreVendasApp {
 
     // INICIALIZAÇÃO DO SUPABASE
     initSupabase() {
-        // Verificar se Supabase está configurado
-        if (!this.configuracoes.supabase?.url || !this.configuracoes.supabase?.anonKey) {
-            console.log('⚠️ Supabase não configurado');
-            this.updateSyncStatus('local', 'Local');
-            return;
-        }
+        // ⚠️ CREDENCIAIS SUPABASE HARDCODED - SUBSTITUA PELOS SEUS DADOS
+        const SUPABASE_CONFIG = {
+            url: 'https://qzuccgbxddzpbotxvjug.supabase.co',
+            anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6dWNjZ2J4ZGR6cGJvdHh2anVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxODE1NTQsImV4cCI6MjA3Nzc1NzU1NH0.jMtCOeyS3rLLanJzeWv0j1cYQFnFUBjZmnwMe5aUNk4',
+            realtime: true
+        };
 
         // Verificar se Supabase JS está carregado
         if (!window.supabase) {
@@ -431,10 +431,10 @@ class PreVendasApp {
             console.log('🔄 Inicializando Supabase...');
             this.updateSyncStatus('loading', 'Conectando...');
 
-            // Inicializar cliente Supabase
+            // Inicializar cliente Supabase com credenciais hardcoded
             this.supabase = window.supabase.createClient(
-                this.configuracoes.supabase.url,
-                this.configuracoes.supabase.anonKey
+                SUPABASE_CONFIG.url,
+                SUPABASE_CONFIG.anonKey
             );
 
             this.isSupabaseEnabled = true;
@@ -442,7 +442,7 @@ class PreVendasApp {
             this.updateSyncStatus('online', 'Supabase Online');
 
             // Configurar real-time se habilitado
-            if (this.configuracoes.supabase.realtime) {
+            if (SUPABASE_CONFIG.realtime) {
                 this.setupRealtimeSync();
             }
 

@@ -333,40 +333,26 @@
                     <input type="email" id="empresa-email" placeholder="contato@leoscake.com">
                 </div>
 
-                <h4>Segurança do Sistema</h4>
-                <div class="form-group">
-                    <label for="sistema-senha">Senha do Sistema</label>
-                    <input type="password" id="sistema-senha" placeholder="Senha para acessar o sistema">
-                    <small>⚠️ Alterar esta senha forçará novo login em todos os dispositivos</small>
-                </div>
-                
-                <h4>Configurações de Email (EmailJS)</h4>
-                <div class="form-group">
-                    <label for="emailjs-service">Service ID</label>
-                    <input type="text" id="emailjs-service" placeholder="service_xxxxx">
-                    <small>Crie uma conta em <a href="https://emailjs.com" target="_blank">EmailJS.com</a></small>
-                </div>
-                <div class="form-group">
-                    <label for="emailjs-template">Template ID</label>
-                    <input type="text" id="emailjs-template" placeholder="template_xxxxx">
-                </div>
-                <div class="form-group">
-                    <label for="emailjs-user">User ID</label>
-                    <input type="text" id="emailjs-user" placeholder="user_xxxxx">
-                </div>
-
-
-                <div class="form-group" id="users-list" style="display: none;">
-                    <label>Usuários Cadastrados:</label>
-                    <div id="users-container" class="users-grid">
-                        <!-- Lista de usuários será carregada aqui -->
-                    </div>
-                </div>
-
                 <h4>🔐 Segurança do Sistema</h4>
                 <div class="form-group">
-                    <button type="button" id="logout-btn" class="btn-secondary">🚪 Forçar Logout (Todos os Dispositivos)</button>
-                    <small>Use se suspeitar que alguém tem acesso não autorizado</small>
+                    <label for="sistema-senha">Senha do Sistema</label>
+                    <input type="password" id="sistema-senha" placeholder="Digite a nova senha">
+                    <small>⚠️ Alterar esta senha forçará novo login em todos os dispositivos</small>
+                </div>
+
+                <h4>👥 Gerenciar Usuários</h4>
+                <div class="form-group">
+                    <button type="button" class="btn btn-primary" id="add-user-btn">
+                        ➕ Adicionar Usuário
+                    </button>
+                    <small>Adiciona um novo usuário com acesso ao sistema</small>
+                </div>
+                
+                <div class="form-group" id="users-list">
+                    <label>Usuários Cadastrados:</label>
+                    <div id="users-container" class="users-grid">
+                        <!-- Lista de usuários será carregada aqui dinamicamente -->
+                    </div>
                 </div>
 
                 <!-- Aviso sobre Configurações Sensíveis -->
@@ -414,9 +400,6 @@
                 </div>
                 
                 <div class="form-actions">
-                    <button type="button" class="btn btn-warning" id="sync-supabase">
-                        � Sincronizar com Supabase
-                    </button>
                     <button type="button" class="btn btn-secondary" id="cancel-config">Cancelar</button>
                     <button type="submit" class="btn btn-primary">Salvar</button>
                 </div>

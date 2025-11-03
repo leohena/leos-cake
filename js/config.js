@@ -1,13 +1,12 @@
 /**
- * Configurações do Sistema Leo's Cake
- * Este arquivo gerencia configurações sensíveis e não-sensíveis de forma segura
+ * Configurações Simplificadas do Sistema Leo's Cake
+ * Gerencia apenas: senha do sistema e lista de usuários
+ * Credenciais Supabase estão hardcoded no app.js
  */
 
 class ConfigManager {
     constructor() {
         this.config = null;
-        this.isProduction = window.location.hostname !== 'localhost' && 
-                           window.location.hostname !== '127.0.0.1';
     }
 
     /**
@@ -19,11 +18,8 @@ class ConfigManager {
         // Carregar configurações do arquivo config.json
         await this.loadConfigFile();
         
-        // Mesclar com configurações do localStorage (apenas não-sensíveis)
-        this.mergeLocalStorageConfig();
-        
-        // Validar configurações essenciais
-        this.validateConfig();
+        // Mesclar com configurações locais (preferências)
+        this.mergeLocalPreferences();
         
         console.log('✅ ConfigManager inicializado');
         return this.config;
@@ -50,190 +46,159 @@ class ConfigManager {
     }
 
     /**
-     * Mescla configurações não-sensíveis do localStorage
-     */
-    mergeLocalStorageConfig() {
-        const localConfig = JSON.parse(localStorage.getItem('leos_cake_preferences') || '{}');
-        
-        // APENAS configurações funcionais/de preferência do usuário
-        const allowedLocalKeys = [
-            'ui.theme',              // Tema da interface
-            'ui.language',           // Idioma
-            'ui.notifications',      // Preferências de notificação
-            'cache.lastSync',        // Timestamp da última sincronização
-            'session.rememberLogin', // Lembrar login
-            'sistemaSenha'           // Senha do sistema (temporário até auth completo)
-        ];
-
-        allowedLocalKeys.forEach(key => {
-            const keys = key.split('.');
-            let localValue = localConfig;
-            let configValue = this.config;
-            
-            // Navegar pela estrutura aninhada
-            for (let i = 0; i < keys.length - 1; i++) {
-                if (!localValue[keys[i]]) return;
-                localValue = localValue[keys[i]];
-                
-                if (!configValue[keys[i]]) configValue[keys[i]] = {};
-                configValue = configValue[keys[i]];
-            }
-            
-            // Aplicar valor se existir no localStorage
-            const finalKey = keys[keys.length - 1];
-            if (localValue[finalKey] !== undefined) {
-                configValue[finalKey] = localValue[finalKey];
-            }
-        });
-    }
-
-    /**
      * Configurações padrão do sistema
      */
     getDefaultConfig() {
         return {
-            // Configurações da empresa (vindas do Supabase)
             empresa: {
                 nome: "Leo's Cake",
                 telefone: "",
                 endereco: "",
                 email: ""
             },
-            // Configurações de conexão
-            supabase: {
-                url: process.env.SUPABASE_URL || "",
-                anonKey: process.env.SUPABASE_ANON_KEY || "",
-                realtime: true
-            },
-            emailjs: {
-                serviceId: process.env.EMAILJS_SERVICE_ID || "",
-                templateId: process.env.EMAILJS_TEMPLATE_ID || "",
-                userId: process.env.EMAILJS_USER_ID || ""
-            },
-            // Configurações funcionais/temporárias (localStorage)
-            ui: {
-                theme: "light",
-                language: "pt-BR",
-                notifications: true
-            },
-            cache: {
-                lastSync: null,
-                syncInterval: 30000 // 30 segundos
-            },
-            session: {
-                rememberLogin: false,
-                authExpiry: 24 // horas
-            },
-            sistemaSenha: "leoscake2024", // Temporário até auth completo
-            security: {
-                allowConfigEdit: !this.isProduction,
-                requireHttps: this.isProduction,
-                useDatabase: true // Forçar uso do banco
-            }
+            sistemaSenha: "leoscake2024",
+            usuarios: []
         };
     }
 
     /**
-     * Valida se as configurações essenciais estão presentes
+     * Mescla preferências do usuário armazenadas localmente
      */
-    validateConfig() {
-        const requiredFields = [
-            'supabase.url',
-            'supabase.anonKey'
-        ];
-
-        const missing = [];
-        
-        requiredFields.forEach(field => {
-            const keys = field.split('.');
-            let value = this.config;
+    mergeLocalPreferences() {
+        try {
+            // Apenas preferências de interface, não dados sensíveis
+            const preferences = JSON.parse(localStorage.getItem('leos_cake_preferences') || '{}');
             
-            for (const key of keys) {
-                if (!value || !value[key]) {
-                    missing.push(field);
-                    break;
-                }
-                value = value[key];
+            if (preferences.empresa) {
+                this.config.empresa = { ...this.config.empresa, ...preferences.empresa };
             }
-        });
-
-        if (missing.length > 0) {
-            console.warn('⚠️ Configurações obrigatórias não encontradas:', missing);
-            console.warn('📝 Configure as variáveis de ambiente ou arquivo config.json');
+            
+            console.log('🎨 Preferências locais mescladas');
+        } catch (error) {
+            console.log('⚠️ Erro ao carregar preferências locais:', error.message);
         }
     }
 
     /**
-     * Salva configurações não-sensíveis no localStorage
+     * Salva preferências do usuário localmente
      */
-    saveLocalPreferences(updates) {
-        const currentLocal = JSON.parse(localStorage.getItem('leos_cake_preferences') || '{}');
-        
-        // APENAS preferências funcionais do usuário
-        const allowedUpdates = {
-            ui: updates.ui || {},
-            cache: updates.cache || {},
-            session: updates.session || {},
-            sistemaSenha: updates.sistemaSenha // Temporário
-        };
-
-        // Mesclar atualizações
-        const newLocal = {
-            ...currentLocal,
-            ...allowedUpdates
-        };
-
-        localStorage.setItem('leos_cake_preferences', JSON.stringify(newLocal));
-        
-        // Atualizar configuração atual
-        this.mergeLocalStorageConfig();
-        
-        console.log('⚙️ Preferências do usuário salvas');
-    }
-
-    /**
-     * Obtém uma configuração específica
-     */
-    get(path) {
-        const keys = path.split('.');
-        let value = this.config;
-        
-        for (const key of keys) {
-            if (!value || value[key] === undefined) {
-                return null;
-            }
-            value = value[key];
+    saveLocalPreferences() {
+        try {
+            const preferences = {
+                empresa: this.config.empresa
+            };
+            
+            localStorage.setItem('leos_cake_preferences', JSON.stringify(preferences));
+            console.log('💾 Preferências salvas localmente');
+        } catch (error) {
+            console.log('⚠️ Erro ao salvar preferências:', error.message);
         }
+    }
+
+    /**
+     * Atualizar senha do sistema
+     */
+    updateSistemaSenha(novaSenha) {
+        this.config.sistemaSenha = novaSenha;
+        this.saveConfig();
+    }
+
+    /**
+     * Adicionar novo usuário
+     */
+    addUsuario(usuario) {
+        const novoUsuario = {
+            id: Date.now().toString(),
+            nome: usuario.nome,
+            email: usuario.email,
+            nivel: usuario.nivel || 'operador', // admin, operador
+            ativo: true,
+            criadoEm: new Date().toISOString()
+        };
         
-        return value;
+        this.config.usuarios.push(novoUsuario);
+        this.saveConfig();
+        return novoUsuario;
     }
 
     /**
-     * Verifica se o sistema está configurado corretamente
+     * Remover usuário
      */
-    isConfigured() {
-        return !!(this.get('supabase.url') && this.get('supabase.anonKey'));
+    removeUsuario(usuarioId) {
+        this.config.usuarios = this.config.usuarios.filter(u => u.id !== usuarioId);
+        this.saveConfig();
     }
 
     /**
-     * Obtém todas as configurações (sem expor dados sensíveis nos logs)
+     * Atualizar usuário
      */
-    getConfig() {
-        return this.config;
+    updateUsuario(usuarioId, dadosAtualizados) {
+        const index = this.config.usuarios.findIndex(u => u.id === usuarioId);
+        if (index >= 0) {
+            this.config.usuarios[index] = { ...this.config.usuarios[index], ...dadosAtualizados };
+            this.saveConfig();
+            return this.config.usuarios[index];
+        }
+        return null;
     }
 
     /**
-     * Obtém configurações públicas (sem dados sensíveis)
+     * Salvar configurações (apenas no localStorage por ora)
+     */
+    async saveConfig() {
+        try {
+            // Por ora, salvar no localStorage
+            // Em produção, deveria salvar no servidor/Supabase
+            localStorage.setItem('leos_cake_config', JSON.stringify(this.config));
+            console.log('✅ Configurações salvas');
+        } catch (error) {
+            console.error('❌ Erro ao salvar configurações:', error);
+            throw new Error('Erro ao salvar configurações');
+        }
+    }
+
+    /**
+     * Verificar senha do sistema
+     */
+    verificarSenha(senha) {
+        return senha === this.config.sistemaSenha;
+    }
+
+    /**
+     * Obter configurações públicas (sem senha)
      */
     getPublicConfig() {
-        return {
-            empresa: this.config.empresa,
-            security: this.config.security,
-            isConfigured: this.isConfigured(),
-            environment: this.isProduction ? 'production' : 'development'
-        };
+        const { sistemaSenha, ...publicConfig } = this.config;
+        return publicConfig;
+    }
+
+    /**
+     * Obter configuração específica
+     */
+    get(path) {
+        return path.split('.').reduce((obj, key) => obj && obj[key], this.config);
+    }
+
+    /**
+     * Definir configuração específica
+     */
+    set(path, value) {
+        const keys = path.split('.');
+        const lastKey = keys.pop();
+        const target = keys.reduce((obj, key) => obj[key] = obj[key] || {}, this.config);
+        target[lastKey] = value;
+        this.saveConfig();
     }
 }
 
-// Instância global do gerenciador de configurações
+// Instância global
 window.configManager = new ConfigManager();
+
+// Auto-inicializar se DOM estiver pronto
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        window.configManager.init();
+    });
+} else {
+    window.configManager.init();
+}
