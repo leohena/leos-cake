@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Leo's Cake</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .login-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 1.1em;
+            margin: 10px 0;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #5a67d8;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>Leo's Cake</h1>
+        <p>Sistema de Pré-Vendas - TESTE</p>
+        <form id="login-form">
+            <input type="password" id="password" placeholder="Digite: leoscake2024" required>
+            <button type="submit">Entrar</button>
+        </form>
+        <p id="status"></p>
+    </div>
+
+    <script>
+        console.log('🔥 TESTE: Script carregado');
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('📄 TESTE: DOM carregado');
+            
+            const form = document.getElementById('login-form');
+            const status = document.getElementById('status');
+            
+            if (form) {
+                console.log('✅ TESTE: Formulário encontrado');
+                form.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const password = document.getElementById('password').value;
+                    
+                    if (password === 'leoscake2024') {
+                        status.innerHTML = '✅ <strong style="color: green;">SUCESSO! Sistema funcionando.</strong>';
+                        console.log('✅ TESTE: Login funcionou');
+                    } else {
+                        status.innerHTML = '❌ <strong style="color: red;">Senha incorreta</strong>';
+                        console.log('❌ TESTE: Senha incorreta');
+                    }
+                });
+            } else {
+                console.error('❌ TESTE: Formulário não encontrado');
+            }
+        });
+    </script>
+</body>
+</html>
