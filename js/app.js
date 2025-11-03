@@ -14,12 +14,18 @@ class PreVendasApp {
         this.currentReciboId = null;
         this.isOnline = navigator.onLine;
         this.lastSyncTime = localStorage.getItem('lastSyncTime') || null;
-        this.sheetsAPI = null;
+        
+        // Supabase setup
+        this.supabaseUrl = null;
+        this.supabaseKey = null;
+        this.supabase = null;
+        this.isSupabaseEnabled = false;
+        this.realtimeChannel = null;
         
         this.checkAuthentication();
         this.init();
         this.initEmailJS();
-        this.initGoogleSheets();
+        this.initSupabase();
         this.setupOnlineListeners();
     }
 
@@ -1787,11 +1793,10 @@ class PreVendasApp {
                 templateId: "",
                 userId: ""
             },
-            googleSheets: {
-                apiKey: "",
-                clientId: "",
-                spreadsheetId: "",
-                autoSync: false
+            supabase: {
+                url: "",
+                anonKey: "",
+                realtime: true
             },
             sistemaSenha: "leoscake2024" // Senha padrão - DEVE ser alterada!
         };
@@ -1816,10 +1821,9 @@ class PreVendasApp {
         document.getElementById('emailjs-template').value = this.configuracoes.emailjs.templateId;
         document.getElementById('emailjs-user').value = this.configuracoes.emailjs.userId;
         
-        document.getElementById('sheets-api-key').value = this.configuracoes.googleSheets.apiKey;
-        document.getElementById('sheets-client-id').value = this.configuracoes.googleSheets.clientId;
-        document.getElementById('sheets-spreadsheet-id').value = this.configuracoes.googleSheets.spreadsheetId;
-        document.getElementById('sheets-auto-sync').checked = this.configuracoes.googleSheets.autoSync;
+        document.getElementById('supabase-url').value = this.configuracoes.supabase.url;
+        document.getElementById('supabase-anon-key').value = this.configuracoes.supabase.anonKey;
+        document.getElementById('supabase-realtime').checked = this.configuracoes.supabase.realtime;
         
         document.getElementById('sistema-senha').value = this.configuracoes.sistemaSenha;
         
@@ -1840,10 +1844,9 @@ class PreVendasApp {
         this.configuracoes.emailjs.templateId = document.getElementById('emailjs-template').value;
         this.configuracoes.emailjs.userId = document.getElementById('emailjs-user').value;
         
-        this.configuracoes.googleSheets.apiKey = document.getElementById('sheets-api-key').value;
-        this.configuracoes.googleSheets.clientId = document.getElementById('sheets-client-id').value;
-        this.configuracoes.googleSheets.spreadsheetId = document.getElementById('sheets-spreadsheet-id').value;
-        this.configuracoes.googleSheets.autoSync = document.getElementById('sheets-auto-sync').checked;
+        this.configuracoes.supabase.url = document.getElementById('supabase-url').value;
+        this.configuracoes.supabase.anonKey = document.getElementById('supabase-anon-key').value;
+        this.configuracoes.supabase.realtime = document.getElementById('supabase-realtime').checked;
         
         // Salvar nova senha se foi alterada
         const novaSenha = document.getElementById('sistema-senha').value;
@@ -1856,7 +1859,7 @@ class PreVendasApp {
         
         localStorage.setItem('configuracoes', JSON.stringify(this.configuracoes));
         this.initEmailJS();
-        this.initGoogleSheets();
+        this.initSupabase();
         this.closeConfigModal();
         this.showToast('Configurações salvas com sucesso!', 'success');
     }
@@ -2160,57 +2163,216 @@ class PreVendasApp {
     }
 
     // GOOGLE SHEETS INTEGRATION
-    initGoogleSheets() {
-        // Verificar se Google Sheets está configurado
-        if (!this.configuracoes.googleSheets.apiKey || !this.configuracoes.googleSheets.clientId || !this.configuracoes.googleSheets.spreadsheetId) {
-            console.log('⚠️ Google Sheets não configurado');
+    initSupabase() {
+        // Verificar se Supabase está configurado
+        if (!this.configuracoes.supabase?.url || !this.configuracoes.supabase?.anonKey) {
+            console.log('⚠️ Supabase não configurado');
             this.updateSyncStatus('local', 'Local');
             return;
         }
 
-        // Verificar se Google API está carregada
-        if (!window.gapi) {
-            console.error('❌ Google API não carregada - recarregue a página');
-            this.updateSyncStatus('error', 'API não carregada');
+        // Verificar se Supabase JS está carregado
+        if (!window.supabase) {
+            console.error('❌ Supabase JS não carregado - recarregue a página');
+            this.updateSyncStatus('error', 'Supabase não carregado');
             return;
         }
 
-        console.log('🔄 Inicializando Google Sheets...');
-        this.updateSyncStatus('loading', 'Conectando...');
+        try {
+            console.log('🔄 Inicializando Supabase...');
+            this.updateSyncStatus('loading', 'Conectando...');
 
-        window.gapi.load('client:auth2', () => {
-            console.log('📡 Carregando cliente Google API...');
-            
-            window.gapi.client.init({
-                apiKey: this.configuracoes.googleSheets.apiKey,
-                clientId: this.configuracoes.googleSheets.clientId,
-                discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
-                scope: 'https://www.googleapis.com/auth/spreadsheets'
-            }).then(() => {
-                console.log('✅ Google Sheets conectado com sucesso');
-                this.sheetsAPI = window.gapi.client.sheets;
-                this.updateSyncStatus('online', 'Online');
-                
-                if (this.configuracoes.googleSheets.autoSync) {
-                    this.syncWithSheets();
+            // Inicializar cliente Supabase
+            this.supabase = window.supabase.createClient(
+                this.configuracoes.supabase.url,
+                this.configuracoes.supabase.anonKey
+            );
+
+            this.isSupabaseEnabled = true;
+            console.log('✅ Supabase conectado com sucesso');
+            this.updateSyncStatus('online', 'Supabase Online');
+
+            // Configurar real-time se habilitado
+            if (this.configuracoes.supabase.realtime) {
+                this.setupRealtimeSync();
+            }
+
+            // Testar conexão
+            this.testSupabaseConnection();
+
+        } catch (error) {
+            console.error('❌ Erro na inicialização do Supabase:', error);
+            this.updateSyncStatus('error', 'Erro de configuração');
+        }
+    }
+
+    async testSupabaseConnection() {
+        if (!this.supabase) {
+            this.updateSyncStatus('error', 'Não conectado');
+            return false;
+        }
+
+        try {
+            // Testar com uma query simples
+            const { data, error } = await this.supabase
+                .from('usuarios')
+                .select('id')
+                .limit(1);
+
+            if (error && error.code !== 'PGRST116') { // PGRST116 = tabela não existe
+                throw error;
+            }
+
+            this.updateSyncStatus('online', 'Supabase ✓');
+            return true;
+        } catch (error) {
+            console.error('❌ Erro na conexão:', error);
+            this.updateSyncStatus('error', 'Falha na conexão');
+            return false;
+        }
+    }
+
+    setupRealtimeSync() {
+        if (!this.supabase || this.realtimeChannel) return;
+
+        // Criar canal para real-time
+        this.realtimeChannel = this.supabase.channel('leos-cake-sync')
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public',
+                table: 'produtos' 
+            }, (payload) => {
+                console.log('🔄 Produto alterado:', payload);
+                this.handleRealtimeUpdate('produtos', payload);
+            })
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public',
+                table: 'clientes' 
+            }, (payload) => {
+                console.log('🔄 Cliente alterado:', payload);
+                this.handleRealtimeUpdate('clientes', payload);
+            })
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public',
+                table: 'pedidos' 
+            }, (payload) => {
+                console.log('🔄 Pedido alterado:', payload);
+                this.handleRealtimeUpdate('pedidos', payload);
+            })
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public',
+                table: 'usuarios' 
+            }, (payload) => {
+                console.log('🔄 Usuário alterado:', payload);
+                this.handleRealtimeUpdate('usuarios', payload);
+            })
+            .subscribe();
+
+        console.log('🔄 Real-time sync ativado');
+    }
+
+    handleRealtimeUpdate(table, payload) {
+        const { eventType, new: newRecord, old: oldRecord } = payload;
+        
+        switch (table) {
+            case 'produtos':
+                this.handleProductRealtimeUpdate(eventType, newRecord, oldRecord);
+                break;
+            case 'clientes':
+                this.handleClientRealtimeUpdate(eventType, newRecord, oldRecord);
+                break;
+            case 'pedidos':
+                this.handleOrderRealtimeUpdate(eventType, newRecord, oldRecord);
+                break;
+            case 'usuarios':
+                this.handleUserRealtimeUpdate(eventType, newRecord, oldRecord);
+                break;
+        }
+    }
+
+    handleProductRealtimeUpdate(eventType, newRecord, oldRecord) {
+        switch (eventType) {
+            case 'INSERT':
+                this.produtos.push(newRecord);
+                break;
+            case 'UPDATE':
+                const productIndex = this.produtos.findIndex(p => p.id === newRecord.id);
+                if (productIndex >= 0) {
+                    this.produtos[productIndex] = newRecord;
                 }
-            }).catch(error => {
-                console.error('❌ Erro detalhado na inicialização:', error);
-                
-                let errorMsg = 'Erro';
-                if (error.details?.includes('API_KEY_INVALID')) {
-                    errorMsg = 'API Key inválida';
-                } else if (error.details?.includes('CLIENT_ID')) {
-                    errorMsg = 'Client ID inválido';
-                } else if (error.status === 403) {
-                    errorMsg = 'Sem permissão';
-                } else if (error.status === 400) {
-                    errorMsg = 'Config. inválida';
+                break;
+            case 'DELETE':
+                this.produtos = this.produtos.filter(p => p.id !== oldRecord.id);
+                break;
+        }
+        this.renderProdutos();
+        this.saveToStorage('produtos');
+    }
+
+    handleClientRealtimeUpdate(eventType, newRecord, oldRecord) {
+        switch (eventType) {
+            case 'INSERT':
+                this.clientes.push(newRecord);
+                break;
+            case 'UPDATE':
+                const clientIndex = this.clientes.findIndex(c => c.id === newRecord.id);
+                if (clientIndex >= 0) {
+                    this.clientes[clientIndex] = newRecord;
                 }
-                
-                this.updateSyncStatus('error', errorMsg);
-            });
-        });
+                break;
+            case 'DELETE':
+                this.clientes = this.clientes.filter(c => c.id !== oldRecord.id);
+                break;
+        }
+        this.renderClientes();
+        this.saveToStorage('clientes');
+    }
+
+    handleOrderRealtimeUpdate(eventType, newRecord, oldRecord) {
+        switch (eventType) {
+            case 'INSERT':
+                this.pedidos.push(newRecord);
+                break;
+            case 'UPDATE':
+                const orderIndex = this.pedidos.findIndex(p => p.id === newRecord.id);
+                if (orderIndex >= 0) {
+                    this.pedidos[orderIndex] = newRecord;
+                }
+                break;
+            case 'DELETE':
+                this.pedidos = this.pedidos.filter(p => p.id !== oldRecord.id);
+                break;
+        }
+        this.renderPedidos();
+        this.updateDashboard();
+        this.saveToStorage('pedidos');
+    }
+
+    handleUserRealtimeUpdate(eventType, newRecord, oldRecord) {
+        switch (eventType) {
+            case 'INSERT':
+                if (this.usuarios) this.usuarios.push(newRecord);
+                break;
+            case 'UPDATE':
+                if (this.usuarios) {
+                    const userIndex = this.usuarios.findIndex(u => u.id === newRecord.id);
+                    if (userIndex >= 0) {
+                        this.usuarios[userIndex] = newRecord;
+                    }
+                }
+                break;
+            case 'DELETE':
+                if (this.usuarios) {
+                    this.usuarios = this.usuarios.filter(u => u.id !== oldRecord.id);
+                }
+                break;
+        }
+        if (document.getElementById('users-list').style.display !== 'none') {
+            this.displayUsers();
+        }
     }
 
     setupOnlineListeners() {
