@@ -126,24 +126,48 @@ class PreVendasApp {
             this.initSupabase();
             
             // 5. Carregar dados do banco (substitui localStorage)
+            console.log('🔄 Passo 5: Inicializando dados...');
             await this.initializeData();
+            console.log('✅ Passo 5: Dados inicializados');
             
             // 6. Verificar e migrar dados antigos do localStorage
+            console.log('🔄 Passo 6: Verificando migração...');
             await this.checkAndMigrateLegacyData();
+            console.log('✅ Passo 6: Migração verificada');
             
             // 7. Configurar interface
+            console.log('🔄 Passo 7: Configurando interface...');
+            
+            console.log('🔄 7.1: Setup online listeners...');
             this.setupOnlineListeners();
+            
+            console.log('🔄 7.2: Setup event listeners...');
             try {
                 this.setupEventListeners();
+                console.log('✅ Event listeners configurados');
             } catch (error) {
                 console.error('❌ Erro ao configurar event listeners:', error);
             }
+            
+            console.log('🔄 7.3: Update dashboard...');
             this.updateDashboard();
+            
+            console.log('🔄 7.4: Render produtos...');
             this.renderProdutos();
+            
+            console.log('🔄 7.5: Render clientes...');
             this.renderClientes();
+            
+            console.log('🔄 7.6: Render pedidos...');
             this.renderPedidos();
+            
+            console.log('🔄 7.7: Update entregas hoje...');
             this.updateEntregasHoje();
+            
+            console.log('🔄 7.8: Setup date filter...');
             this.setupDateFilter();
+            
+            console.log('✅ Passo 7: Interface configurada');
             
             // 8. Esconder splash screen ao final
             this.hideSplashScreen();
@@ -699,33 +723,90 @@ class PreVendasApp {
     closeProdutoModal() { /* TODO: Implementar */ }
     async saveProduto() { /* TODO: Implementar */ }
     async deleteProduto(id) { /* TODO: Implementar */ }
-    renderProdutos(filteredProdutos = null) { /* TODO: Implementar */ }
-    searchProdutos(query) { /* TODO: Implementar */ }
+    renderProdutos(filteredProdutos = null) { 
+        console.log('🍰 Produtos renderizados:', this.produtos.length);
+        // TODO: Implementar renderização
+    }
+    searchProdutos(query) { 
+        console.log('🔍 Busca produtos:', query);
+        // TODO: Implementar busca
+    }
 
     // CLIENTES
-    openClienteModal(cliente = null) { /* TODO: Implementar */ }
-    closeClienteModal() { /* TODO: Implementar */ }
-    async saveCliente() { /* TODO: Implementar */ }
-    async deleteCliente(id) { /* TODO: Implementar */ }
-    renderClientes(filteredClientes = null) { /* TODO: Implementar */ }
-    searchClientes(query) { /* TODO: Implementar */ }
+    openClienteModal(cliente = null) { 
+        console.log('👤 Modal cliente aberto');
+        // TODO: Implementar modal
+    }
+    closeClienteModal() { 
+        console.log('❌ Modal cliente fechado');
+        // TODO: Implementar fechamento
+    }
+    async saveCliente() { 
+        console.log('💾 Cliente salvo');
+        // TODO: Implementar salvamento
+    }
+    async deleteCliente(id) { 
+        console.log('🗑️ Cliente removido:', id);
+        // TODO: Implementar remoção
+    }
+    renderClientes(filteredClientes = null) { 
+        console.log('👥 Clientes renderizados:', this.clientes.length);
+        // TODO: Implementar renderização
+    }
+    searchClientes(query) { 
+        console.log('🔍 Busca clientes:', query);
+        // TODO: Implementar busca
+    }
 
     // PEDIDOS
-    openPedidoModal(pedido = null) { /* TODO: Implementar */ }
-    closePedidoModal() { /* TODO: Implementar */ }
-    async savePedido() { /* TODO: Implementar */ }
-    async deletePedido(id) { /* TODO: Implementar */ }
-    renderPedidos(filteredPedidos = null) { /* TODO: Implementar */ }
-    filterPedidos(status) { /* TODO: Implementar */ }
+    openPedidoModal(pedido = null) { 
+        console.log('📋 Modal pedido aberto');
+        // TODO: Implementar modal
+    }
+    closePedidoModal() { 
+        console.log('❌ Modal pedido fechado');
+        // TODO: Implementar fechamento
+    }
+    async savePedido() { 
+        console.log('💾 Pedido salvo');
+        // TODO: Implementar salvamento
+    }
+    async deletePedido(id) { 
+        console.log('🗑️ Pedido removido:', id);
+        // TODO: Implementar remoção
+    }
+    renderPedidos(filteredPedidos = null) { 
+        console.log('📋 Pedidos renderizados:', this.pedidos.length);
+        // TODO: Implementar renderização
+    }
+    filterPedidos(status) { 
+        console.log('🔍 Filtro pedidos:', status);
+        // TODO: Implementar filtro
+    }
 
     // DASHBOARD
-    updateDashboard() { /* TODO: Implementar */ }
-    updateEntregasHoje() { /* TODO: Implementar */ }
+    updateDashboard() { 
+        console.log('📊 Dashboard atualizado');
+        // TODO: Implementar estatísticas
+    }
+    updateEntregasHoje() { 
+        console.log('📅 Entregas de hoje atualizadas');
+        // TODO: Implementar lista de entregas
+    }
 
     // ENTREGAS
-    renderEntregas(selectedDate = null) { /* TODO: Implementar */ }
-    setupDateFilter() { /* TODO: Implementar */ }
-    filterEntregasByDate(date) { /* TODO: Implementar */ }
+    renderEntregas(selectedDate = null) { 
+        console.log('📦 Entregas renderizadas');
+        // TODO: Implementar lista de entregas
+    }
+    setupDateFilter() { 
+        console.log('📅 Filtro de data configurado');
+        // TODO: Implementar filtro
+    }
+    filterEntregasByDate(date) { 
+        console.log('🔍 Filtro por data aplicado:', date);
+        // TODO: Implementar filtro
+    }
 
     // CONFIGURAÇÕES
     openConfigModal() { /* TODO: Implementar */ }
