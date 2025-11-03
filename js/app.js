@@ -40,7 +40,11 @@ class PreVendasApp {
             <div class="login-screen">
                 <div class="login-container">
                     <div class="login-header">
-                        <h1>🧁 Leo's Cake</h1>
+                        <div class="login-logo">
+                            <img src="images/logo.png" alt="Leo's Cake" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            <h1 style="display: none;">🧁 Leo's Cake</h1>
+                        </div>
+                        <h2>Leo's Cake</h2>
                         <p>Sistema de Pré-Vendas</p>
                     </div>
                     <div class="login-form">
@@ -83,10 +87,42 @@ class PreVendasApp {
                 max-width: 400px;
                 width: 90%;
             }
+            .login-logo {
+                margin-bottom: 20px;
+            }
+            .login-logo img {
+                width: 120px;
+                height: 120px;
+                border-radius: 50%;
+                object-fit: cover;
+                border: 4px solid #667eea;
+                box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+                transition: transform 0.3s ease;
+                animation: logoEntry 0.8s ease-out;
+            }
+            .login-logo img:hover {
+                transform: scale(1.05);
+            }
+            @keyframes logoEntry {
+                from {
+                    opacity: 0;
+                    transform: scale(0.5) rotate(-10deg);
+                }
+                to {
+                    opacity: 1;
+                    transform: scale(1) rotate(0deg);
+                }
+            }
             .login-header h1 {
                 color: #667eea;
                 margin: 0 0 10px 0;
                 font-size: 2.5em;
+            }
+            .login-header h2 {
+                color: #667eea;
+                margin: 10px 0;
+                font-size: 2em;
+                font-weight: bold;
             }
             .login-header p {
                 color: #666;
@@ -1745,7 +1781,12 @@ class PreVendasApp {
                 
                 let errorMsg = '❌ Erro: ';
                 
-                if (error.status === 403) {
+                // Tratar erros específicos de cookies/origem
+                if (error.message?.includes('cookies') || error.message?.includes('cookiePolicy')) {
+                    errorMsg += 'Problema de cookies - use HTTPS ou localhost';
+                } else if (error.message?.includes('origin')) {
+                    errorMsg += 'URL não autorizada no Google Cloud';
+                } else if (error.status === 403) {
                     if (error.result?.error?.message?.includes('API key')) {
                         errorMsg += 'API Key inválida ou sem permissões';
                     } else if (error.result?.error?.message?.includes('permission')) {
