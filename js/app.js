@@ -61,11 +61,16 @@ class PreVendasApp {
             </div>
         `;
 
-        document.getElementById('login-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.authenticate();
-        });
-        console.log('✅ Tela de login configurada');
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) {
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.authenticate();
+            });
+            console.log('✅ Tela de login configurada');
+        } else {
+            console.error('❌ Elemento login-form não encontrado');
+        }
     }
 
     async authenticate() {
@@ -124,7 +129,11 @@ class PreVendasApp {
             
             // 7. Configurar interface
             this.setupOnlineListeners();
-            this.setupEventListeners();
+            try {
+                this.setupEventListeners();
+            } catch (error) {
+                console.error('❌ Erro ao configurar event listeners:', error);
+            }
             this.updateDashboard();
             this.renderProdutos();
             this.renderClientes();
@@ -279,8 +288,12 @@ class PreVendasApp {
     }
 
     setupEventListeners() {
+        console.log('🎛️ Configurando event listeners...');
+        
         // Event listeners para navegação
-        document.querySelectorAll('.nav-item').forEach(item => {
+        const navItems = document.querySelectorAll('.nav-item');
+        console.log(`📍 Encontrados ${navItems.length} nav-items`);
+        navItems.forEach(item => {
             item.addEventListener('click', () => {
                 const page = item.dataset.page;
                 this.showPage(page);
@@ -288,7 +301,9 @@ class PreVendasApp {
         });
 
         // Event listeners para modais
-        document.querySelectorAll('.close-btn').forEach(btn => {
+        const closeButtons = document.querySelectorAll('.close-btn');
+        console.log(`📍 Encontrados ${closeButtons.length} close-btn`);
+        closeButtons.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const modal = e.target.closest('.modal');
                 if (modal) modal.classList.remove('active');
