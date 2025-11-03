@@ -50,7 +50,9 @@ class PreVendasApp {
         document.body.innerHTML = `
             <div class="login-container">
                 <div class="login-form">
-                    <img src="images/logo-png.png" alt="Leo's Cake" class="login-logo">
+                    <div class="login-logo">
+                        <img src="images/logo-png.png" alt="Leo's Cake">
+                    </div>
                     <h1>Leo's Cake</h1>
                     <p>Sistema de Pré-Vendas</p>
                     <form id="login-form">
