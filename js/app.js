@@ -1,4 +1,6 @@
 // Sistema de Gerenciamento de Pré-Vendas - Leo's Cake
+console.log('🚀 SCRIPT app.js CARREGADO!');
+
 class PreVendasApp {
     constructor() {
         // DADOS AGORA VÊM DO SUPABASE - NÃO DO LOCALSTORAGE
@@ -541,8 +543,9 @@ class PreVendasApp {
 
         // Verificar se Supabase JS está carregado
         if (!window.supabase) {
-            console.error('❌ Supabase JS não carregado - recarregue a página');
-            this.updateSyncStatus('error', 'Supabase não carregado');
+            console.warn('⚠️ Supabase JS não carregado - funcionando sem banco online');
+            this.updateSyncStatus('offline', 'Modo Offline');
+            this.isSupabaseEnabled = false;
             return;
         }
 
@@ -851,19 +854,31 @@ class PreVendasApp {
 let app;
 
 // Aguardar DOM e inicializar aplicação
+console.log('🔧 Registrando event listener para DOMContentLoaded...');
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('📄 DOM carregado, iniciando aplicação...');
+    console.log('🔍 Verificando se window.supabase existe:', typeof window.supabase);
     
     // Aguardar um pouco para garantir que todos os scripts carregaram
     await new Promise(resolve => setTimeout(resolve, 100));
     
     try {
         // Criar aplicação apenas quando DOM estiver pronto
+        console.log('⚡ Criando instância PreVendasApp...');
         app = new PreVendasApp();
+        console.log('⚡ Instância criada, chamando init()...');
         await app.init();
+        console.log('⚡ Init() completo!');
     } catch (error) {
         console.error('❌ Erro crítico na inicialização:', error);
         console.error('Stack trace:', error.stack);
+        
+        // Tentar esconder o splash screen mesmo com erro
+        const splash = document.getElementById('splash-screen');
+        if (splash) {
+            splash.style.display = 'none';
+        }
+        
         alert('Erro na inicialização do sistema. Verifique o console para mais detalhes.');
     }
 });
