@@ -22,7 +22,7 @@ class PreVendasApp {
         this.isSupabaseEnabled = false;
         this.realtimeChannel = null;
         
-        this.checkAuthentication();
+        // NÃO chamar checkAuthentication aqui - será chamado no init()
     }
 
     // SISTEMA DE AUTENTICAÇÃO SIMPLIFICADO
@@ -64,8 +64,10 @@ class PreVendasApp {
     async authenticate() {
         const password = document.getElementById('login-password').value;
         
-        // Verificar senha via configurações
-        if (password === this.configuracoes?.sistemaSenha || password === 'leoscake2024') {
+        // Verificar senha via configurações (carregadas no init)
+        const senhaCorreta = this.configuracoes?.sistemaSenha || 'leoscake2024';
+        
+        if (password === senhaCorreta) {
             // Autenticar por 24 horas
             const expiry = new Date().getTime() + (24 * 60 * 60 * 1000);
             localStorage.setItem('leos_cake_auth', 'true');
@@ -84,23 +86,30 @@ class PreVendasApp {
 
     async init() {
         console.log('🚀 Iniciando sistema Leo\'s Cake...');
-        this.showSplashScreen();
         
         try {
-            // 1. Carregar configurações de forma segura
+            // 1. Carregar configurações primeiro (precisamos para autenticação)
             await this.initializeConfig();
             
-            // 2. Inicializar Supabase
+            // 2. Verificar autenticação ANTES de mostrar splash
+            if (!this.checkAuthentication()) {
+                return; // Se não autenticado, para aqui e mostra login
+            }
+            
+            // 3. Se autenticado, mostrar splash e continuar
+            this.showSplashScreen();
+            
+            // 4. Inicializar Supabase
             this.setupLoginLogo();
             this.initSupabase();
             
-            // 3. Carregar dados do banco (substitui localStorage)
+            // 5. Carregar dados do banco (substitui localStorage)
             await this.initializeData();
             
-            // 4. Verificar e migrar dados antigos do localStorage
+            // 6. Verificar e migrar dados antigos do localStorage
             await this.checkAndMigrateLegacyData();
             
-            // 5. Configurar interface
+            // 7. Configurar interface
             this.setupOnlineListeners();
             this.setupEventListeners();
             this.updateDashboard();
