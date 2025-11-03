@@ -48,17 +48,19 @@ class PreVendasApp {
     showLoginScreen() {
         console.log('🔐 Mostrando tela de login...');
         document.body.innerHTML = `
-            <div class="login-container">
-                <div class="login-form">
-                    <div class="login-logo">
-                        <img src="images/logo-png.png" alt="Leo's Cake">
+            <div class="login-screen">
+                <div class="login-container">
+                    <div class="login-form">
+                        <div class="login-logo">
+                            <img src="images/logo-png.png" alt="Leo's Cake">
+                        </div>
+                        <h1>Leo's Cake</h1>
+                        <p>Sistema de Pré-Vendas</p>
+                        <form id="login-form">
+                            <input type="password" id="login-password" placeholder="Digite a senha" required>
+                            <button type="submit">Entrar</button>
+                        </form>
                     </div>
-                    <h1>Leo's Cake</h1>
-                    <p>Sistema de Pré-Vendas</p>
-                    <form id="login-form">
-                        <input type="password" id="login-password" placeholder="Digite a senha" required>
-                        <button type="submit">Entrar</button>
-                    </form>
                 </div>
             </div>
         `;
