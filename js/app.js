@@ -212,29 +212,49 @@ class PreVendasApp {
     async initializeData() {
         console.log('📊 Inicializando DataManager...');
         
-        if (!this.supabase) {
-            throw new Error('Supabase não inicializado');
+        try {
+            if (!this.supabase) {
+                console.log('⚠️ Supabase não inicializado, usando dados vazios');
+                this.initializeEmptyData();
+                return;
+            }
+            
+            this.dataManager = new DataManager(this.supabase);
+            
+            // Carregar todos os dados do banco
+            console.log('🔄 Carregando dados do Supabase...');
+            const data = await this.dataManager.loadAllData();
+            
+            this.produtos = data.produtos || [];
+            this.clientes = data.clientes || [];
+            this.pedidos = data.pedidos || [];
+            
+            // Configurações da empresa vindas do banco
+            if (data.empresa) {
+                this.configuracoes.empresa = data.empresa;
+            }
+            
+            console.log('✅ Dados carregados do Supabase:', {
+                produtos: this.produtos.length,
+                clientes: this.clientes.length,
+                pedidos: this.pedidos.length
+            });
+            
+        } catch (error) {
+            console.error('❌ Erro ao carregar dados do Supabase:', error);
+            console.log('🔄 Usando dados vazios como fallback');
+            this.initializeEmptyData();
         }
-        
-        this.dataManager = new DataManager(this.supabase);
-        
-        // Carregar todos os dados do banco
-        const data = await this.dataManager.loadAllData();
-        
-        this.produtos = data.produtos;
-        this.clientes = data.clientes;  
-        this.pedidos = data.pedidos;
-        
-        // Configurações da empresa vindas do banco
-        if (data.empresa) {
-            this.configuracoes.empresa = data.empresa;
-        }
-        
-        console.log('✅ Dados carregados do Supabase:', {
-            produtos: this.produtos.length,
-            clientes: this.clientes.length,
-            pedidos: this.pedidos.length
-        });
+    }
+    
+    /**
+     * Inicializa com dados vazios quando Supabase não funciona
+     */
+    initializeEmptyData() {
+        this.produtos = [];
+        this.clientes = [];
+        this.pedidos = [];
+        console.log('✅ Sistema inicializado com dados vazios (modo local)');
     }
 
     /**
@@ -516,7 +536,9 @@ class PreVendasApp {
 
         } catch (error) {
             console.error('❌ Erro na inicialização do Supabase:', error);
-            this.updateSyncStatus('error', 'Erro de configuração');
+            this.updateSyncStatus('local', 'Modo Local');
+            this.isSupabaseEnabled = false;
+            this.supabase = null;
         }
     }
 
