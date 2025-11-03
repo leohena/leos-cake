@@ -3,6 +3,8 @@ console.log('🚀 SCRIPT app.js CARREGADO!');
 
 class PreVendasApp {
     constructor() {
+        console.log('🏗️ Construindo PreVendasApp...');
+        
         // DADOS AGORA VÊM DO SUPABASE - NÃO DO LOCALSTORAGE
         this.produtos = [];
         this.clientes = [];
@@ -23,6 +25,8 @@ class PreVendasApp {
         this.supabase = null;
         this.isSupabaseEnabled = false;
         this.realtimeChannel = null;
+        
+        console.log('✅ PreVendasApp construído com sucesso');
         
         // NÃO chamar checkAuthentication aqui - será chamado no init()
     }
@@ -860,6 +864,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('📄 DOM carregado, iniciando aplicação...');
     console.log('🔍 Verificando se window.supabase existe:', typeof window.supabase);
     
+    // FORÇA ESCONDER SPLASH APÓS 10 SEGUNDOS INDEPENDENTE DE QUALQUER COISA
+    setTimeout(() => {
+        const splash = document.getElementById('splash-screen');
+        if (splash && splash.style.display !== 'none') {
+            console.warn('⚠️ FORÇANDO esconder splash screen após timeout de 10s');
+            splash.style.display = 'none';
+            
+            // Mostrar tela de login se não estiver visível
+            const loginContainer = document.getElementById('login-container');
+            if (loginContainer) {
+                loginContainer.style.display = 'flex';
+            }
+        }
+    }, 10000);
+    
     // Aguardar um pouco para garantir que todos os scripts carregaram
     await new Promise(resolve => setTimeout(resolve, 100));
     
@@ -878,10 +897,52 @@ document.addEventListener('DOMContentLoaded', async () => {
         const splash = document.getElementById('splash-screen');
         if (splash) {
             splash.style.display = 'none';
+            console.log('🔧 Splash screen escondido após erro');
         }
         
-        alert('Erro na inicialização do sistema. Verifique o console para mais detalhes.');
+        // Mostrar tela de login
+        const loginContainer = document.getElementById('login-container');
+        if (loginContainer) {
+            loginContainer.style.display = 'flex';
+            console.log('🔧 Tela de login forçada após erro');
+        }
+        
+        alert('Erro na inicialização do sistema. O sistema funcionará em modo básico.');
     }
+});
+
+// FUNÇÃO DE EMERGÊNCIA - Garante que algo apareça na tela
+window.addEventListener('load', () => {
+    setTimeout(() => {
+        console.log('🆘 VERIFICAÇÃO DE EMERGÊNCIA - checando se tela está visível...');
+        
+        const splash = document.getElementById('splash-screen');
+        const login = document.getElementById('login-container'); 
+        const main = document.getElementById('main-container');
+        
+        const splashVisible = splash && splash.style.display !== 'none';
+        const loginVisible = login && login.style.display !== 'none';
+        const mainVisible = main && main.style.display !== 'none';
+        
+        console.log('🔍 Estado das telas:', { splashVisible, loginVisible, mainVisible });
+        
+        // Se splash ainda está visível após 15 segundos, algo deu errado
+        if (splashVisible && !loginVisible && !mainVisible) {
+            console.warn('⚠️ EMERGÊNCIA: Forçando mostrar tela de login');
+            if (splash) splash.style.display = 'none';
+            if (login) login.style.display = 'flex';
+            
+            // Criar uma instância básica se não existir
+            if (!window.app) {
+                console.warn('⚠️ Criando instância de emergência do app');
+                try {
+                    window.app = new PreVendasApp();
+                } catch (e) {
+                    console.error('❌ Erro ao criar instância de emergência:', e);
+                }
+            }
+        }
+    }, 15000);
 });
 
 // Service Worker para funcionamento offline (PWA)
