@@ -1,0 +1,28 @@
+{
+  "empresa": {
+    "nome": "Leo's Cake",
+    "telefone": "",
+    "endereco": "",
+    "email": ""
+  },
+  "supabase": {
+    "url": "",
+    "anonKey": "", 
+    "realtime": true
+  },
+  "emailjs": {
+    "serviceId": "",
+    "templateId": "",
+    "userId": ""
+  },
+  "sistemaSenha": "leoscake2024",
+  "security": {
+    "allowConfigEdit": true,
+    "requireHttps": false
+  },
+  "_comments": {
+    "supabase": "Configure suas credenciais do Supabase aqui ou use variáveis de ambiente",
+    "emailjs": "Configure suas credenciais do EmailJS aqui ou use variáveis de ambiente",
+    "security": "allowConfigEdit: permite editar config via interface | requireHttps: força HTTPS"
+  }
+}

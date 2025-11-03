@@ -335,22 +335,9 @@
 
                 <h4>Segurança do Sistema</h4>
                 <div class="form-group">
-                    <label for="sistema-senha-atual">Senha Atual</label>
-                    <input type="password" id="sistema-senha-atual" placeholder="Digite a senha atual">
-                </div>
-                <div class="form-group">
-                    <label for="sistema-senha-nova">Nova Senha</label>
-                    <input type="password" id="sistema-senha-nova" placeholder="Digite a nova senha">
-                </div>
-                <div class="form-group">
-                    <label for="sistema-senha-confirmar">Confirmar Nova Senha</label>
-                    <input type="password" id="sistema-senha-confirmar" placeholder="Confirme a nova senha">
-                </div>
-                <div class="form-group">
-                    <button type="button" class="btn btn-warning" id="alterar-senha-btn">
-                        🔒 Alterar Senha do Sistema
-                    </button>
-                    <small>A senha será mantida mesmo após atualizações do sistema</small>
+                    <label for="sistema-senha">Senha do Sistema</label>
+                    <input type="password" id="sistema-senha" placeholder="Senha para acessar o sistema">
+                    <small>⚠️ Alterar esta senha forçará novo login em todos os dispositivos</small>
                 </div>
                 
                 <h4>Configurações de Email (EmailJS)</h4>
@@ -394,24 +381,37 @@
                     <small>Use se suspeitar que alguém tem acesso não autorizado</small>
                 </div>
 
-                <h4>⚡ Configurações do Supabase</h4>
-                <div class="form-group">
-                    <label for="supabase-url">Supabase URL</label>
-                    <input type="url" id="supabase-url" placeholder="https://seu-projeto.supabase.co">
-                    <small>URL do seu projeto no <a href="https://supabase.com" target="_blank">Supabase</a></small>
+                <!-- Aviso sobre Configurações Sensíveis -->
+                <div id="config-warning" class="config-warning" style="display: none;">
+                    <h4>🔒 Configurações Sensíveis</h4>
+                    <p>Por segurança, configurações como URLs do Supabase e chaves de API devem ser definidas no arquivo <strong>config.json</strong> ou através de variáveis de ambiente.</p>
+                    <p>Consulte o arquivo <strong>SUPABASE_SETUP.md</strong> para instruções detalhadas.</p>
                 </div>
-                <div class="form-group">
-                    <label for="supabase-anon-key">Anon Key</label>
-                    <input type="password" id="supabase-anon-key" placeholder="eyJhbGciOiJIUzI1NI...">
-                    <small>Chave pública (anon/public) do projeto</small>
+
+                <!-- Configurações Sensíveis (ocultas em produção) -->
+                <div class="sensitive-config" style="display: none;">
+                    <h4>⚡ Configurações do Supabase (Desenvolvimento)</h4>
+                    <div class="form-group">
+                        <label for="supabase-url">Supabase URL</label>
+                        <input type="url" id="supabase-url" placeholder="https://seu-projeto.supabase.co">
+                        <small>URL do seu projeto no <a href="https://supabase.com" target="_blank">Supabase</a></small>
+                    </div>
+                    <div class="form-group">
+                        <label for="supabase-anon-key">Anon Key</label>
+                        <input type="password" id="supabase-anon-key" placeholder="eyJhbGciOiJIUzI1NI...">
+                        <small>Chave pública (anon/public) do projeto</small>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="supabase-realtime">
+                            Ativar Sincronização em Tempo Real
+                        </label>
+                        <small>Mudanças serão sincronizadas automaticamente entre dispositivos</small>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="supabase-realtime">
-                        Ativar Sincronização em Tempo Real
-                    </label>
-                    <small>Mudanças serão sincronizadas automaticamente entre dispositivos</small>
-                </div>
+
+                <!-- Status da Conexão -->
+                <h4>📊 Status do Sistema</h4>
                 <div class="form-group">
                     <button type="button" class="btn btn-primary" id="test-supabase-connection">
                         🔗 Testar Conexão Supabase
@@ -499,6 +499,8 @@
     <!-- Toast para notificações -->
     <div id="toast" class="toast"></div>
 
+    <!-- Scripts -->
+    <script src="js/config.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

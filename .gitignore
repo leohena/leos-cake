@@ -8,6 +8,16 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Configurações sensíveis - NÃO VERSIONAR
+.env
+.env.local
+.env.production
+config.json
+
+# Manter apenas arquivo de exemplo
+!.env.example
+!config.json.example
+
 # Backups
 *.bak
 backup/

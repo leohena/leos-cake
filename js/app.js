@@ -4,7 +4,7 @@ class PreVendasApp {
         this.produtos = JSON.parse(localStorage.getItem('produtos')) || [];
         this.clientes = JSON.parse(localStorage.getItem('clientes')) || [];
         this.pedidos = JSON.parse(localStorage.getItem('pedidos')) || [];
-        this.configuracoes = JSON.parse(localStorage.getItem('configuracoes')) || this.getDefaultConfig();
+        this.configuracoes = null; // Será carregado via ConfigManager
         this.horariosDisponiveis = ['08:00', '09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
         this.currentEditId = null;
         this.currentEditType = null;
@@ -553,16 +553,31 @@ class PreVendasApp {
         img.tryNextLogo = window.tryNextLogo;
     }
 
-    init() {
+    async init() {
+        console.log('🚀 Iniciando sistema Leo\'s Cake...');
         this.showSplashScreen();
-        this.setupEventListeners();
-        this.updateDashboard();
-        this.renderProdutos();
-        this.renderClientes();
-        this.renderPedidos();
-        this.updateEntregasHoje();
-        this.setupDateFilter();
-        this.hideSplashScreen();
+        
+        try {
+            // Carregar configurações de forma segura
+            await this.initializeConfig();
+            
+            this.setupLoginLogo();
+            this.initSupabase();
+            this.setupOnlineListeners();
+            this.setupEventListeners();
+            this.updateDashboard();
+            this.renderProdutos();
+            this.renderClientes();
+            this.renderPedidos();
+            this.updateEntregasHoje();
+            this.setupDateFilter();
+            
+        } catch (error) {
+            console.error('❌ Erro na inicialização:', error);
+            this.showToast('Erro na inicialização do sistema', 'error');
+        } finally {
+            this.hideSplashScreen();
+        }
 
         // Initialize calendar variables
         this.currentCalendarDate = new Date();
@@ -574,6 +589,24 @@ class PreVendasApp {
             '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
             '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'
         ];
+    }
+
+    /**
+     * Inicializa as configurações usando o ConfigManager
+     */
+    async initializeConfig() {
+        console.log('🔧 Carregando configurações...');
+        
+        if (!window.configManager) {
+            throw new Error('ConfigManager não disponível');
+        }
+        
+        this.configuracoes = await window.configManager.init();
+        
+        // Inicialize EmailJS se configurado
+        this.initEmailJS();
+        
+        console.log('✅ Configurações carregadas:', window.configManager.getPublicConfig());
     }
 
     showSplashScreen() {
@@ -1780,28 +1813,6 @@ class PreVendasApp {
     }
 
     // CONFIGURAÇÕES
-    getDefaultConfig() {
-        return {
-            empresa: {
-                nome: "Leo's Cake",
-                telefone: "",
-                endereco: "",
-                email: ""
-            },
-            emailjs: {
-                serviceId: "",
-                templateId: "",
-                userId: ""
-            },
-            supabase: {
-                url: "",
-                anonKey: "",
-                realtime: true
-            },
-            sistemaSenha: "leoscake2024" // Senha padrão - DEVE ser alterada!
-        };
-    }
-
     initEmailJS() {
         if (window.emailjs && this.configuracoes.emailjs.userId) {
             emailjs.init(this.configuracoes.emailjs.userId);
@@ -1811,21 +1822,31 @@ class PreVendasApp {
     openConfigModal() {
         const modal = document.getElementById('config-modal');
         
-        // Preencher formulário com dados atuais
+        // Verificar se configuração pode ser editada
+        if (!window.configManager.get('security.allowConfigEdit')) {
+            this.showToast('Configurações bloqueadas em produção', 'error');
+            return;
+        }
+        
+        // Preencher formulário com dados atuais (apenas campos não-sensíveis)
         document.getElementById('empresa-nome').value = this.configuracoes.empresa.nome;
         document.getElementById('empresa-telefone').value = this.configuracoes.empresa.telefone;
         document.getElementById('empresa-endereco').value = this.configuracoes.empresa.endereco;
         document.getElementById('empresa-email').value = this.configuracoes.empresa.email;
-        
-        document.getElementById('emailjs-service').value = this.configuracoes.emailjs.serviceId;
-        document.getElementById('emailjs-template').value = this.configuracoes.emailjs.templateId;
-        document.getElementById('emailjs-user').value = this.configuracoes.emailjs.userId;
-        
-        document.getElementById('supabase-url').value = this.configuracoes.supabase.url;
-        document.getElementById('supabase-anon-key').value = this.configuracoes.supabase.anonKey;
-        document.getElementById('supabase-realtime').checked = this.configuracoes.supabase.realtime;
-        
         document.getElementById('sistema-senha').value = this.configuracoes.sistemaSenha;
+        
+        // Ocultar campos sensíveis em produção
+        const sensitiveFields = document.querySelectorAll('.sensitive-config');
+        sensitiveFields.forEach(field => {
+            field.style.display = window.configManager.get('security.allowConfigEdit') ? 'block' : 'none';
+        });
+        
+        // Mostrar aviso sobre configurações sensíveis
+        const warningDiv = document.getElementById('config-warning');
+        if (warningDiv) {
+            warningDiv.textContent = 'Configurações sensíveis devem ser definidas no arquivo config.json ou variáveis de ambiente.';
+            warningDiv.style.display = 'block';
+        }
         
         modal.classList.add('active');
     }
@@ -1835,29 +1856,30 @@ class PreVendasApp {
     }
 
     saveConfig() {
-        this.configuracoes.empresa.nome = document.getElementById('empresa-nome').value;
-        this.configuracoes.empresa.telefone = document.getElementById('empresa-telefone').value;
-        this.configuracoes.empresa.endereco = document.getElementById('empresa-endereco').value;
-        this.configuracoes.empresa.email = document.getElementById('empresa-email').value;
+        // Salvar apenas configurações não-sensíveis
+        const updates = {
+            empresa: {
+                nome: document.getElementById('empresa-nome').value,
+                telefone: document.getElementById('empresa-telefone').value,
+                endereco: document.getElementById('empresa-endereco').value,
+                email: document.getElementById('empresa-email').value
+            },
+            sistemaSenha: document.getElementById('sistema-senha').value
+        };
         
-        this.configuracoes.emailjs.serviceId = document.getElementById('emailjs-service').value;
-        this.configuracoes.emailjs.templateId = document.getElementById('emailjs-template').value;
-        this.configuracoes.emailjs.userId = document.getElementById('emailjs-user').value;
-        
-        this.configuracoes.supabase.url = document.getElementById('supabase-url').value;
-        this.configuracoes.supabase.anonKey = document.getElementById('supabase-anon-key').value;
-        this.configuracoes.supabase.realtime = document.getElementById('supabase-realtime').checked;
-        
-        // Salvar nova senha se foi alterada
-        const novaSenha = document.getElementById('sistema-senha').value;
-        if (novaSenha && novaSenha !== this.configuracoes.sistemaSenha) {
-            this.configuracoes.sistemaSenha = novaSenha;
+        // Verificar se senha foi alterada
+        if (updates.sistemaSenha !== this.configuracoes.sistemaSenha) {
             // Forçar novo login com nova senha
             localStorage.removeItem('leos_cake_auth');
             localStorage.removeItem('leos_cake_auth_expiry');
         }
         
-        localStorage.setItem('configuracoes', JSON.stringify(this.configuracoes));
+        // Salvar via ConfigManager (seguro)
+        window.configManager.saveLocalConfig(updates);
+        
+        // Atualizar configurações locais
+        this.configuracoes = window.configManager.getConfig();
+        
         this.initEmailJS();
         this.initSupabase();
         this.closeConfigModal();
@@ -2826,6 +2848,16 @@ class PreVendasApp {
 
 // Inicializar aplicação
 const app = new PreVendasApp();
+
+// Aguardar configurações antes de iniciar
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        await app.init();
+    } catch (error) {
+        console.error('❌ Erro crítico na inicialização:', error);
+        alert('Erro na inicialização do sistema. Verifique as configurações.');
+    }
+});
 
 // Service Worker para funcionamento offline (PWA)
 if ('serviceWorker' in navigator) {
