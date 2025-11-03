@@ -132,10 +132,12 @@ class PreVendasApp {
             this.updateEntregasHoje();
             this.setupDateFilter();
             
+            // 8. Esconder splash screen ao final
+            this.hideSplashScreen();
+            
         } catch (error) {
             console.error('❌ Erro na inicialização:', error);
             this.showToast('Erro na inicialização do sistema', 'error');
-        } finally {
             this.hideSplashScreen();
         }
 
@@ -713,10 +715,10 @@ class PreVendasApp {
     formatDateDisplay(date) { /* TODO: Implementar */ }
 }
 
-// Inicializar aplicação
-const app = new PreVendasApp();
+// Variável global para a aplicação
+let app;
 
-// Aguardar configurações antes de iniciar
+// Aguardar DOM e inicializar aplicação
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('📄 DOM carregado, iniciando aplicação...');
     
@@ -724,6 +726,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     await new Promise(resolve => setTimeout(resolve, 100));
     
     try {
+        // Criar aplicação apenas quando DOM estiver pronto
+        app = new PreVendasApp();
         await app.init();
     } catch (error) {
         console.error('❌ Erro crítico na inicialização:', error);
