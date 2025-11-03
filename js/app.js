@@ -430,7 +430,7 @@ class PreVendasApp {
                 <div class="login-container">
                     <div class="login-header">
                         <div class="login-logo">
-                            <img id="login-logo-img" src="./images/logo.png" alt="Leo's Cake" onerror="this.tryNextLogo()">
+                            <img id="login-logo-img" src="./images/logo-png.png" alt="Leo's Cake" onerror="tryNextLogo()">
                             <h1 id="login-logo-fallback" style="display: none;">🧁 Leo's Cake</h1>
                         </div>
                         <h2>Leo's Cake</h2>
@@ -638,6 +638,8 @@ class PreVendasApp {
         const img = document.getElementById('login-logo-img');
         const fallback = document.getElementById('login-logo-fallback');
         const possiblePaths = [
+            './images/logo-png.png',
+            'images/logo-png.png',
             './images/logo.png',
             'images/logo.png',
             './images/logo.jpg',
