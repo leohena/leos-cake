@@ -339,8 +339,8 @@ class PreVendasApp {
         console.log('🎛️ Configurando event listeners...');
         
         // Event listeners para navegação
-        const navItems = document.querySelectorAll('.nav-item');
-        console.log(`📍 Encontrados ${navItems.length} nav-items`);
+        const navItems = document.querySelectorAll('.nav-btn');
+        console.log(`📍 Encontrados ${navItems.length} nav-btn`);
         navItems.forEach(item => {
             item.addEventListener('click', () => {
                 const page = item.dataset.page;
