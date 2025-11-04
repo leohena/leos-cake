@@ -1,0 +1,2094 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="dashboard.title">Dashboard - Leo's Cake</title>
+    
+    <!-- Meta tags PWA -->
+    <meta name="theme-color" content="#4A90E2">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="images/logo-png.png">
+    <link rel="apple-touch-icon" href="images/logo-png.png">
+    
+    <!-- PWA Mobile-First CSS -->
+    <style>
+        /* Reset para PWA */
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            margin: 0 !important;
+            padding: 0 0 80px 0 !important; /* Espaço para bottom nav */
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+            background: #f8f9fa !important;
+            overflow-x: hidden !important;
+            -webkit-touch-callout: none !important;
+            -webkit-user-select: none !important;
+            user-select: none !important;
+        }
+        
+        /* Header organizado */
+        .header {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            height: 60px !important;
+            background: linear-gradient(135deg, #ff6b9d, #ffa726) !important;
+            color: white !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            padding: 0 1rem !important;
+            z-index: 1000 !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1) !important;
+        }
+        
+        .header-logo {
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.5rem !important;
+        }
+        
+        .header h1 {
+            margin: 0 !important;
+            font-size: 1.1rem !important;
+            font-weight: 600 !important;
+        }
+        
+        .logo {
+            height: 32px !important;
+            width: auto !important;
+            border-radius: 6px !important;
+        }
+        
+        .header-actions {
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.75rem !important;
+        }
+        
+        /* Seletor de idioma com ícones circulares */
+        .language-flags {
+            display: flex !important;
+            gap: 0.75rem !important;
+            align-items: center !important;
+        }
+        
+        .flag-wrapper {
+            width: 28px !important;
+            height: 28px !important;
+            cursor: pointer !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            border-radius: 50% !important;
+            border: 2px solid transparent !important;
+            background: transparent !important;
+            opacity: 0.9 !important;
+            position: relative !important;
+            overflow: hidden !important;
+            box-shadow: 
+                0 2px 8px rgba(0,0,0,0.1),
+                0 1px 3px rgba(0,0,0,0.06) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        
+        .flag-image {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
+            object-position: center !important;
+            border-radius: 50% !important;
+        }
+
+        }
+        
+        .flag-clickable::before {
+            content: '' !important;
+            position: absolute !important;
+            top: -2px !important;
+            left: -2px !important;
+            right: -2px !important;
+            bottom: -2px !important;
+            background: linear-gradient(45deg, rgba(255,255,255,0.2), transparent, rgba(255,255,255,0.1)) !important;
+            border-radius: 50% !important;
+            opacity: 0 !important;
+            transition: opacity 0.3s ease !important;
+            z-index: 1 !important;
+            pointer-events: none !important;
+        }
+        
+        .flag-clickable:hover::before {
+            opacity: 1 !important;
+        }
+        
+        .flag-clickable.active::before {
+            opacity: 0.6 !important;
+        }
+        
+        /* CSS uniforme para os wrappers das bandeiras */
+        .flag-wrapper:hover {
+            transform: translateY(-2px) scale(1.1) !important;
+            box-shadow: 
+                0 6px 20px rgba(0,0,0,0.15),
+                0 2px 6px rgba(0,0,0,0.1) !important;
+            opacity: 1 !important;
+            border-color: rgba(255, 255, 255, 0.4) !important;
+        }
+        
+        .flag-wrapper.active {
+            border-color: rgba(255, 255, 255, 0.8) !important;
+            opacity: 1 !important;
+            box-shadow: 
+                0 0 0 3px rgba(255, 255, 255, 0.25),
+                0 6px 20px rgba(0,0,0,0.2) !important;
+            transform: scale(1.05) !important;
+        }
+        
+        /* CSS genérico removido - usando apenas os específicos acima */
+        
+        /* Efeito pulse para o ativo */
+        .flag-clickable.active {
+            animation: flagPulse 2s infinite !important;
+        }
+        
+        @keyframes flagPulse {
+            0% { 
+                box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25), 0 6px 20px rgba(0,0,0,0.2);
+            }
+            50% { 
+                box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.15), 0 6px 20px rgba(0,0,0,0.2);
+            }
+            100% { 
+                box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25), 0 6px 20px rgba(0,0,0,0.2);
+            }
+        }
+        
+        /* User menu simplificado */
+        .user-menu {
+            position: relative !important;
+        }
+        
+        .user-button {
+            background: rgba(255, 255, 255, 0.1) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border-radius: 20px !important;
+            color: white !important;
+            padding: 0.3rem 0.6rem 0.3rem 0.3rem !important;
+            cursor: pointer !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.5rem !important;
+            transition: all 0.2s ease !important;
+            outline: none !important;
+        }
+        
+        .user-avatar {
+            width: 32px !important;
+            height: 32px !important;
+            border-radius: 50% !important;
+            border: 2px solid rgba(255, 255, 255, 0.3) !important;
+            transition: all 0.2s ease !important;
+        }
+        
+        .user-button:hover {
+            background: rgba(255, 255, 255, 0.2) !important;
+            border-color: rgba(255, 255, 255, 0.4) !important;
+        }
+        
+        .user-button:hover .user-avatar {
+            transform: scale(1.05) !important;
+            border-color: rgba(255, 255, 255, 0.6) !important;
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2) !important;
+        }
+        
+        .user-button .fa-chevron-down {
+            font-size: 0.7rem !important;
+            transition: transform 0.2s ease !important;
+        }
+        
+        .user-button.active .fa-chevron-down {
+            transform: rotate(180deg) !important;
+        }
+        
+        /* Dropdown do usuário */
+        .user-dropdown {
+            position: absolute !important;
+            top: calc(100% + 8px) !important;
+            right: 0 !important;
+            background: white !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
+            border: 1px solid rgba(0,0,0,0.1) !important;
+            min-width: 180px !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+            transform: translateY(-10px) !important;
+            transition: all 0.2s ease !important;
+            z-index: 1000 !important;
+        }
+        
+        .user-dropdown.show {
+            opacity: 1 !important;
+            visibility: visible !important;
+            transform: translateY(0) !important;
+        }
+        
+        .user-dropdown-item {
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.75rem !important;
+            padding: 0.75rem 1rem !important;
+            color: #333 !important;
+            cursor: pointer !important;
+            transition: background-color 0.15s ease !important;
+            font-size: 0.9rem !important;
+        }
+        
+        .user-dropdown-item:hover {
+            background: #f8f9fa !important;
+        }
+        
+        .user-dropdown-item:first-child {
+            border-radius: 8px 8px 0 0 !important;
+        }
+        
+        .user-dropdown-item:last-child {
+            border-radius: 0 0 8px 8px !important;
+        }
+        
+        .user-dropdown-item[data-logout] {
+            color: #dc3545 !important;
+        }
+        
+        .user-dropdown-item[data-logout]:hover {
+            background: #f8d7da !important;
+        }
+        
+        .user-dropdown-divider {
+            height: 1px !important;
+            background: #e9ecef !important;
+            margin: 0.25rem 0 !important;
+        }
+        
+        .user-dropdown-item i {
+            width: 16px !important;
+            text-align: center !important;
+        }
+        
+        .user-dropdown-header {
+            padding: 0.75rem 1rem 0.5rem 1rem !important;
+            font-weight: 600 !important;
+            color: #333 !important;
+            font-size: 0.9rem !important;
+            text-align: center !important;
+            border-radius: 8px 8px 0 0 !important;
+        }
+        
+        /* Remover sidebar completamente */
+        .sidebar {
+            display: none !important;
+        }
+        
+        /* Conteúdo principal mobile-first */
+        .main-content {
+            margin: 60px 0 0 0 !important;
+            padding: 1rem !important;
+            min-height: calc(100vh - 140px) !important;
+            background: #f8f9fa !important;
+        }
+        
+        /* Seções de conteúdo */
+        .content-section {
+            display: none !important;
+        }
+        
+        .content-section.active {
+            display: block !important;
+        }
+        
+        .section-header {
+            margin-bottom: 1.5rem !important;
+            text-align: center !important;
+        }
+        
+        .section-header h2 {
+            margin: 0 !important;
+            color: #333 !important;
+            font-size: 1.5rem !important;
+            font-weight: 600 !important;
+        }
+        
+        .section-actions {
+            margin-top: 1rem !important;
+            text-align: center !important;
+        }
+        
+        /* Cards de estatísticas mobile */
+        .stats-grid {
+            display: grid !important;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+            gap: 1rem !important;
+            margin-bottom: 2rem !important;
+        }
+        
+        .stat-card {
+            background: white !important;
+            padding: 1.25rem !important;
+            border-radius: 12px !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 1rem !important;
+            transition: transform 0.2s ease !important;
+        }
+        
+        .stat-card:active {
+            transform: scale(0.98) !important;
+        }
+        
+        .stat-icon {
+            width: 50px !important;
+            height: 50px !important;
+            background: linear-gradient(135deg, #ff6b9d, #ffa726) !important;
+            border-radius: 10px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            color: white !important;
+            font-size: 1.25rem !important;
+        }
+        
+        .stat-content h3 {
+            margin: 0 0 0.25rem 0 !important;
+            font-size: 1.75rem !important;
+            font-weight: 700 !important;
+            color: #333 !important;
+        }
+        
+        .stat-content p {
+            margin: 0 !important;
+            color: #666 !important;
+            font-size: 0.85rem !important;
+        }
+        
+        /* Bottom Navigation PWA */
+        .bottom-nav {
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            height: 80px !important;
+            background: white !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-around !important;
+            border-top: 1px solid #e1e5e9 !important;
+            z-index: 1000 !important;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1) !important;
+            padding: 0.5rem 0 !important;
+        }
+        
+        .nav-btn {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 0.5rem !important;
+            border: none !important;
+            background: none !important;
+            color: #666 !important;
+            text-decoration: none !important;
+            font-size: 0.75rem !important;
+            font-weight: 500 !important;
+            transition: all 0.2s ease !important;
+            border-radius: 8px !important;
+            min-width: 60px !important;
+            cursor: pointer !important;
+        }
+        
+        .nav-btn:active {
+            transform: scale(0.95) !important;
+            background: #f0f0f0 !important;
+        }
+        
+        .nav-btn.active {
+            color: #ff6b9d !important;
+        }
+        
+        .nav-icon {
+            font-size: 1.5rem !important;
+            margin-bottom: 0.25rem !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1)) !important;
+        }
+        
+        /* Ícones modernos com gradientes */
+        .nav-btn.active .nav-icon {
+            background: linear-gradient(135deg, #ff6b9d, #ffa726) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            background-clip: text !important;
+            filter: drop-shadow(0 2px 4px rgba(255,107,157,0.3)) !important;
+            transform: scale(1.1) !important;
+        }
+        
+        /* Efeito hover nos ícones */
+        .nav-btn:hover .nav-icon {
+            transform: scale(1.05) translateY(-1px) !important;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2)) !important;
+        }
+        
+        /* Ícones específicos com cores modernas */
+        .nav-btn[data-section="dashboard"] .nav-icon i {
+            color: #4338ca !important;
+        }
+        
+        .nav-btn[data-section="clientes"] .nav-icon i {
+            color: #059669 !important;
+        }
+        
+        .nav-btn[data-section="produtos"] .nav-icon i {
+            color: #d97706 !important;
+        }
+        
+        .nav-btn[data-section="pedidos"] .nav-icon i {
+            color: #dc2626 !important;
+        }
+        
+        .nav-btn[data-section="estoque"] .nav-icon i {
+            color: #7c3aed !important;
+        }
+        
+        .nav-btn[data-section="entregas"] .nav-icon i {
+            color: #0891b2 !important;
+        }
+        
+        /* Estado ativo com gradiente */
+        .nav-btn.active .nav-icon i {
+            background: linear-gradient(135deg, #ff6b9d, #ffa726) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            background-clip: text !important;
+        }
+        
+        .nav-text {
+            font-size: 0.7rem !important;
+            line-height: 1 !important;
+        }
+        
+        /* Botões e elementos interativos */
+        .btn {
+            padding: 0.75rem 1.5rem !important;
+            border-radius: 8px !important;
+            font-weight: 500 !important;
+            font-size: 0.9rem !important;
+            border: none !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 0.5rem !important;
+        }
+        
+        .btn:active {
+            transform: scale(0.98) !important;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #ff6b9d, #ffa726) !important;
+            color: white !important;
+        }
+        
+        /* Ajustes para mobile pequeno */
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+            animation: modalFadeIn 0.3s ease-out;
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 0;
+            border: none;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-header {
+            padding: 20px 24px 16px;
+            border-bottom: 1px solid #eee;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px 12px 0 0;
+            position: relative;
+        }
+
+        .modal-title {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            position: absolute;
+            right: 16px;
+            top: 16px;
+            color: rgba(255,255,255,0.8);
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover {
+            color: white;
+            background-color: rgba(255,255,255,0.1);
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        /* Profile Modal Specific */
+        .profile-avatar {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .avatar-preview {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background-size: cover;
+            background-position: center;
+            background-color: #f0f0f0;
+            margin: 0 auto 12px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .avatar-preview:hover {
+            transform: scale(1.05);
+        }
+
+        .avatar-upload-btn {
+            background: none;
+            border: none;
+            color: #007bff;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: underline;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+
+        .form-row {
+            display: flex;
+            gap: 16px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        /* Settings Modal Specific */
+        .settings-tabs {
+            display: flex;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 24px;
+        }
+
+        .settings-tab {
+            flex: 1;
+            padding: 12px 16px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            color: #666;
+            transition: all 0.2s;
+        }
+
+        .settings-tab.active {
+            color: #007bff;
+            border-bottom: 2px solid #007bff;
+        }
+
+        .settings-tab-content {
+            display: none;
+        }
+
+        .settings-tab-content.active {
+            display: block;
+        }
+
+        /* Modal Footer */
+        .modal-footer {
+            padding: 16px 24px 24px;
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                padding: 0 0.75rem !important;
+            }
+            
+            .header h1 {
+                font-size: 1rem !important;
+            }
+            
+            .logo {
+                height: 28px !important;
+            }
+            
+            .language-selector {
+                padding: 0.3rem 0.5rem !important;
+                font-size: 0.9rem !important;
+            }
+            
+            .user-button {
+                padding: 0.3rem 0.6rem !important;
+                font-size: 0.8rem !important;
+            }
+            
+            /* Modal Mobile Styles */
+            .modal-content {
+                margin: 10px;
+                width: calc(100% - 20px);
+                max-height: calc(100vh - 20px);
+                overflow-y: auto;
+            }
+
+            .form-row {
+                flex-direction: column;
+                gap: 0;
+            }
+
+            .settings-tabs {
+                flex-wrap: wrap;
+            }
+
+            .settings-tab {
+                flex: none;
+                min-width: 33.33%;
+            }
+
+            .modal-footer {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+        
+        /* Responsividade Desktop (opcional) */
+        @media (min-width: 1024px) {
+            .main-content {
+                max-width: 1200px !important;
+                margin: 60px auto 0 auto !important;
+                padding: 2rem !important;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(4, 1fr) !important;
+            }
+            
+            .bottom-nav {
+                display: none !important;
+            }
+            
+            .header h1 {
+                font-size: 1.3rem !important;
+            }
+            
+            .language-selector {
+                font-size: 1.1rem !important;
+            }
+        }
+        
+        /* PWA: Esconder elementos do navegador */
+        @media (display-mode: standalone) {
+            body {
+                padding-top: env(safe-area-inset-top) !important;
+                padding-bottom: calc(80px + env(safe-area-inset-bottom)) !important;
+            }
+            
+            .header {
+                top: env(safe-area-inset-top) !important;
+            }
+            
+            .bottom-nav {
+                bottom: env(safe-area-inset-bottom) !important;
+                padding-bottom: env(safe-area-inset-bottom) !important;
+            }
+        }
+    </style>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Scripts externos -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-logo">
+            <img src="images/logo-png.png" alt="Leo's Cake" class="logo">
+            <h1 data-i18n="dashboard.title">Dashboard</h1>
+        </div>
+        <div class="header-actions">
+            <!-- Seletor de idioma com bandeiras -->
+            <div class="language-flags">
+                <div class="flag-wrapper" onclick="changeLanguage('pt')" data-lang="pt" title="Português">
+                    <img src="images/brasil_icon.jpg" alt="Português" class="flag-image">
+                </div>
+                <div class="flag-wrapper" onclick="changeLanguage('en')" data-lang="en" title="English">
+                    <img src="images/canada_icon.jpg" alt="English" class="flag-image">
+                </div>
+            </div>
+            
+            <!-- Menu do usuário -->
+            <div class="user-menu">
+                <button class="user-button" id="user-menu-button">
+                    <img src="https://ui-avatars.com/api/?name=Usuario&background=ff6b9d&color=ffffff&size=32&rounded=true" 
+                         alt="Avatar" 
+                         id="user-avatar" 
+                         class="user-avatar">
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="user-dropdown" id="user-dropdown">
+                    <div class="user-dropdown-header">
+                        <span id="dropdown-user-name">Usuário</span>
+                    </div>
+                    <div class="user-dropdown-divider"></div>
+                    <div class="user-dropdown-item" onclick="openProfileModal()">
+                        <i class="fas fa-user"></i>
+                        <span data-i18n="user.profile">Perfil</span>
+                    </div>
+                    <div class="user-dropdown-item" onclick="openSettingsModal()">
+                        <i class="fas fa-cog"></i>
+                        <span data-i18n="user.settings">Configurações</span>
+                    </div>
+                    <div class="user-dropdown-divider"></div>
+                    <div class="user-dropdown-item" data-logout>
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span data-i18n="logout">Sair</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <nav class="sidebar-nav">
+            <ul>
+                <li>
+                    <a href="#dashboard" class="nav-link active" data-section="dashboard">
+                        <i class="fas fa-chart-pie"></i>
+                        <span data-i18n="nav.dashboard">Dashboard</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#clientes" class="nav-link" data-section="clientes">
+                        <i class="fas fa-user-friends"></i>
+                        <span data-i18n="nav.clients">Clientes</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#produtos" class="nav-link" data-section="produtos">
+                        <i class="fas fa-cookie-bite"></i>
+                        <span data-i18n="nav.products">Produtos</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#pedidos" class="nav-link" data-section="pedidos">
+                        <i class="fas fa-receipt"></i>
+                        <span data-i18n="nav.orders">Pedidos</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#estoque" class="nav-link" data-section="estoque">
+                        <i class="fas fa-warehouse"></i>
+                        <span data-i18n="nav.stock">Estoque</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#entregas" class="nav-link" data-section="entregas">
+                        <i class="fas fa-shipping-fast"></i>
+                        <span data-i18n="nav.deliveries">Entregas</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Dashboard Section -->
+        <section id="dashboard-section" class="content-section active">
+            <div class="section-header">
+                <h2 data-i18n="dashboard.title">Dashboard</h2>
+                <div class="section-actions">
+                    <button class="btn btn-primary" id="novo-pedido-btn">
+                        <i class="fas fa-plus"></i>
+                        <span data-i18n="dashboard.newOrder">Novo Pedido</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Cards de Estatísticas -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-birthday-cake"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="total-produtos">0</h3>
+                        <p data-i18n="dashboard.totalProducts">Total de Produtos</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="total-clientes">0</h3>
+                        <p data-i18n="dashboard.totalClients">Total de Clientes</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="pedidos-pendentes">0</h3>
+                        <p data-i18n="dashboard.pendingOrders">Pedidos Pendentes</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-dollar-sign"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="receita-mes">R$ 0,00</h3>
+                        <p data-i18n="dashboard.monthRevenue">Receita do Mês</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gráficos e Tabelas Recentes -->
+            <div class="dashboard-grid">
+                <div class="dashboard-card">
+                    <h3 data-i18n="dashboard.recentOrders">Pedidos Recentes</h3>
+                    <div class="table-container" id="recent-orders-container">
+                        <!-- Tabela será preenchida dinamicamente -->
+                    </div>
+                </div>
+                
+                <div class="dashboard-card">
+                    <h3 data-i18n="dashboard.todayDeliveries">Entregas de Hoje</h3>
+                    <div class="table-container" id="today-deliveries-container">
+                        <!-- Tabela será preenchida dinamicamente -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Clientes Section -->
+        <section id="clientes-section" class="content-section">
+            <div class="section-header">
+                <h2 data-i18n="nav.clients">Clientes</h2>
+                <div class="section-actions">
+                    <button class="btn btn-primary" id="novo-cliente-btn">
+                        <i class="fas fa-plus"></i>
+                        <span data-i18n="clients.new">Novo Cliente</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filtros -->
+            <div class="filters-bar">
+                <input type="search" placeholder="Buscar cliente..." data-i18n-placeholder="clients.search" class="search-input" id="search-clientes">
+                <select class="filter-select" id="filter-cliente-idioma">
+                    <option value="">Todos os idiomas</option>
+                    <option value="pt">Português</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
+
+            <!-- Lista de Clientes -->
+            <div class="data-container" id="clientes-container">
+                <!-- Conteúdo será carregado dinamicamente -->
+            </div>
+        </section>
+
+        <!-- Produtos Section -->
+        <section id="produtos-section" class="content-section">
+            <div class="section-header">
+                <h2 data-i18n="nav.products">Produtos</h2>
+                <div class="section-actions">
+                    <button class="btn btn-primary" id="novo-produto-btn">
+                        <i class="fas fa-plus"></i>
+                        <span data-i18n="products.new">Novo Produto</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filtros -->
+            <div class="filters-bar">
+                <input type="search" placeholder="Buscar produto..." data-i18n-placeholder="products.search" class="search-input" id="search-produtos">
+                <select class="filter-select" id="filter-categoria">
+                    <option value="">Todas as categorias</option>
+                    <option value="bolos">Bolos</option>
+                    <option value="tortas">Tortas</option>
+                    <option value="doces">Doces</option>
+                    <option value="salgados">Salgados</option>
+                </select>
+            </div>
+
+            <!-- Lista de Produtos -->
+            <div class="data-container" id="produtos-container">
+                <!-- Conteúdo será carregado dinamicamente -->
+            </div>
+        </section>
+
+        <!-- Pedidos Section -->
+        <section id="pedidos-section" class="content-section">
+            <div class="section-header">
+                <h2 data-i18n="nav.orders">Pedidos</h2>
+                <div class="section-actions">
+                    <button class="btn btn-primary" id="novo-pedido-btn2">
+                        <i class="fas fa-plus"></i>
+                        <span data-i18n="orders.new">Novo Pedido</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filtros -->
+            <div class="filters-bar">
+                <input type="search" placeholder="Buscar pedido..." data-i18n-placeholder="orders.search" class="search-input" id="search-pedidos">
+                <select class="filter-select" id="filter-status">
+                    <option value="">Todos os status</option>
+                    <option value="pendente">Pendente</option>
+                    <option value="confirmado">Confirmado</option>
+                    <option value="producao">Em Produção</option>
+                    <option value="pronto">Pronto</option>
+                    <option value="entregue">Entregue</option>
+                    <option value="cancelado">Cancelado</option>
+                </select>
+                <input type="date" class="filter-date" id="filter-data-inicio" placeholder="Data início">
+                <input type="date" class="filter-date" id="filter-data-fim" placeholder="Data fim">
+            </div>
+
+            <!-- Lista de Pedidos -->
+            <div class="data-container" id="pedidos-container">
+                <!-- Conteúdo será carregado dinamicamente -->
+            </div>
+        </section>
+
+        <!-- Estoque Section -->
+        <section id="estoque-section" class="content-section">
+            <div class="section-header">
+                <h2 data-i18n="nav.stock">Estoque</h2>
+                <div class="section-actions">
+                    <button class="btn btn-primary" id="novo-estoque-btn">
+                        <i class="fas fa-plus"></i>
+                        <span data-i18n="stock.new">Adicionar Estoque</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filtros -->
+            <div class="filters-bar">
+                <input type="search" placeholder="Buscar no estoque..." data-i18n-placeholder="stock.search" class="search-input" id="search-estoque">
+                <select class="filter-select" id="filter-estoque-categoria">
+                    <option value="">Todas as categorias</option>
+                    <option value="bolos">Bolos</option>
+                    <option value="tortas">Tortas</option>
+                    <option value="doces">Doces</option>
+                    <option value="salgados">Salgados</option>
+                </select>
+                <select class="filter-select" id="filter-estoque-status">
+                    <option value="">Todos</option>
+                    <option value="disponivel">Disponível</option>
+                    <option value="baixo">Estoque Baixo</option>
+                    <option value="esgotado">Esgotado</option>
+                </select>
+            </div>
+
+            <!-- Lista de Estoque -->
+            <div class="data-container" id="estoque-container">
+                <!-- Conteúdo será carregado dinamicamente -->
+            </div>
+        </section>
+
+        <!-- Entregas Section -->
+        <section id="entregas-section" class="content-section">
+            <div class="section-header">
+                <h2 data-i18n="nav.deliveries">Entregas</h2>
+                <div class="section-actions">
+                    <button class="btn btn-primary" id="nova-entrega-btn">
+                        <i class="fas fa-plus"></i>
+                        <span data-i18n="deliveries.new">Nova Entrega</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filtros -->
+            <div class="filters-bar">
+                <input type="search" placeholder="Buscar entrega..." data-i18n-placeholder="deliveries.search" class="search-input" id="search-entregas">
+                <input type="date" class="filter-date" id="filter-entrega-data" placeholder="Data da entrega">
+                <select class="filter-select" id="filter-entrega-status">
+                    <option value="">Todos os status</option>
+                    <option value="agendada">Agendada</option>
+                    <option value="saiu">Saiu para Entrega</option>
+                    <option value="entregue">Entregue</option>
+                    <option value="reagendada">Reagendada</option>
+                </select>
+            </div>
+
+            <!-- Lista de Entregas -->
+            <div class="data-container" id="entregas-container">
+                <!-- Conteúdo será carregado dinamicamente -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Profile Modal -->
+    <div id="profile-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" data-i18n="user.profile">Perfil</h2>
+                <span class="modal-close" onclick="closeModal('profile-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="profile-avatar">
+                    <div id="avatar-preview" class="avatar-preview" onclick="triggerAvatarUpload()"></div>
+                    <button type="button" class="avatar-upload-btn" onclick="triggerAvatarUpload()" data-i18n="user.change_photo">Alterar Foto</button>
+                    <input type="file" id="avatar-upload" accept="image/*" style="display: none;" onchange="handleAvatarUpload(event)">
+                </div>
+
+                <div class="form-group">
+                    <label for="profile-name" data-i18n="user.name">Nome:</label>
+                    <input type="text" id="profile-name" name="name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="profile-email" data-i18n="user.email">Email:</label>
+                    <input type="email" id="profile-email" name="email" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="user-type" data-i18n="user.type">Tipo de Usuário:</label>
+                    <select id="user-type" name="userType">
+                        <option value="admin" data-i18n="user.admin">Administrador</option>
+                        <option value="operator" data-i18n="user.operator">Operador</option>
+                        <option value="viewer" data-i18n="user.viewer">Visualizador</option>
+                    </select>
+                </div>
+
+                <hr style="margin: 24px 0;">
+
+                <h3 data-i18n="user.change_password">Alterar Senha</h3>
+
+                <div class="form-group">
+                    <label for="current-password" data-i18n="user.current_password">Senha Atual:</label>
+                    <input type="password" id="current-password" name="currentPassword">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="new-password" data-i18n="user.new_password">Nova Senha:</label>
+                        <input type="password" id="new-password" name="newPassword" placeholder="Deixe em branco para manter a atual">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm-password" data-i18n="user.confirm_password">Confirmar Senha:</label>
+                        <input type="password" id="confirm-password" name="confirmPassword" placeholder="Confirme a nova senha">
+                    </div>
+                </div>
+                
+                <div class="form-group" style="margin-top: 12px;">
+                    <small style="color: #666; font-size: 12px;">
+                        <strong data-i18n="user.password_hint">Dica:</strong> 
+                        <span data-i18n="user.password_help">Deixe os campos de senha em branco se não quiser alterá-la. A nova senha deve ter pelo menos 6 caracteres.</span>
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('profile-modal')" data-i18n="cancel">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveProfile()" data-i18n="save">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" data-i18n="user.settings">Configurações</h2>
+                <span class="modal-close" onclick="closeModal('settings-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="settings-tabs">
+                    <button class="settings-tab active" onclick="openSettingsTab('company')" data-i18n="settings.company">Empresa</button>
+                    <button class="settings-tab" onclick="openSettingsTab('email')" data-i18n="settings.email">Email</button>
+                    <button class="settings-tab" onclick="openSettingsTab('system')" data-i18n="settings.system">Sistema</button>
+                </div>
+
+                <!-- Company Tab -->
+                <div id="company-tab" class="settings-tab-content active">
+                    <div class="form-group">
+                        <label for="company-name" data-i18n="settings.company_name">Nome da Empresa:</label>
+                        <input type="text" id="company-name" name="companyName" value="Leo's Cake">
+                    </div>
+                    <div class="form-group">
+                        <label for="company-phone" data-i18n="settings.phone">Telefone:</label>
+                        <input type="tel" id="company-phone" name="companyPhone">
+                    </div>
+                    <div class="form-group">
+                        <label for="company-address" data-i18n="settings.address">Endereço:</label>
+                        <textarea id="company-address" name="companyAddress" rows="3"></textarea>
+                    </div>
+                </div>
+
+                <!-- Email Tab -->
+                <div id="email-tab" class="settings-tab-content">
+                    <div class="form-group">
+                        <label for="email-service" data-i18n="settings.email_service">Serviço de Email:</label>
+                        <select id="email-service" name="emailService">
+                            <option value="emailjs">EmailJS</option>
+                            <option value="smtp">SMTP</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="email-template" data-i18n="settings.email_template">Template de Email:</label>
+                        <input type="text" id="email-template" name="emailTemplate">
+                    </div>
+                    <div class="form-group">
+                        <label for="email-from" data-i18n="settings.from_email">Email Remetente:</label>
+                        <input type="email" id="email-from" name="emailFrom">
+                    </div>
+                </div>
+
+                <!-- System Tab -->
+                <div id="system-tab" class="settings-tab-content">
+                    <div class="form-group">
+                        <label for="currency" data-i18n="settings.currency">Moeda:</label>
+                        <select id="currency" name="currency">
+                            <option value="BRL">Real (R$)</option>
+                            <option value="USD">Dólar ($)</option>
+                            <option value="EUR">Euro (€)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="timezone" data-i18n="settings.timezone">Fuso Horário:</label>
+                        <select id="timezone" name="timezone">
+                            <option value="America/Sao_Paulo">Brasília (GMT-3)</option>
+                            <option value="America/New_York">Nova York (GMT-5)</option>
+                            <option value="Europe/London">Londres (GMT+0)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="date-format" data-i18n="settings.date_format">Formato de Data:</label>
+                        <select id="date-format" name="dateFormat">
+                            <option value="DD/MM/YYYY">DD/MM/AAAA</option>
+                            <option value="MM/DD/YYYY">MM/DD/AAAA</option>
+                            <option value="YYYY-MM-DD">AAAA-MM-DD</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('settings-modal')" data-i18n="cancel">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveSettings()" data-i18n="save">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation PWA -->
+    <nav class="bottom-nav">
+        <button class="nav-btn active" data-section="dashboard">
+            <span class="nav-icon"><i class="fas fa-chart-pie"></i></span>
+            <span class="nav-text" data-i18n="nav.dashboard">Dashboard</span>
+        </button>
+        <button class="nav-btn" data-section="clientes">
+            <span class="nav-icon"><i class="fas fa-user-friends"></i></span>
+            <span class="nav-text" data-i18n="nav.clients">Clientes</span>
+        </button>
+        <button class="nav-btn" data-section="produtos">
+            <span class="nav-icon"><i class="fas fa-cookie-bite"></i></span>
+            <span class="nav-text" data-i18n="nav.products">Produtos</span>
+        </button>
+        <button class="nav-btn" data-section="pedidos">
+            <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+            <span class="nav-text" data-i18n="nav.orders">Pedidos</span>
+        </button>
+        <button class="nav-btn" data-section="estoque">
+            <span class="nav-icon"><i class="fas fa-warehouse"></i></span>
+            <span class="nav-text" data-i18n="nav.stock">Estoque</span>
+        </button>
+        <button class="nav-btn" data-section="entregas">
+            <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
+            <span class="nav-text" data-i18n="nav.deliveries">Entregas</span>
+        </button>
+    </nav>
+
+    <!-- Modals -->
+    <div id="modal-overlay" class="modal-overlay"></div>
+    
+    <!-- Modal de Perfil do Usuário -->
+    <div id="modal-perfil" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 data-i18n="user.profile">Perfil</h3>
+                <button class="modal-close" data-modal-close>&times;</button>
+            </div>
+            <form id="form-perfil" class="modal-form">
+                <div class="profile-avatar-section">
+                    <div class="avatar-preview">
+                        <img id="profile-avatar-preview" src="" alt="Avatar" class="profile-avatar">
+                        <button type="button" class="avatar-change-btn" id="change-avatar-btn">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                    </div>
+                    <input type="file" id="avatar-input" accept="image/*" style="display: none;">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="perfil-nome" data-i18n="user.name">Nome:</label>
+                        <input type="text" id="perfil-nome" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="perfil-username" data-i18n="user.username">Usuário:</label>
+                        <input type="text" id="perfil-username" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="perfil-email" data-i18n="user.email">Email:</label>
+                    <input type="email" id="perfil-email">
+                </div>
+                
+                <div class="form-divider">
+                    <span data-i18n="user.changePassword">Alterar Senha</span>
+                </div>
+                
+                <div class="form-group">
+                    <label for="perfil-senha-atual" data-i18n="user.currentPassword">Senha Atual:</label>
+                    <input type="password" id="perfil-senha-atual">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="perfil-nova-senha" data-i18n="user.newPassword">Nova Senha:</label>
+                        <input type="password" id="perfil-nova-senha">
+                    </div>
+                    <div class="form-group">
+                        <label for="perfil-confirmar-senha" data-i18n="user.confirmPassword">Confirmar Senha:</label>
+                        <input type="password" id="perfil-confirmar-senha">
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" data-modal-close data-i18n="common.cancel">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="common.save">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Modal de Configurações -->
+    <div id="modal-configuracoes" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 data-i18n="user.settings">Configurações</h3>
+                <button class="modal-close" data-modal-close>&times;</button>
+            </div>
+            
+            <div class="settings-tabs">
+                <button class="settings-tab active" data-tab="empresa">
+                    <i class="fas fa-building"></i>
+                    <span data-i18n="settings.company">Empresa</span>
+                </button>
+                <button class="settings-tab" data-tab="email">
+                    <i class="fas fa-envelope"></i>
+                    <span data-i18n="settings.email">Email</span>
+                </button>
+                <button class="settings-tab" data-tab="sistema">
+                    <i class="fas fa-cogs"></i>
+                    <span data-i18n="settings.system">Sistema</span>
+                </button>
+            </div>
+            
+            <!-- Aba Empresa -->
+            <div class="settings-content active" data-content="empresa">
+                <form id="form-configuracoes-empresa" class="modal-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="config-empresa-nome" data-i18n="settings.companyName">Nome da Empresa:</label>
+                            <input type="text" id="config-empresa-nome" value="Leo's Cake">
+                        </div>
+                        <div class="form-group">
+                            <label for="config-empresa-telefone" data-i18n="settings.phone">Telefone:</label>
+                            <input type="tel" id="config-empresa-telefone">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="config-empresa-email" data-i18n="settings.companyEmail">Email da Empresa:</label>
+                        <input type="email" id="config-empresa-email">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="config-empresa-endereco" data-i18n="settings.address">Endereço:</label>
+                        <textarea id="config-empresa-endereco" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Aba Email -->
+            <div class="settings-content" data-content="email">
+                <form id="form-configuracoes-email" class="modal-form">
+                    <div class="form-group">
+                        <label for="config-email-service" data-i18n="settings.emailServiceId">EmailJS Service ID:</label>
+                        <input type="text" id="config-email-service" placeholder="service_xxxxxxx">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="config-email-template" data-i18n="settings.emailTemplateId">EmailJS Template ID:</label>
+                        <input type="text" id="config-email-template" placeholder="template_xxxxxxx">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="config-email-user" data-i18n="settings.emailUserId">EmailJS User ID:</label>
+                        <input type="text" id="config-email-user" placeholder="user_xxxxxxx">
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Aba Sistema -->
+            <div class="settings-content" data-content="sistema">
+                <form id="form-configuracoes-sistema" class="modal-form">
+                    <div class="form-group">
+                        <label for="config-idioma-padrao" data-i18n="settings.defaultLanguage">Idioma Padrão:</label>
+                        <select id="config-idioma-padrao">
+                            <option value="pt">Português</option>
+                            <option value="en">English</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="config-tema" data-i18n="settings.theme">Tema:</label>
+                        <select id="config-tema">
+                            <option value="claro">Claro</option>
+                            <option value="escuro">Escuro</option>
+                            <option value="auto">Automático</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label data-i18n="settings.notifications">Notificações:</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="config-notif-pedidos" checked>
+                                <span data-i18n="settings.orderNotifications">Novos Pedidos</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="config-notif-entregas" checked>
+                                <span data-i18n="settings.deliveryNotifications">Entregas</span>
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" data-modal-close data-i18n="common.cancel">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="save-settings" data-i18n="common.save">Salvar</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal de Cliente -->
+    <div id="modal-cliente" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-cliente-title" data-i18n="clients.new">Novo Cliente</h3>
+                <button class="modal-close" data-modal-close>&times;</button>
+            </div>
+            <form id="form-cliente" class="modal-form">
+                <div class="form-group">
+                    <label for="cliente-nome" data-i18n="clients.name">Nome:</label>
+                    <input type="text" id="cliente-nome" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="cliente-telefone" data-i18n="clients.phone">Telefone:</label>
+                        <input type="tel" id="cliente-telefone" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cliente-email" data-i18n="clients.email">Email:</label>
+                        <input type="email" id="cliente-email">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="cliente-endereco" data-i18n="clients.address">Endereço:</label>
+                    <textarea id="cliente-endereco" rows="3"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="cliente-idioma" data-i18n="clients.language">Idioma Preferido:</label>
+                        <select id="cliente-idioma" required>
+                            <option value="pt">Português</option>
+                            <option value="en">English</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="cliente-data-nascimento" data-i18n="clients.birthday">Data de Nascimento:</label>
+                        <input type="date" id="cliente-data-nascimento">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="cliente-observacoes" data-i18n="clients.notes">Observações:</label>
+                    <textarea id="cliente-observacoes" rows="2"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" data-modal-close data-i18n="common.cancel">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="common.save">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loading-spinner" class="loading-spinner">
+        <div class="spinner"></div>
+        <p data-i18n="common.loading">Carregando...</p>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="js/i18n.js"></script>
+    <script src="js/auth-system.js"></script>
+    <script src="js/data-manager.js"></script>
+    <script src="js/receipt-system.js"></script>
+    <script src="js/dashboard-app.js"></script>
+
+    <script>
+        // ============================================
+// SCRIPT DE INICIALIZAÇÃO DO DASHBOARD
+// Cole este código no final do dashboard.html, substituindo o script existente
+// ============================================
+
+// Verificar autenticação ao carregar a página
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log('📊 Dashboard carregando...');
+    
+    try {
+        // PASSO 1: Aguardar AuthSystem estar disponível
+        let attempts = 0;
+        while (!window.authSystem && attempts < 50) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
+        }
+        
+        if (!window.authSystem) {
+            console.error('❌ AuthSystem não encontrado após 5 segundos');
+            alert('Sistema não inicializado. Faça login novamente.');
+            window.location.href = 'index.html';
+            return;
+        }
+        
+        console.log('✅ AuthSystem encontrado');
+        
+        // PASSO 2: Verificar se está autenticado
+        const userData = sessionStorage.getItem('currentUser');
+        
+        if (!userData) {
+            console.warn('⚠️ Usuário não autenticado - redirecionando para login');
+            window.location.href = 'index.html';
+            return;
+        }
+        
+        let currentUser;
+        try {
+            currentUser = JSON.parse(userData);
+        } catch (error) {
+            console.error('❌ Erro ao parsear dados do usuário:', error);
+            sessionStorage.removeItem('currentUser');
+            window.location.href = 'index.html';
+            return;
+        }
+        
+        // Verificar se tem dados válidos
+        if (!currentUser || !currentUser.id || !currentUser.nome) {
+            console.error('❌ Dados do usuário inválidos');
+            sessionStorage.removeItem('currentUser');
+            window.location.href = 'index.html';
+            return;
+        }
+        
+        console.log('✅ Usuário autenticado:', currentUser.nome);
+        
+        // PASSO 3: Atualizar AuthSystem com usuário atual
+        window.authSystem.currentUser = currentUser;
+        
+        // PASSO 4: Atualizar interface
+        updateUserInterface();
+        
+        // PASSO 5: Configurar navegação
+        setupNavigation();
+        
+        // PASSO 6: Configurar logout
+        setupLogout();
+        
+        console.log('✅ Dashboard inicializado com sucesso');
+        
+    } catch (error) {
+        console.error('❌ Erro ao inicializar dashboard:', error);
+        alert('Erro ao carregar dashboard. Faça login novamente.');
+        window.location.href = 'index.html';
+    }
+});
+
+// ============================================
+// FUNÇÕES DE INTERFACE
+// ============================================
+
+function updateUserInterface() {
+    const auth = window.authSystem;
+    if (!auth || !auth.currentUser) {
+        console.error('❌ Nenhum usuário para atualizar interface');
+        return;
+    }
+    
+    const user = auth.currentUser;
+    console.log('🎨 Atualizando interface para:', user.nome);
+    
+    // Atualizar nome do usuário
+    const userNameElement = document.getElementById('user-name');
+    const dropdownUserName = document.getElementById('dropdown-user-name');
+    
+    if (userNameElement) userNameElement.textContent = user.nome || user.email;
+    if (dropdownUserName) dropdownUserName.textContent = user.nome || user.email;
+    
+    // Atualizar avatar
+    loadUserAvatar();
+    
+    console.log('✅ Interface atualizada');
+}
+
+function loadUserAvatar() {
+    const auth = window.authSystem;
+    if (!auth || !auth.currentUser) return;
+    
+    const user = auth.currentUser;
+    const avatarPreview = document.getElementById('avatar-preview');
+    const userAvatar = document.getElementById('user-avatar');
+    
+    console.log('🖼️ Carregando avatar para:', user.nome);
+    
+    let avatarUrl;
+    
+    if (user.foto_url && user.foto_url.trim() !== '') {
+        avatarUrl = user.foto_url;
+        console.log('✅ Usando foto personalizada');
+    } else {
+        // Gerar avatar com iniciais
+        const userName = user.nome || user.email || 'Usuario';
+        const initials = userName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+        avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=ff6b9d&color=ffffff&size=128&rounded=true`;
+        console.log('✅ Usando avatar gerado');
+    }
+    
+    if (avatarPreview) {
+        avatarPreview.style.backgroundImage = `url(${avatarUrl})`;
+        avatarPreview.style.backgroundSize = 'cover';
+        avatarPreview.style.backgroundPosition = 'center';
+    }
+    
+    if (userAvatar) {
+        if (userAvatar.tagName === 'IMG') {
+            userAvatar.src = avatarUrl;
+        } else {
+            userAvatar.style.backgroundImage = `url(${avatarUrl})`;
+            userAvatar.style.backgroundSize = 'cover';
+            userAvatar.style.backgroundPosition = 'center';
+        }
+    }
+}
+
+// ============================================
+// NAVEGAÇÃO
+// ============================================
+
+function setupNavigation() {
+    console.log('🧭 Configurando navegação...');
+    
+    // Navegação inferior
+    const navButtons = document.querySelectorAll('.nav-btn[data-section]');
+    
+    navButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const section = this.getAttribute('data-section');
+            navigateToSection(section);
+        });
+    });
+    
+    // Navegação sidebar (se existir)
+    const sidebarLinks = document.querySelectorAll('.nav-link[data-section]');
+    
+    sidebarLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const section = this.getAttribute('data-section');
+            navigateToSection(section);
+        });
+    });
+    
+    console.log('✅ Navegação configurada');
+}
+
+function navigateToSection(sectionName) {
+    console.log('🧭 Navegando para:', sectionName);
+    
+    // Remover 'active' de todas as seções
+    document.querySelectorAll('.content-section').forEach(section => {
+        section.classList.remove('active');
+    });
+    
+    // Remover 'active' de todos os botões de navegação
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active');
+    });
+    
+    // Ativar seção correspondente
+    const targetSection = document.getElementById(`${sectionName}-section`);
+    if (targetSection) {
+        targetSection.classList.add('active');
+    }
+    
+    // Ativar botão correspondente
+    const targetButton = document.querySelector(`.nav-btn[data-section="${sectionName}"]`);
+    if (targetButton) {
+        targetButton.classList.add('active');
+    }
+    
+    const targetLink = document.querySelector(`.nav-link[data-section="${sectionName}"]`);
+    if (targetLink) {
+        targetLink.classList.add('active');
+    }
+    
+    // Atualizar título da página
+    const pageTitle = document.getElementById('page-title');
+    if (pageTitle) {
+        const sectionTitles = {
+            'dashboard': 'Dashboard',
+            'clientes': 'Clientes',
+            'produtos': 'Produtos',
+            'pedidos': 'Pedidos',
+            'estoque': 'Estoque',
+            'entregas': 'Entregas'
+        };
+        pageTitle.textContent = sectionTitles[sectionName] || 'Dashboard';
+    }
+}
+
+// ============================================
+// LOGOUT
+// ============================================
+
+function setupLogout() {
+    console.log('🚪 Configurando logout...');
+    
+    // Botão de logout no dropdown
+    const logoutButton = document.querySelector('[data-logout]');
+    
+    if (logoutButton) {
+        logoutButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            handleLogout();
+        });
+        console.log('✅ Botão de logout configurado');
+    }
+}
+
+function handleLogout() {
+    console.log('👋 Fazendo logout...');
+    
+    const confirmLogout = confirm('Deseja realmente sair?');
+    
+    if (confirmLogout) {
+        // Limpar dados
+        sessionStorage.removeItem('currentUser');
+        localStorage.removeItem('authToken');
+        
+        // Resetar AuthSystem
+        if (window.authSystem) {
+            window.authSystem.currentUser = null;
+        }
+        
+        console.log('✅ Logout realizado');
+        
+        // Redirecionar para login
+        window.location.href = 'index.html';
+    }
+}
+
+// ============================================
+// CONTROLE DO DROPDOWN DO USUÁRIO
+// ============================================
+
+document.addEventListener('click', function(e) {
+    const userButton = document.getElementById('user-menu-button');
+    const userDropdown = document.getElementById('user-dropdown');
+    
+    if (!userButton || !userDropdown) return;
+    
+    if (e.target === userButton || userButton.contains(e.target)) {
+        e.preventDefault();
+        userButton.classList.toggle('active');
+        userDropdown.classList.toggle('show');
+    } else {
+        userButton.classList.remove('active');
+        userDropdown.classList.remove('show');
+    }
+});
+
+// ============================================
+// FUNÇÕES GLOBAIS (já definidas no HTML)
+// ============================================
+
+// Modal functions
+window.openProfileModal = function() {
+    console.log('🔓 Abrindo modal de perfil...');
+    
+    const modal = document.getElementById('profile-modal');
+    const userDropdown = document.getElementById('user-dropdown');
+    const userButton = document.getElementById('user-menu-button');
+    
+    if (userDropdown) userDropdown.classList.remove('show');
+    if (userButton) userButton.classList.remove('active');
+    
+    if (modal) {
+        modal.style.display = 'block';
+        setTimeout(() => {
+            loadUserDataIntoForm();
+        }, 100);
+    }
+};
+
+window.openSettingsModal = function() {
+    console.log('⚙️ Abrindo modal de configurações...');
+    
+    const modal = document.getElementById('settings-modal');
+    const userDropdown = document.getElementById('user-dropdown');
+    const userButton = document.getElementById('user-menu-button');
+    
+    if (userDropdown) userDropdown.classList.remove('show');
+    if (userButton) userButton.classList.remove('active');
+    
+    if (modal) {
+        modal.style.display = 'block';
+        openSettingsTab('company');
+    }
+};
+
+window.closeModal = function(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'none';
+    }
+};
+
+window.openSettingsTab = function(tabName) {
+    document.querySelectorAll('.settings-tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    document.querySelectorAll('.settings-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    const tabContent = document.getElementById(tabName + '-tab');
+    const tabButton = document.querySelector(`[onclick="openSettingsTab('${tabName}')"]`);
+    
+    if (tabContent) tabContent.classList.add('active');
+    if (tabButton) tabButton.classList.add('active');
+};
+
+window.triggerAvatarUpload = function() {
+    document.getElementById('avatar-upload').click();
+};
+
+window.handleAvatarUpload = async function(event) {
+    console.log('📸 Processando upload de avatar...');
+    
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+        alert('Por favor, selecione uma imagem válida (JPG, PNG ou GIF)');
+        return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+        alert('A imagem deve ter no máximo 5MB');
+        return;
+    }
+
+    try {
+        const auth = window.authSystem;
+        
+        if (!auth || !auth.uploadUserPhoto) {
+            throw new Error('Sistema de upload não disponível');
+        }
+
+        console.log('☁️ Fazendo upload para o Supabase...');
+        const result = await auth.uploadUserPhoto(file);
+        
+        if (result && result.success) {
+            console.log('✅ Foto enviada com sucesso:', result.photoUrl);
+            
+            // Atualizar preview
+            const avatarPreview = document.getElementById('avatar-preview');
+            if (avatarPreview) {
+                avatarPreview.style.backgroundImage = `url(${result.photoUrl})`;
+            }
+            
+            // Atualizar avatar no header
+            const userAvatar = document.getElementById('user-avatar');
+            if (userAvatar) {
+                if (userAvatar.tagName === 'IMG') {
+                    userAvatar.src = result.photoUrl;
+                } else {
+                    userAvatar.style.backgroundImage = `url(${result.photoUrl})`;
+                }
+            }
+            
+            alert('Foto atualizada com sucesso!');
+            updateUserInterface();
+        } else {
+            throw new Error(result.message || 'Erro desconhecido no upload');
+        }
+        
+    } catch (error) {
+        console.error('❌ Erro no upload:', error);
+        alert(`Erro ao fazer upload da foto: ${error.message}`);
+        loadUserAvatar();
+    }
+};
+
+window.saveProfile = async function() {
+    console.log('💾 Salvando perfil...');
+    
+    const name = document.getElementById('profile-name').value.trim();
+    const email = document.getElementById('profile-email').value.trim();
+    const userType = document.getElementById('user-type').value;
+    const newPassword = document.getElementById('new-password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+    
+    if (!name || !email) {
+        alert('Preencha nome e email');
+        return;
+    }
+    
+    if (newPassword && newPassword !== confirmPassword) {
+        alert('As senhas não coincidem');
+        return;
+    }
+    
+    try {
+        const profileData = {
+            nome: name,
+            email: email,
+            role: userType
+        };
+
+        if (newPassword && newPassword.length > 0) {
+            if (newPassword.length < 6) {
+                alert('A senha deve ter pelo menos 6 caracteres');
+                return;
+            }
+            profileData.password_hash = newPassword;
+        }
+
+        const auth = window.authSystem;
+        if (auth && auth.updateUserProfile) {
+            const result = await auth.updateUserProfile(profileData);
+            
+            if (result.success) {
+                alert('Perfil salvo com sucesso!');
+                updateUserInterface();
+                closeModal('profile-modal');
+            } else {
+                alert(result.message || 'Erro ao salvar perfil');
+            }
+        }
+    } catch (error) {
+        console.error('❌ Erro ao salvar perfil:', error);
+        alert('Erro ao salvar. Tente novamente.');
+    }
+};
+
+window.saveSettings = async function() {
+    alert('Configurações salvas com sucesso!');
+    closeModal('settings-modal');
+};
+
+window.loadUserDataIntoForm = function() {
+    console.log('📝 Carregando dados do usuário no formulário...');
+    
+    const auth = window.authSystem;
+    if (!auth || !auth.currentUser) {
+        console.error('❌ Usuário não encontrado');
+        return;
+    }
+
+    const user = auth.currentUser;
+    
+    const profileName = document.getElementById('profile-name');
+    const profileEmail = document.getElementById('profile-email');
+    const userType = document.getElementById('user-type');
+    const avatarPreview = document.getElementById('avatar-preview');
+
+    if (profileName) profileName.value = user.nome || '';
+    if (profileEmail) profileEmail.value = user.email || '';
+    if (userType) userType.value = user.role || user.tipo || 'operator';
+    
+    if (avatarPreview) {
+        if (user.foto_url && user.foto_url.trim() !== '') {
+            avatarPreview.style.backgroundImage = `url(${user.foto_url})`;
+        } else {
+            const userName = user.nome || user.email || 'Usuario';
+            const initials = userName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+            const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=007bff&color=ffffff&size=128`;
+            avatarPreview.style.backgroundImage = `url(${avatarUrl})`;
+        }
+    }
+    
+    // Limpar campos de senha
+    const currentPassword = document.getElementById('current-password');
+    const newPassword = document.getElementById('new-password');
+    const confirmPassword = document.getElementById('confirm-password');
+    
+    if (currentPassword) currentPassword.value = '';
+    if (newPassword) newPassword.value = '';
+    if (confirmPassword) confirmPassword.value = '';
+};
+
+console.log('✅ Script de dashboard carregado');
+    </script>
+</body>
+</html>

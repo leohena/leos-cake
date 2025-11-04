@@ -1,33 +1,62 @@
-# Arquivos temporários
-*.tmp
-*.temp
-.DS_Store
-Thumbs.db
+# Arquivos temporários e do sistema# Arquivos temporários
 
-# Environment variables
-.env
-.env.local
+*.tmp*.tmp
+
+*.temp*.temp
+
+.DS_Store.DS_Store
+
+Thumbs.dbThumbs.db
+
+
+
+# Configurações do editor# Environment variables
+
+.vscode/.env
+
+.idea/.env.local
+
 .env.production
-.env.development
 
-# Arquivos de configuração local
+# Logs.env.development
+
+*.log
+
+npm-debug.log*# Arquivos de configuração local
+
 .vscode/
-.idea/
+
+# Arquivos de configuração sensível (se houver).idea/
+
+.env*
 
 # Configurações sensíveis - NÃO VERSIONAR
-.env
-.env.local
-.env.production
-config.json
 
-# Manter apenas arquivo de exemplo
+# Node modules (caso use no futuro).env
+
+node_modules/.env.local
+
+.env.production
+
+# Build outputs (caso use build process)config.json
+
+dist/
+
+build/# Manter apenas arquivo de exemplo
+
 !.env.example
-!config.json.example
+
+# Cache!config.json.example
+
+.cache/
 
 # Backups
-*.bak
-backup/
 
+# Backup files*.bak
+
+*.bakbackup/
+
+*.backup
 # Logs
 *.log
 
