@@ -3,1371 +3,357 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title data-i18n="dashboard.title">Dashboard - Leo's Cake</title>
+    <title>Dashboard - Leo's Cake</title>
     
-    <!-- Meta tags PWA -->
-    <meta name="theme-color" content="#4A90E2">
+    <meta name="theme-color" content="#ff6b9d">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <!-- CSS -->
-    <link rel="stylesheet" href="css/styles.css">
-    
-    <!-- PWA Manifest -->
+    <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="images/logo-png.png">
     <link rel="apple-touch-icon" href="images/logo-png.png">
     
-    <!-- PWA Mobile-First CSS -->
+    <!-- Fonts e Ícones -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Bibliotecas Externas -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.emailjs.com/sdk/dist/email.min.js"></script>
+
     <style>
-        /* Reset para PWA */
-        * {
-            box-sizing: border-box;
-        }
-        
-        body {
-            margin: 0 !important;
-            padding: 0 0 80px 0 !important;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-            background: #f8f9fa !important;
-            overflow-x: hidden !important;
-            -webkit-touch-callout: none !important;
-            -webkit-user-select: none !important;
-            user-select: none !important;
-        }
-        
-        /* Header organizado */
-        .header {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            height: 60px !important;
-            background: linear-gradient(135deg, #ff6b9d, #ffa726) !important;
-            color: white !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: space-between !important;
-            padding: 0 1rem !important;
-            z-index: 1000 !important;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1) !important;
-        }
-        
-        .header-logo {
-            display: flex !important;
-            align-items: center !important;
-            gap: 0.5rem !important;
-        }
-        
-        .header h1 {
-            margin: 0 !important;
-            font-size: 1.1rem !important;
-            font-weight: 600 !important;
-        }
-        
-        .logo {
-            height: 32px !important;
-            width: auto !important;
-            border-radius: 6px !important;
-        }
-        
-        .header-actions {
-            display: flex !important;
-            align-items: center !important;
-            gap: 0.75rem !important;
-        }
-        
-        /* Seletor de idioma com ícones circulares */
-        .language-flags {
-            display: flex !important;
-            gap: 0.75rem !important;
-            align-items: center !important;
-        }
-        
-        .flag-wrapper {
-            width: 28px !important;
-            height: 28px !important;
-            cursor: pointer !important;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            border-radius: 50% !important;
-            border: 2px solid transparent !important;
-            background: transparent !important;
-            opacity: 0.9 !important;
-            position: relative !important;
-            overflow: hidden !important;
-            box-shadow: 
-                0 2px 8px rgba(0,0,0,0.1),
-                0 1px 3px rgba(0,0,0,0.06) !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-        }
-        
-        .flag-image {
-            width: 100% !important;
-            height: 100% !important;
-            object-fit: cover !important;
-            object-position: center !important;
-            border-radius: 50% !important;
-        }
-        
-        .flag-wrapper:hover {
-            transform: translateY(-2px) scale(1.1) !important;
-            box-shadow: 
-                0 6px 20px rgba(0,0,0,0.15),
-                0 2px 6px rgba(0,0,0,0.1) !important;
-            opacity: 1 !important;
-            border-color: rgba(255, 255, 255, 0.4) !important;
-        }
-        
-        .flag-wrapper.active {
-            border-color: rgba(255, 255, 255, 0.8) !important;
-            opacity: 1 !important;
-            box-shadow: 
-                0 0 0 3px rgba(255, 255, 255, 0.25),
-                0 6px 20px rgba(0,0,0,0.2) !important;
-            transform: scale(1.05) !important;
-        }
-        
-        /* User menu simplificado */
-        .user-menu {
-            position: relative !important;
-        }
-        
-        .user-button {
-            background: rgba(255, 255, 255, 0.1) !important;
-            border: 1px solid rgba(255, 255, 255, 0.2) !important;
-            border-radius: 20px !important;
-            color: white !important;
-            padding: 0.3rem 0.6rem 0.3rem 0.3rem !important;
-            cursor: pointer !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 0.5rem !important;
-            transition: all 0.2s ease !important;
-            outline: none !important;
-        }
-        
-        .user-avatar {
-            width: 32px !important;
-            height: 32px !important;
-            border-radius: 50% !important;
-            border: 2px solid rgba(255, 255, 255, 0.3) !important;
-            transition: all 0.2s ease !important;
-        }
-        
-        .user-button:hover {
-            background: rgba(255, 255, 255, 0.2) !important;
-            border-color: rgba(255, 255, 255, 0.4) !important;
-        }
-        
-        /* Dropdown do usuário */
-        .user-dropdown {
-            position: absolute !important;
-            top: calc(100% + 8px) !important;
-            right: 0 !important;
-            background: white !important;
-            border-radius: 8px !important;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
-            border: 1px solid rgba(0,0,0,0.1) !important;
-            min-width: 180px !important;
-            opacity: 0 !important;
-            visibility: hidden !important;
-            transform: translateY(-10px) !important;
-            transition: all 0.2s ease !important;
-            z-index: 1000 !important;
-        }
-        
-        .user-dropdown.show {
-            opacity: 1 !important;
-            visibility: visible !important;
-            transform: translateY(0) !important;
-        }
-        
         .user-dropdown-item {
-            display: flex !important;
-            align-items: center !important;
-            gap: 0.75rem !important;
-            padding: 0.75rem 1rem !important;
-            color: #333 !important;
-            cursor: pointer !important;
-            transition: background-color 0.15s ease !important;
-            font-size: 0.9rem !important;
+            cursor: pointer;
+            transition: background 0.2s;
         }
-        
         .user-dropdown-item:hover {
-            background: #f8f9fa !important;
+            background: #f5f5f5;
         }
-        
-        .user-dropdown-item[data-logout] {
-            color: #dc3545 !important;
+        .language-flags {
+            display: flex;
+            gap: 0.5rem;
         }
-        
-        .user-dropdown-item[data-logout]:hover {
-            background: #f8d7da !important;
+        .flag-wrapper {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            overflow: hidden;
+            cursor: pointer;
+            border: 2px solid rgba(255,255,255,0.3);
+            opacity: 0.6;
+            transition: all 0.2s;
         }
-        
-        .user-dropdown-divider {
-            height: 1px !important;
-            background: #e9ecef !important;
-            margin: 0.25rem 0 !important;
+        .flag-wrapper:hover {
+            opacity: 0.8;
+            border-color: rgba(255,255,255,0.8);
         }
-        
-        .user-dropdown-header {
-            padding: 0.75rem 1rem 0.5rem 1rem !important;
-            font-weight: 600 !important;
-            color: #333 !important;
-            font-size: 0.9rem !important;
-            text-align: center !important;
-            border-radius: 8px 8px 0 0 !important;
-        }
-        
-        /* Remover sidebar completamente */
-        .sidebar {
-            display: none !important;
-        }
-        
-        /* Conteúdo principal mobile-first */
-        .main-content {
-            margin: 60px 0 0 0 !important;
-            padding: 1rem !important;
-            min-height: calc(100vh - 140px) !important;
-            background: #f8f9fa !important;
-        }
-        
-        /* Seções de conteúdo */
-        .content-section {
-            display: none !important;
-        }
-        
-        .content-section.active {
-            display: block !important;
-        }
-        
-        .section-header {
-            margin-bottom: 1.5rem !important;
-            text-align: center !important;
-        }
-        
-        .section-header h2 {
-            margin: 0 !important;
-            color: #333 !important;
-            font-size: 1.5rem !important;
-            font-weight: 600 !important;
-        }
-        
-        .section-actions {
-            margin-top: 1rem !important;
-            text-align: center !important;
-        }
-        
-        /* Cards de estatísticas mobile */
-        .stats-grid {
-            display: grid !important;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
-            gap: 1rem !important;
-            margin-bottom: 2rem !important;
-        }
-        
-        .stat-card {
-            background: white !important;
-            padding: 1.25rem !important;
-            border-radius: 12px !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 1rem !important;
-            transition: transform 0.2s ease !important;
-        }
-        
-        .stat-card:active {
-            transform: scale(0.98) !important;
-        }
-        
-        .stat-icon {
-            width: 50px !important;
-            height: 50px !important;
-            background: linear-gradient(135deg, #ff6b9d, #ffa726) !important;
-            border-radius: 10px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            color: white !important;
-            font-size: 1.25rem !important;
-        }
-        
-        .stat-content h3 {
-            margin: 0 0 0.25rem 0 !important;
-            font-size: 1.75rem !important;
-            font-weight: 700 !important;
-            color: #333 !important;
-        }
-        
-        .stat-content p {
-            margin: 0 !important;
-            color: #666 !important;
-            font-size: 0.85rem !important;
-        }
-        
-        /* Bottom Navigation PWA */
-        .bottom-nav {
-            position: fixed !important;
-            bottom: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            height: 80px !important;
-            background: white !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: space-around !important;
-            border-top: 1px solid #e1e5e9 !important;
-            z-index: 1000 !important;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.1) !important;
-            padding: 0.5rem 0 !important;
-        }
-        
-        .nav-btn {
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            justify-content: center !important;
-            padding: 0.5rem !important;
-            border: none !important;
-            background: none !important;
-            color: #666 !important;
-            text-decoration: none !important;
-            font-size: 0.75rem !important;
-            font-weight: 500 !important;
-            transition: all 0.2s ease !important;
-            border-radius: 8px !important;
-            min-width: 60px !important;
-            cursor: pointer !important;
-        }
-        
-        .nav-btn:active {
-            transform: scale(0.95) !important;
-            background: #f0f0f0 !important;
-        }
-        
-        .nav-btn.active {
-            color: #ff6b9d !important;
-        }
-        
-        .nav-icon {
-            font-size: 1.5rem !important;
-            margin-bottom: 0.25rem !important;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1)) !important;
-        }
-        
-        .nav-btn.active .nav-icon {
-            background: linear-gradient(135deg, #ff6b9d, #ffa726) !important;
-            -webkit-background-clip: text !important;
-            -webkit-text-fill-color: transparent !important;
-            background-clip: text !important;
-            filter: drop-shadow(0 2px 4px rgba(255,107,157,0.3)) !important;
-            transform: scale(1.1) !important;
-        }
-        
-        .nav-text {
-            font-size: 0.7rem !important;
-            line-height: 1 !important;
-        }
-        
-        /* Botões e elementos interativos */
-        .btn {
-            padding: 0.75rem 1.5rem !important;
-            border-radius: 8px !important;
-            font-weight: 500 !important;
-            font-size: 0.9rem !important;
-            border: none !important;
-            cursor: pointer !important;
-            transition: all 0.2s ease !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            gap: 0.5rem !important;
-        }
-        
-        .btn:active {
-            transform: scale(0.98) !important;
-        }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, #ff6b9d, #ffa726) !important;
-            color: white !important;
-        }
-        
-        /* Modal Styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 2000;
-            left: 0;
-            top: 0;
+        .flag-wrapper img {
             width: 100%;
             height: 100%;
-            overflow: auto;
-            background-color: rgba(0,0,0,0.4);
-            animation: modalFadeIn 0.3s ease-out;
+            object-fit: cover;
         }
-
-        @keyframes modalFadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .modal-content {
-            background-color: #fefefe;
-            margin: 5% auto;
-            padding: 0;
-            border: none;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 500px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            animation: modalSlideIn 0.3s ease-out;
-        }
-
-        @keyframes modalSlideIn {
-            from { transform: translateY(-50px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-
-        .modal-header {
-            padding: 20px 24px 16px;
-            border-bottom: 1px solid #eee;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 12px 12px 0 0;
-            position: relative;
-        }
-
-        .modal-title {
-            margin: 0;
-            font-size: 20px;
-            font-weight: 600;
-        }
-
-        .modal-close {
-            position: absolute;
-            right: 16px;
-            top: 16px;
-            color: rgba(255,255,255,0.8);
-            font-size: 24px;
-            font-weight: bold;
-            cursor: pointer;
-            padding: 4px 8px;
-            border-radius: 4px;
-            transition: all 0.2s;
-            background: none;
-            border: none;
-        }
-
-        .modal-close:hover {
-            color: white;
-            background-color: rgba(255,255,255,0.1);
-        }
-
-        .modal-body {
-            padding: 24px;
-        }
-
-        /* Profile Modal Specific */
-        .profile-avatar {
-            text-align: center;
-            margin-bottom: 24px;
-        }
-
-        .avatar-preview {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background-size: cover;
-            background-position: center;
-            background-color: #f0f0f0;
-            margin: 0 auto 12px;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-
-        .avatar-preview:hover {
-            transform: scale(1.05);
-        }
-
-        .avatar-upload-btn {
-            background: none;
-            border: none;
-            color: #007bff;
-            cursor: pointer;
-            font-size: 14px;
-            text-decoration: underline;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 6px;
-            font-weight: 500;
-            color: #333;
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
-            transition: border-color 0.2s;
-            box-sizing: border-box;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #007bff;
-            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
-        }
-
-        .form-row {
-            display: flex;
-            gap: 16px;
-        }
-
-        .form-row .form-group {
-            flex: 1;
-        }
-
-        /* Settings Modal Specific */
-        .settings-tabs {
-            display: flex;
-            border-bottom: 1px solid #eee;
-            margin-bottom: 24px;
-        }
-
-        .settings-tab {
-            flex: 1;
-            padding: 12px 16px;
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 14px;
-            color: #666;
-            transition: all 0.2s;
-        }
-
-        .settings-tab.active {
-            color: #007bff;
-            border-bottom: 2px solid #007bff;
-        }
-
-        .settings-tab-content {
+        
+        /* Dropdown começa escondido */
+        #user-dropdown {
             display: none;
+            flex-direction: column;
         }
-
-        .settings-tab-content.active {
-            display: block;
-        }
-
-        /* Modal Footer */
-        .modal-footer {
-            padding: 16px 24px 24px;
+        
+        /* Dropdown só mostra quando tem classe .show */
+        #user-dropdown.show {
             display: flex;
-            gap: 12px;
-            justify-content: flex-end;
         }
-
-        .btn-secondary {
-            background-color: #6c757d;
-            color: white;
+        
+        /* Modal começa fechado */
+        #profile-modal {
+            display: none !important;
         }
-
-        .btn-secondary:hover {
-            background-color: #545b62;
+        
+        /* Modal abre apenas com display: flex */
+        #profile-modal[style*="display: flex"] {
+            display: flex !important;
         }
+        
+        #clientes-container,
+        #produtos-container,
+        #pedidos-container,
+        #estoque-container,
+        #entregas-container {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0.75rem !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Splash Screen -->
+    <div id="splash-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); display: flex; align-items: center; justify-content: center; z-index: 9999; flex-direction: column;">
+        <img src="images/logo-png.png" alt="Leo's Cake" style="width: 100px; height: 100px; margin-bottom: 20px; border-radius: 10px;">
+        <h1 style="color: white; margin: 0; font-size: 2rem;">Leo's Cake</h1>
+        <p style="color: rgba(255,255,255,0.8); margin: 10px 0; font-size: 1rem;">Sistema de Pré-Vendas</p>
+        <div style="width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px;"></div>
+    </div>
 
-        @media (max-width: 480px) {
-            .modal-content {
-                margin: 10px;
-                width: calc(100% - 20px);
-                max-height: calc(100vh - 20px);
-                overflow-y: auto;
-            }
-
-            .form-row {
-                flex-direction: column;
-                gap: 0;
-            }
+    <style>
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
     </style>
     
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    
-    <!-- Scripts externos -->
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-</head>
-<body>
     <!-- Header -->
-    <header class="header">
-        <div class="header-logo">
-            <img src="images/logo-png.png" alt="Leo's Cake" class="logo">
-            <h1 data-i18n="dashboard.title">Dashboard</h1>
+    <header class="header" style="position: fixed; top: 0; left: 0; width: 100%; height: 56px; background: linear-gradient(135deg, #667eea, #764ba2); display: flex; justify-content: space-between; align-items: center; padding: 0 1rem; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <img src="images/logo-png.png" alt="Leo's Cake" style="width: 40px; height: 40px; border-radius: 6px;">
+            <h1 id="page-title" style="margin: 0; color: white; font-size: 1.2rem;">Dashboard</h1>
         </div>
-        <div class="header-actions">
-            <!-- Seletor de idioma com bandeiras -->
+
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <!-- Seletor de Idioma -->
             <div class="language-flags">
-                <div class="flag-wrapper" onclick="changeLanguage('pt')" data-lang="pt" title="Português">
-                    <img src="images/brasil_icon.jpg" alt="Português" class="flag-image">
+                <div class="flag-wrapper" data-lang="pt" title="Português (Brasil)">
+                    <img src="images/brasil_icon.jpg" alt="PT-BR">
                 </div>
-                <div class="flag-wrapper" onclick="changeLanguage('en')" data-lang="en" title="English">
-                    <img src="images/canada_icon.jpg" alt="English" class="flag-image">
+                <div class="flag-wrapper" data-lang="en" title="English (Canada)">
+                    <img src="images/canada_icon.jpg" alt="EN-CA">
                 </div>
             </div>
-            
-            <!-- Menu do usuário -->
-            <div class="user-menu">
-                <button class="user-button" id="user-menu-button">
-                    <img src="https://ui-avatars.com/api/?name=Usuario&background=ff6b9d&color=ffffff&size=32&rounded=true" 
-                         alt="Avatar" 
-                         id="user-avatar" 
-                         class="user-avatar">
-                    <i class="fas fa-chevron-down"></i>
+
+            <!-- Menu do Usuário -->
+            <div style="position: relative;">
+                <button id="user-menu-button" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); border-radius: 20px; color: white; padding: 0.3rem 0.6rem; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s;">
+                    <img id="user-avatar" src="https://ui-avatars.com/api/?name=User&background=ff6b9d&color=fff&size=32" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                    <i class="fas fa-chevron-down" style="font-size: 0.8rem;"></i>
                 </button>
-                <div class="user-dropdown" id="user-dropdown">
-                    <div class="user-dropdown-header">
+
+                <div id="user-dropdown" style="position: absolute; top: calc(100% + 8px); right: 0; background: white; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); min-width: 200px; z-index: 1000; overflow: hidden;">
+                    <div style="padding: 0.75rem 1rem; font-weight: 600; text-align: center; border-bottom: 1px solid #eee; color: #333;">
                         <span id="dropdown-user-name">Usuário</span>
+                        <div style="font-size: 0.75rem; font-weight: 400; color: #666; margin-top: 0.25rem;" id="dropdown-user-type">user</div>
                     </div>
-                    <div class="user-dropdown-divider"></div>
-                    <div class="user-dropdown-item" onclick="openProfileModal()">
+                    <button id="profile-btn" class="user-dropdown-item" style="width: 100%; padding: 0.75rem 1rem; background: none; border: none; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; color: #333; font-family: inherit; font-size: 0.95rem;">
                         <i class="fas fa-user"></i>
-                        <span data-i18n="user.profile">Perfil</span>
-                    </div>
-                    <div class="user-dropdown-item" onclick="openSettingsModal()">
+                        <span>Perfil</span>
+                    </button>
+                    <button id="config-btn" class="user-dropdown-item" style="width: 100%; padding: 0.75rem 1rem; background: none; border: none; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; color: #333; font-family: inherit; font-size: 0.95rem;">
                         <i class="fas fa-cog"></i>
-                        <span data-i18n="user.settings">Configurações</span>
-                    </div>
-                    <div class="user-dropdown-divider"></div>
-                    <div class="user-dropdown-item" data-logout>
+                        <span>Configurações</span>
+                    </button>
+                    <div style="height: 1px; background: #eee;"></div>
+                    <button id="logout-btn" class="user-dropdown-item" style="width: 100%; padding: 0.75rem 1rem; background: none; border: none; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; color: #dc3545; font-family: inherit; font-size: 0.95rem;">
                         <i class="fas fa-sign-out-alt"></i>
-                        <span data-i18n="logout">Sair</span>
-                    </div>
+                        <span>Sair</span>
+                    </button>
                 </div>
             </div>
         </div>
     </header>
 
     <!-- Main Content -->
-    <main class="main-content">
+    <main style="margin-top: 60px; padding: 1rem; min-height: calc(100vh - 140px); background: #f8f9fa; margin-bottom: 70px;">
         <!-- Dashboard Section -->
-        <section id="dashboard-section" class="content-section active">
-            <div class="section-header">
-                <h2 data-i18n="dashboard.title">Dashboard</h2>
-                <div class="section-actions">
-                    <button class="btn btn-primary" id="novo-pedido-btn">
-                        <i class="fas fa-plus"></i>
-                        <span data-i18n="dashboard.newOrder">Novo Pedido</span>
-                    </button>
-                </div>
+        <section id="dashboard-section" class="content-section" style="display: block;">
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <h2 style="margin: 0; color: #333; font-size: 1.5rem; font-weight: 600;">Dashboard</h2>
+                <p class="welcome-text" style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;">Bem-vindo(a), <strong id="welcome-name">Usuário</strong>!</p>
+            </div>
+            
+            <div id="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                <!-- Stats serão carregados aqui -->
             </div>
 
-            <!-- Cards de Estatísticas -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-birthday-cake"></i>
-                    </div>
-                    <div class="stat-content">
-                        <h3 id="total-produtos">0</h3>
-                        <p data-i18n="dashboard.totalProducts">Total de Produtos</p>
-                    </div>
-                </div>
-                
-                <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-users"></i>
-                    </div>
-                    <div class="stat-content">
-                        <h3 id="total-clientes">0</h3>
-                        <p data-i18n="dashboard.totalClients">Total de Clientes</p>
-                    </div>
-                </div>
-                
-                <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-clock"></i>
-                    </div>
-                    <div class="stat-content">
-                        <h3 id="pedidos-pendentes">0</h3>
-                        <p data-i18n="dashboard.pendingOrders">Pedidos Pendentes</p>
-                    </div>
-                </div>
-                
-                <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-dollar-sign"></i>
-                    </div>
-                    <div class="stat-content">
-                        <h3 id="receita-mes">R$ 0,00</h3>
-                        <p data-i18n="dashboard.monthRevenue">Receita do Mês</p>
-                    </div>
+            <div style="background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <h3 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem;">📦 Entregas de Hoje</h3>
+                <div id="entregas_hoje" style="text-align: center; color: #888; padding: 2rem;">
+                    Nenhuma entrega agendada para hoje
                 </div>
             </div>
         </section>
 
         <!-- Clientes Section -->
-        <section id="clientes-section" class="content-section">
-            <div class="section-header">
-                <h2 data-i18n="nav.clients">Clientes</h2>
+        <section id="clientes-section" class="content-section" style="display: none;">
+            <h2>👥 Clientes</h2>
+            <div id="clientes-container" style="text-align: center; color: #888; padding: 2rem;">
+                Nenhum cliente cadastrado
             </div>
         </section>
 
         <!-- Produtos Section -->
-        <section id="produtos-section" class="content-section">
-            <div class="section-header">
-                <h2 data-i18n="nav.products">Produtos</h2>
+        <section id="produtos-section" class="content-section" style="display: none;">
+            <h2>🍰 Produtos</h2>
+            <div id="produtos-container" style="text-align: center; color: #888; padding: 2rem;">
+                Nenhum produto cadastrado
             </div>
         </section>
 
         <!-- Pedidos Section -->
-        <section id="pedidos-section" class="content-section">
-            <div class="section-header">
-                <h2 data-i18n="nav.orders">Pedidos</h2>
+        <section id="pedidos-section" class="content-section" style="display: none;">
+            <h2>📋 Pedidos</h2>
+            <div id="pedidos-container" style="text-align: center; color: #888; padding: 2rem;">
+                Nenhum pedido cadastrado
             </div>
         </section>
 
         <!-- Estoque Section -->
-        <section id="estoque-section" class="content-section">
-            <div class="section-header">
-                <h2 data-i18n="nav.stock">Estoque</h2>
+        <section id="estoque-section" class="content-section" style="display: none;">
+            <h2>📦 Estoque</h2>
+            <div id="estoque-container" style="text-align: center; color: #888; padding: 2rem;">
+                Sem dados de estoque
             </div>
         </section>
 
         <!-- Entregas Section -->
-        <section id="entregas-section" class="content-section">
-            <div class="section-header">
-                <h2 data-i18n="nav.deliveries">Entregas</h2>
+        <section id="entregas-section" class="content-section" style="display: none;">
+            <h2>🚚 Entregas</h2>
+            <div id="entregas-container" style="text-align: center; color: #888; padding: 2rem;">
+                Nenhuma entrega agendada
             </div>
         </section>
     </main>
 
-    <!-- Profile Modal -->
-    <div id="profile-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title" data-i18n="user.profile">Perfil</h2>
-                <button class="modal-close" onclick="closeModal('profile-modal')">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="profile-avatar">
-                    <div id="avatar-preview" class="avatar-preview" onclick="triggerAvatarUpload()"></div>
-                    <button type="button" class="avatar-upload-btn" onclick="triggerAvatarUpload()" data-i18n="user.change_photo">Alterar Foto</button>
-                    <input type="file" id="avatar-upload" accept="image/*" style="display: none;" onchange="handleAvatarUpload(event)">
-                </div>
-
-                <div class="form-group">
-                    <label for="profile-name" data-i18n="user.name">Nome:</label>
-                    <input type="text" id="profile-name" name="name" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="profile-email" data-i18n="user.email">Email:</label>
-                    <input type="email" id="profile-email" name="email" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="user-type" data-i18n="user.type">Tipo de Usuário:</label>
-                    <select id="user-type" name="userType">
-                        <option value="admin" data-i18n="user.admin">Administrador</option>
-                        <option value="operator" data-i18n="user.operator">Operador</option>
-                        <option value="viewer" data-i18n="user.viewer">Visualizador</option>
-                    </select>
-                </div>
-
-                <hr style="margin: 24px 0;">
-
-                <h3 data-i18n="user.change_password">Alterar Senha</h3>
-
-                <div class="form-group">
-                    <label for="current-password" data-i18n="user.current_password">Senha Atual:</label>
-                    <input type="password" id="current-password" name="currentPassword">
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="new-password" data-i18n="user.new_password">Nova Senha:</label>
-                        <input type="password" id="new-password" name="newPassword" placeholder="Deixe em branco para manter a atual">
-                    </div>
-                    <div class="form-group">
-                        <label for="confirm-password" data-i18n="user.confirm_password">Confirmar Senha:</label>
-                        <input type="password" id="confirm-password" name="confirmPassword" placeholder="Confirme a nova senha">
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('profile-modal')" data-i18n="cancel">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="saveProfile()" data-i18n="save">Salvar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Settings Modal -->
-    <div id="settings-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title" data-i18n="user.settings">Configurações</h2>
-                <button class="modal-close" onclick="closeModal('settings-modal')">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="settings-tabs">
-                    <button class="settings-tab active" onclick="openSettingsTab('company')" data-i18n="settings.company">Empresa</button>
-                    <button class="settings-tab" onclick="openSettingsTab('email')" data-i18n="settings.email">Email</button>
-                    <button class="settings-tab" onclick="openSettingsTab('system')" data-i18n="settings.system">Sistema</button>
-                </div>
-
-                <!-- Company Tab -->
-                <div id="company-tab" class="settings-tab-content active">
-                    <div class="form-group">
-                        <label for="company-name" data-i18n="settings.company_name">Nome da Empresa:</label>
-                        <input type="text" id="company-name" name="companyName" value="Leo's Cake">
-                    </div>
-                    <div class="form-group">
-                        <label for="company-phone" data-i18n="settings.phone">Telefone:</label>
-                        <input type="tel" id="company-phone" name="companyPhone">
-                    </div>
-                    <div class="form-group">
-                        <label for="company-address" data-i18n="settings.address">Endereço:</label>
-                        <textarea id="company-address" name="companyAddress" rows="3"></textarea>
-                    </div>
-                </div>
-
-                <!-- Email Tab -->
-                <div id="email-tab" class="settings-tab-content">
-                    <div class="form-group">
-                        <label for="email-service" data-i18n="settings.email_service">Serviço de Email:</label>
-                        <select id="email-service" name="emailService">
-                            <option value="emailjs">EmailJS</option>
-                            <option value="smtp">SMTP</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="email-template" data-i18n="settings.email_template">Template de Email:</label>
-                        <input type="text" id="email-template" name="emailTemplate">
-                    </div>
-                </div>
-
-                <!-- System Tab -->
-                <div id="system-tab" class="settings-tab-content">
-                    <div class="form-group">
-                        <label for="currency" data-i18n="settings.currency">Moeda:</label>
-                        <select id="currency" name="currency">
-                            <option value="BRL">Real (R$)</option>
-                            <option value="USD">Dólar ($)</option>
-                            <option value="EUR">Euro (€)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="timezone" data-i18n="settings.timezone">Fuso Horário:</label>
-                        <select id="timezone" name="timezone">
-                            <option value="America/Sao_Paulo">Brasília (GMT-3)</option>
-                            <option value="America/New_York">Nova York (GMT-5)</option>
-                            <option value="Europe/London">Londres (GMT+0)</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('settings-modal')" data-i18n="cancel">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="saveSettings()" data-i18n="save">Salvar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Bottom Navigation PWA -->
-    <nav class="bottom-nav">
-        <button class="nav-btn active" data-section="dashboard">
-            <span class="nav-icon"><i class="fas fa-chart-pie"></i></span>
-            <span class="nav-text" data-i18n="nav.dashboard">Dashboard</span>
+    <!-- Bottom Navigation -->
+    <nav class="navbar" style="position: fixed; bottom: 0; left: 0; width: 100%; height: 64px; background: white; box-shadow: 0 -2px 8px rgba(0,0,0,0.04); display: flex; justify-content: space-around; align-items: center; z-index: 100;">
+        <button class="nav-btn" data-section="dashboard" style="background: none; border: none; color: #888; font-size: 1.1rem; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: color 0.2s; flex: 1; gap: 0.25rem;">
+            <i class="fas fa-chart-pie"></i>
+            <span style="font-size: 0.75rem;">Dashboard</span>
         </button>
-        <button class="nav-btn" data-section="clientes">
-            <span class="nav-icon"><i class="fas fa-user-friends"></i></span>
-            <span class="nav-text" data-i18n="nav.clients">Clientes</span>
+        <button class="nav-btn" data-section="clientes" style="background: none; border: none; color: #888; font-size: 1.1rem; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: color 0.2s; flex: 1; gap: 0.25rem;">
+            <i class="fas fa-user-friends"></i>
+            <span style="font-size: 0.75rem;">Clientes</span>
         </button>
-        <button class="nav-btn" data-section="produtos">
-            <span class="nav-icon"><i class="fas fa-cookie-bite"></i></span>
-            <span class="nav-text" data-i18n="nav.products">Produtos</span>
+        <button class="nav-btn" data-section="produtos" style="background: none; border: none; color: #888; font-size: 1.1rem; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: color 0.2s; flex: 1; gap: 0.25rem;">
+            <i class="fas fa-cookie-bite"></i>
+            <span style="font-size: 0.75rem;">Produtos</span>
         </button>
-        <button class="nav-btn" data-section="pedidos">
-            <span class="nav-icon"><i class="fas fa-receipt"></i></span>
-            <span class="nav-text" data-i18n="nav.orders">Pedidos</span>
+        <button class="nav-btn" data-section="pedidos" style="background: none; border: none; color: #888; font-size: 1.1rem; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: color 0.2s; flex: 1; gap: 0.25rem;">
+            <i class="fas fa-receipt"></i>
+            <span style="font-size: 0.75rem;">Pedidos</span>
         </button>
-        <button class="nav-btn" data-section="estoque">
-            <span class="nav-icon"><i class="fas fa-warehouse"></i></span>
-            <span class="nav-text" data-i18n="nav.stock">Estoque</span>
-        </button>
-        <button class="nav-btn" data-section="entregas">
-            <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
-            <span class="nav-text" data-i18n="nav.deliveries">Entregas</span>
+        <button class="nav-btn" data-section="entregas" style="background: none; border: none; color: #888; font-size: 1.1rem; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: color 0.2s; flex: 1; gap: 0.25rem;">
+            <i class="fas fa-shipping-fast"></i>
+            <span style="font-size: 0.75rem;">Entregas</span>
         </button>
     </nav>
 
+    <!-- Profile Modal -->
+    <div id="profile-modal" style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); justify-content: center; align-items: center; padding: 1rem;">
+        <div style="background: white; border-radius: 12px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+            <!-- Header -->
+            <div style="padding: 24px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px 12px 0 0; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10;">
+                <h2 style="margin: 0; font-size: 1.25rem; font-weight: 600;">👤 Meu Perfil</h2>
+                <button onclick="closeModal('profile-modal')" style="background: none; border: none; color: white; font-size: 28px; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; padding: 0;">&times;</button>
+            </div>
+
+            <!-- Content - Flex Column -->
+            <div style="padding: 24px; display: flex; flex-direction: column; gap: 24px; width: 100%;">
+                <!-- Avatar Section -->
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%;">
+                    <div id="avatar-preview" style="width: 100px; height: 100px; border-radius: 50%; background-size: cover; background-position: center; cursor: pointer; background-color: #e9ecef; border: 4px solid #ff6b9d; flex-shrink: 0;"></div>
+                    <input type="file" id="avatar-upload" accept="image/*" style="display: none;" onchange="handleAvatarUpload(event)">
+                    <button type="button" onclick="triggerAvatarUpload()" style="background: none; border: none; color: #667eea; cursor: pointer; text-decoration: underline; font-weight: 600; font-size: 0.95rem; padding: 0;">Alterar Foto</button>
+                </div>
+
+                <!-- Name Field -->
+                <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                    <label style="font-weight: 600; color: #333; font-size: 0.95rem; margin: 0;">Nome Completo</label>
+                    <input type="text" id="profile-name" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 0.95rem; font-family: inherit;">
+                </div>
+
+                <!-- Email Field -->
+                <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                    <label style="font-weight: 600; color: #333; font-size: 0.95rem; margin: 0;">Email</label>
+                    <input type="email" id="profile-email" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 0.95rem; font-family: inherit; background: #f5f5f5;" readonly>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="padding: 16px 24px; display: flex; gap: 12px; justify-content: flex-end; border-top: 1px solid #eee; position: sticky; bottom: 0; background: white; z-index: 10;">
+                <button onclick="closeModal('profile-modal')" class="btn-cancel" style="padding: 12px 24px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.95rem; transition: background 0.2s;">Cancelar</button>
+                <button onclick="saveProfile()" class="btn-save" style="padding: 12px 24px; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.95rem; transition: all 0.2s;">Salvar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
-    <script src="js/i18n.js"></script>
-    <script src="js/auth-system.js"></script>
-    <script src="js/data-manager.js"></script>
-    <script src="js/receipt-system.js"></script>
-    <script src="js/dashboard-app.js"></script>
+    <script>
+        // Limpar Service Workers antigos
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                registrations.forEach(registration => {
+                    registration.unregister().catch(err => {
+                        console.warn('Erro ao desregistrar SW:', err);
+                    });
+                });
+            });
+        }
+
+        // Esconder splash screen após 2 segundos
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const splashScreen = document.getElementById('splash-screen');
+                if (splashScreen) {
+                    splashScreen.style.display = 'none';
+                }
+            }, 2000);
+        });
+
+        // Listener para atualizar botões quando idioma muda
+        window.addEventListener('languageChanged', () => {
+            const lang = localStorage.getItem('lang') || 'pt-BR';
+            const btnCancel = document.querySelector('.btn-cancel');
+            const btnSave = document.querySelector('.btn-save');
+            const modalTitle = document.querySelector('#profile-modal h2');
+            
+            if (lang === 'pt-BR') {
+                if (btnCancel) btnCancel.textContent = 'Cancelar';
+                if (btnSave) btnSave.textContent = 'Salvar';
+                if (modalTitle) modalTitle.textContent = '👤 Meu Perfil';
+            } else {
+                if (btnCancel) btnCancel.textContent = 'Cancel';
+                if (btnSave) btnSave.textContent = 'Save';
+                if (modalTitle) modalTitle.textContent = '👤 My Profile';
+            }
+        });
+    </script>
+
+    <script src="src/supabase.js"></script>
+    <script src="src/i18n.js"></script>
+    <script src="src/auth.js"></script>
+    <script src="src/app.js"></script>
 
     <script>
-        // ============================================
-        // INICIALIZAÇÃO DO DASHBOARD
-        // ============================================
-        
-        document.addEventListener('DOMContentLoaded', async function() {
-            console.log('📊 Dashboard carregando...');
-            
-            try {
-                // PASSO 1: Aguardar AuthSystem
-                let attempts = 0;
-                while (!window.authSystem && attempts < 50) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    attempts++;
-                }
-                
-                if (!window.authSystem) {
-                    console.error('❌ AuthSystem não encontrado');
-                    window.location.href = 'index.html';
-                    return;
-                }
-                
-                console.log('✅ AuthSystem encontrado');
-                
-                // PASSO 2: Verificar autenticação
-                const userData = sessionStorage.getItem('currentUser');
-                
-                if (!userData) {
-                    console.warn('⚠️ Não autenticado - redirecionando');
-                    window.location.href = 'index.html';
-                    return;
-                }
-                
-                let currentUser;
-                try {
-                    currentUser = JSON.parse(userData);
-                } catch (error) {
-                    console.error('❌ Erro ao parsear usuário');
-                    sessionStorage.removeItem('currentUser');
-                    window.location.href = 'index.html';
-                    return;
-                }
-                
-                if (!currentUser || !currentUser.id || !currentUser.nome) {
-                    console.error('❌ Dados inválidos');
-                    sessionStorage.removeItem('currentUser');
-                    window.location.href = 'index.html';
-                    return;
-                }
-                
-                console.log('✅ Usuário autenticado:', currentUser.nome);
-                
-                // PASSO 3: Atualizar AuthSystem
-                window.authSystem.currentUser = currentUser;
-                
-                // PASSO 4: Atualizar interface
-                updateUserInterface();
-                
-                // PASSO 5: Configurar navegação
-                setupNavigation();
-                
-                // PASSO 6: Configurar logout
-                setupLogout();
-                
-                console.log('✅ Dashboard inicializado');
-                
-            } catch (error) {
-                console.error('❌ Erro ao inicializar:', error);
-                alert('Erro ao carregar. Faça login novamente.');
-                window.location.href = 'index.html';
-            }
-        });
-
-        // ============================================
-        // FUNÇÕES DE INTERFACE
-        // ============================================
-        
-        function updateUserInterface() {
-            const auth = window.authSystem;
-            if (!auth || !auth.currentUser) return;
-            
-            const user = auth.currentUser;
-            console.log('🎨 Atualizando interface:', user.nome);
-            
-            const dropdownUserName = document.getElementById('dropdown-user-name');
-            if (dropdownUserName) dropdownUserName.textContent = user.nome || user.email;
-            
-            loadUserAvatar();
-            console.log('✅ Interface atualizada');
-        }
-
-        function loadUserAvatar() {
-            const auth = window.authSystem;
-            if (!auth || !auth.currentUser) return;
-            
-            const user = auth.currentUser;
-            const avatarPreview = document.getElementById('avatar-preview');
-            const userAvatar = document.getElementById('user-avatar');
-            
-            let avatarUrl;
-            
-            if (user.foto_url && user.foto_url.trim() !== '') {
-                avatarUrl = user.foto_url;
-            } else {
-                const userName = user.nome || user.email || 'Usuario';
-                const initials = userName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-                avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=ff6b9d&color=ffffff&size=128&rounded=true`;
-            }
-            
-            if (avatarPreview) {
-                avatarPreview.style.backgroundImage = `url(${avatarUrl})`;
-                avatarPreview.style.backgroundSize = 'cover';
-                avatarPreview.style.backgroundPosition = 'center';
-            }
-            
-            if (userAvatar) {
-                if (userAvatar.tagName === 'IMG') {
-                    userAvatar.src = avatarUrl;
-                } else {
-                    userAvatar.style.backgroundImage = `url(${avatarUrl})`;
-                    userAvatar.style.backgroundSize = 'cover';
-                    userAvatar.style.backgroundPosition = 'center';
-                }
-            }
-        }
-
-        // ============================================
-        // NAVEGAÇÃO
-        // ============================================
-        
-        function setupNavigation() {
-            console.log('🧭 Configurando navegação...');
-            
-            const navButtons = document.querySelectorAll('.nav-btn[data-section]');
-            
-            navButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    const section = this.getAttribute('data-section');
-                    navigateToSection(section);
-                });
-            });
-            
-            console.log('✅ Navegação configurada');
-        }
-
-        function navigateToSection(sectionName) {
-            console.log('🧭 Navegando para:', sectionName);
-            
-            document.querySelectorAll('.content-section').forEach(section => {
-                section.classList.remove('active');
-            });
-            
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            
-            const targetSection = document.getElementById(`${sectionName}-section`);
-            if (targetSection) {
-                targetSection.classList.add('active');
-            }
-            
-            const targetButton = document.querySelector(`.nav-btn[data-section="${sectionName}"]`);
-            if (targetButton) {
-                targetButton.classList.add('active');
-            }
-        }
-
-        // ============================================
-        // LOGOUT
-        // ============================================
-        
-        function setupLogout() {
-            console.log('🚪 Configurando logout...');
-            
-            const logoutButton = document.querySelector('[data-logout]');
-            
-            if (logoutButton) {
-                logoutButton.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    handleLogout();
-                });
-            }
-        }
-
-        function handleLogout() {
-            console.log('👋 Fazendo logout...');
-            
-            if (confirm('Deseja realmente sair?')) {
-                sessionStorage.removeItem('currentUser');
-                
-                if (window.authSystem) {
-                    window.authSystem.currentUser = null;
-                }
-                
-                console.log('✅ Logout realizado');
-                window.location.href = 'index.html';
-            }
-        }
-
-        // ============================================
-        // DROPDOWN DO USUÁRIO
-        // ============================================
-        
-        document.addEventListener('click', function(e) {
-            const userButton = document.getElementById('user-menu-button');
-            const userDropdown = document.getElementById('user-dropdown');
-            
-            if (!userButton || !userDropdown) return;
-            
-            if (e.target === userButton || userButton.contains(e.target)) {
-                e.preventDefault();
-                userButton.classList.toggle('active');
-                userDropdown.classList.toggle('show');
-            } else {
-                userButton.classList.remove('active');
-                userDropdown.classList.remove('show');
-            }
-        });
-
-        // ============================================
-        // MODAIS
-        // ============================================
-        
-        window.openProfileModal = function() {
-            console.log('🔓 Abrindo perfil...');
-            
-            const modal = document.getElementById('profile-modal');
-            const userDropdown = document.getElementById('user-dropdown');
-            const userButton = document.getElementById('user-menu-button');
-            
-            if (userDropdown) userDropdown.classList.remove('show');
-            if (userButton) userButton.classList.remove('active');
-            
-            if (modal) {
-                modal.style.display = 'block';
-                setTimeout(() => loadUserDataIntoForm(), 100);
-            }
-        };
-
-        window.openSettingsModal = function() {
-            console.log('⚙️ Abrindo configurações...');
-            
-            const modal = document.getElementById('settings-modal');
-            const userDropdown = document.getElementById('user-dropdown');
-            const userButton = document.getElementById('user-menu-button');
-            
-            if (userDropdown) userDropdown.classList.remove('show');
-            if (userButton) userButton.classList.remove('active');
-            
-            if (modal) {
-                modal.style.display = 'block';
-                openSettingsTab('company');
-            }
-        };
-
-        window.closeModal = function(modalId) {
+        // Funções globais
+        function closeModal(modalId) {
             const modal = document.getElementById(modalId);
             if (modal) modal.style.display = 'none';
-        };
+        }
 
-        window.openSettingsTab = function(tabName) {
-            document.querySelectorAll('.settings-tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            
-            document.querySelectorAll('.settings-tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            const tabContent = document.getElementById(tabName + '-tab');
-            const tabButton = document.querySelector(`[onclick="openSettingsTab('${tabName}')"]`);
-            
-            if (tabContent) tabContent.classList.add('active');
-            if (tabButton) tabButton.classList.add('active');
-        };
-
-        // ============================================
-        // UPLOAD DE FOTO
-        // ============================================
-        
-        window.triggerAvatarUpload = function() {
-            document.getElementById('avatar-upload').click();
-        };
-
-        window.handleAvatarUpload = async function(event) {
-            console.log('📸 Upload de avatar...');
-            
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
-            if (!allowedTypes.includes(file.type)) {
-                alert('Selecione uma imagem válida (JPG, PNG ou GIF)');
-                return;
+        function openProfileModal() {
+            const modal = document.getElementById('profile-modal');
+            if (modal && window.dashboardApp) {
+                modal.style.display = 'flex';
+                window.dashboardApp.loadProfileData();
             }
+        }
 
-            if (file.size > 5 * 1024 * 1024) {
-                alert('Imagem deve ter no máximo 5MB');
-                return;
+        function saveProfile() {
+            if (window.dashboardApp) {
+                window.dashboardApp.saveProfile();
             }
+        }
 
-            try {
-                const auth = window.authSystem;
-                
-                if (!auth || !auth.uploadUserPhoto) {
-                    throw new Error('Sistema de upload não disponível');
-                }
+        function triggerAvatarUpload() {
+            const input = document.getElementById('avatar-upload');
+            if (input) input.click();
+        }
 
-                console.log('☁️ Fazendo upload...');
-                const result = await auth.uploadUserPhoto(file);
-                
-                if (result && result.success) {
-                    console.log('✅ Foto enviada:', result.photoUrl);
-                    
-                    const avatarPreview = document.getElementById('avatar-preview');
-                    if (avatarPreview) {
-                        avatarPreview.style.backgroundImage = `url(${result.photoUrl})`;
-                    }
-                    
-                    const userAvatar = document.getElementById('user-avatar');
-                    if (userAvatar) {
-                        if (userAvatar.tagName === 'IMG') {
-                            userAvatar.src = result.photoUrl;
-                        } else {
-                            userAvatar.style.backgroundImage = `url(${result.photoUrl})`;
-                        }
-                    }
-                    
-                    alert('Foto atualizada com sucesso!');
-                    updateUserInterface();
-                } else {
-                    throw new Error(result.message || 'Erro no upload');
-                }
-                
-            } catch (error) {
-                console.error('❌ Erro:', error);
-                alert(`Erro ao fazer upload: ${error.message}`);
-                loadUserAvatar();
+        function handleAvatarUpload(event) {
+            if (window.dashboardApp) {
+                window.dashboardApp.handleAvatarUpload(event);
             }
-        };
-
-        // ============================================
-        // SALVAR PERFIL
-        // ============================================
-        
-        window.saveProfile = async function() {
-            console.log('💾 Salvando perfil...');
-            
-            const name = document.getElementById('profile-name').value.trim();
-            const email = document.getElementById('profile-email').value.trim();
-            const userType = document.getElementById('user-type').value;
-            const newPassword = document.getElementById('new-password').value;
-            const confirmPassword = document.getElementById('confirm-password').value;
-            
-            if (!name || !email) {
-                alert('Preencha nome e email');
-                return;
-            }
-            
-            if (newPassword && newPassword !== confirmPassword) {
-                alert('As senhas não coincidem');
-                return;
-            }
-            
-            try {
-                const profileData = {
-                    nome: name,
-                    email: email,
-                    role: userType
-                };
-
-                if (newPassword && newPassword.length > 0) {
-                    if (newPassword.length < 6) {
-                        alert('Senha deve ter pelo menos 6 caracteres');
-                        return;
-                    }
-                    profileData.password_hash = newPassword;
-                }
-
-                const auth = window.authSystem;
-                if (auth && auth.updateUserProfile) {
-                    const result = await auth.updateUserProfile(profileData);
-                    
-                    if (result.success) {
-                        alert('Perfil salvo com sucesso!');
-                        updateUserInterface();
-                        closeModal('profile-modal');
-                    } else {
-                        alert(result.message || 'Erro ao salvar');
-                    }
-                }
-            } catch (error) {
-                console.error('❌ Erro:', error);
-                alert('Erro ao salvar. Tente novamente.');
-            }
-        };
-
-        window.saveSettings = async function() {
-            alert('Configurações salvas!');
-            closeModal('settings-modal');
-        };
-
-        window.loadUserDataIntoForm = function() {
-            console.log('📝 Carregando dados...');
-            
-            const auth = window.authSystem;
-            if (!auth || !auth.currentUser) return;
-
-            const user = auth.currentUser;
-            
-            const profileName = document.getElementById('profile-name');
-            const profileEmail = document.getElementById('profile-email');
-            const userType = document.getElementById('user-type');
-            const avatarPreview = document.getElementById('avatar-preview');
-
-            if (profileName) profileName.value = user.nome || '';
-            if (profileEmail) profileEmail.value = user.email || '';
-            if (userType) userType.value = user.role || user.tipo || 'operator';
-            
-            if (avatarPreview) {
-                if (user.foto_url && user.foto_url.trim() !== '') {
-                    avatarPreview.style.backgroundImage = `url(${user.foto_url})`;
-                } else {
-                    const userName = user.nome || user.email || 'Usuario';
-                    const initials = userName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-                    const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=007bff&color=ffffff&size=128`;
-                    avatarPreview.style.backgroundImage = `url(${avatarUrl})`;
-                }
-            }
-            
-            const currentPassword = document.getElementById('current-password');
-            const newPassword = document.getElementById('new-password');
-            const confirmPassword = document.getElementById('confirm-password');
-            
-            if (currentPassword) currentPassword.value = '';
-            if (newPassword) newPassword.value = '';
-            if (confirmPassword) confirmPassword.value = '';
-        };
-
-        console.log('✅ Dashboard script carregado');
+        }
     </script>
 </body>
 </html>

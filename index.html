@@ -4,491 +4,188 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Leo's Cake - Sistema de Pré-Vendas</title>
-    <link rel="stylesheet" href="css/styles.css">
+    
+    <meta name="theme-color" content="#ff6b9d">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="images/logo-png.png">
     <link rel="apple-touch-icon" href="images/logo-png.png">
-    <meta name="theme-color" content="#ff6b9d">
-    <!-- Bibliotecas para PDF e Email -->
+    
+    <!-- Fonts e Ícones -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Bibliotecas Externas -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.emailjs.com/sdk/dist/email.min.js"></script>
-    <!-- Supabase -->
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
 <body>
-    <!-- Login Screen -->
-    <div id="login-container" class="login-screen" style="display: none;">
-        <div class="login-container">
-            <div class="login-form">
-                <div class="login-logo">
-                    <img src="images/logo-png.png" alt="Leo's Cake">
-                </div>
-                <h1>Leo's Cake</h1>
-                <p>Sistema de Pré-Vendas</p>
-                <form id="login-form">
-                    <input type="text" id="username" placeholder="Usuário" required>
-                    <input type="password" id="password" placeholder="Senha" required>
-                    <button type="submit">Entrar</button>
-                </form>
-                <div class="demo-info">
-                    <small>Demo: admin / admin</small>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Splash Screen -->
-    <div id="splash-screen" class="splash-screen">
-        <div class="splash-content">
-            <img src="images/logo-png.png" alt="Leo's Cake" class="splash-logo">
-            <h1 class="splash-title">Leo's Cake</h1>
-            <p class="splash-subtitle">Sistema de Pré-Vendas</p>
-            <div class="splash-loader"></div>
-        </div>
+    <div id="splash-screen" class="splash-screen" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); align-items: center; justify-content: center; z-index: 9999; flex-direction: column;">
+        <img src="images/logo-png.png" alt="Leo's Cake" style="width: 100px; height: 100px; margin-bottom: 20px; border-radius: 10px;">
+        <h1 style="color: white; margin: 0; font-size: 2rem;">Leo's Cake</h1>
+        <p style="color: rgba(255,255,255,0.8); margin: 10px 0; font-size: 1rem;">Sistema de Pré-Vendas</p>
+        <div style="width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px;"></div>
     </div>
 
-    <!-- Main Container - Todo o sistema -->
-    <div id="main-container" class="main-container" style="display: none;">
-       
-        <!-- Menu de Navegação -->
-        <nav class="bottom-nav">
-        <button class="nav-btn active" data-page="dashboard">
-            <span class="nav-icon">📊</span>
-            <span class="nav-text">Dashboard</span>
-        </button>
-        <button class="nav-btn" data-page="produtos">
-            <span class="nav-icon">🧁</span>
-            <span class="nav-text">Produtos</span>
-        </button>
-        <button class="nav-btn" data-page="clientes">
-            <span class="nav-icon">👥</span>
-            <span class="nav-text">Clientes</span>
-        </button>
-        <button class="nav-btn" data-page="pedidos">
-            <span class="nav-icon">📋</span>
-            <span class="nav-text">Pedidos</span>
-        </button>
-        <button class="nav-btn" data-page="entregas">
-            <span class="nav-icon">🚚</span>
-            <span class="nav-text">Entregas</span>
-        </button>
-    </nav>
+    <!-- Login Screen -->
+    <div id="login-container" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea, #764ba2); z-index: 100; align-items: center; justify-content: center;">
+        <div style="background: white; border-radius: 12px; padding: 2rem; width: 90%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <img src="images/logo-png.png" alt="Leo's Cake" style="width: 80px; height: 80px; border-radius: 8px; margin-bottom: 1rem;">
+                <h1 style="margin: 0; font-size: 1.5rem; color: #333;">Leo's Cake</h1>
+                <p style="margin: 0.5rem 0 0 0; color: #666;">Sistema de Pré-Vendas</p>
+            </div>
 
-    <!-- Header -->
-    <header class="header">
-        <div class="header-logo">
-            <img src="images/logo-png.png" alt="Leo's Cake" class="logo">
-            <h1 id="page-title">Dashboard</h1>
-        </div>
-        <div class="header-actions">
-            <div class="sync-indicator" id="sync-indicator">
-                <span class="sync-status" id="sync-status">🔄</span>
-                <span class="sync-text" id="sync-text">Local</span>
-            </div>
-            <button class="header-btn" id="config-btn">⚙️</button>
-            <button class="header-btn" id="sync-btn">💾</button>
-        </div>
-    </header>
-
-    <!-- Páginas -->
-    <main class="main-content">
-        <!-- Dashboard -->
-        <div class="page active" id="dashboard">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-value" id="total-produtos">0</div>
-                    <div class="stat-label">Produtos</div>
+            <form id="login-form" style="display: flex; flex-direction: column; gap: 1rem;">
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Email</label>
+                    <input type="email" id="login-email" placeholder="seu@email.com" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="total-clientes">0</div>
-                    <div class="stat-label">Clientes</div>
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Senha</label>
+                    <input type="password" id="login-password" placeholder="Sua senha" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="total-pedidos">0</div>
-                    <div class="stat-label">Pedidos</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="total-entregas">0</div>
-                    <div class="stat-label">Entregas Hoje</div>
-                </div>
-            </div>
-           
-            <div class="recent-section">
-                <h3>Entregas de Hoje</h3>
-                <div id="entregas-hoje" class="entregas-list">
-                    <!-- Entregas serão inseridas aqui -->
-                </div>
-            </div>
-        </div>
-
-        <!-- Produtos -->
-        <div class="page" id="produtos">
-            <div class="page-header">
-                <button class="btn btn-primary" id="add-produto-btn">+ Adicionar Produto</button>
-            </div>
-            <div class="search-box">
-                <input type="text" id="search-produtos" placeholder="Buscar produtos...">
-            </div>
-            <div id="produtos-list" class="produtos-grid">
-                <!-- Produtos serão inseridos aqui -->
-            </div>
-        </div>
-
-        <!-- Clientes -->
-        <div class="page" id="clientes">
-            <div class="page-header">
-                <button class="btn btn-primary" id="add-cliente-btn">+ Adicionar Cliente</button>
-            </div>
-            <div class="search-box">
-                <input type="text" id="search-clientes" placeholder="Buscar clientes...">
-            </div>
-            <div id="clientes-list" class="clientes-list">
-                <!-- Clientes serão inseridos aqui -->
-            </div>
-        </div>
-
-        <!-- Pedidos -->
-        <div class="page" id="pedidos">
-            <div class="page-header">
-                <button class="btn btn-primary" id="add-pedido-btn">+ Novo Pedido</button>
-            </div>
-            <div class="filters">
-                <select id="filter-status">
-                    <option value="">Todos os Status</option>
-                    <option value="pendente">Pendente</option>
-                    <option value="pago">Pago</option>
-                    <option value="entregue">Entregue</option>
-                </select>
-            </div>
-            <div id="pedidos-list" class="pedidos-list">
-                <!-- Pedidos serão inseridos aqui -->
-            </div>
-        </div>
-
-        <!-- Entregas -->
-        <div class="page" id="entregas">
-            <div class="page-header">
-                <input type="date" id="date-filter" class="date-input">
-            </div>
-            <div id="entregas-list" class="entregas-agenda">
-                <!-- Agenda de entregas será inserida aqui -->
-            </div>
-        </div>
-    </main>
-
-    <!-- Modals -->
-    <!-- Modal Produto -->
-    <div class="modal" id="produto-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="produto-modal-title">Adicionar Produto</h3>
-                <button class="close-btn">&times;</button>
-            </div>
-            <form id="produto-form">
-                <div class="form-group">
-                    <label for="produto-nome">Nome do Produto</label>
-                    <input type="text" id="produto-nome" required>
-                </div>
-                <div class="form-group">
-                    <label for="produto-descricao">Descrição</label>
-                    <textarea id="produto-descricao" rows="3"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="produto-preco">Preço (R$)</label>
-                    <input type="number" id="produto-preco" step="0.01" required>
-                </div>
-                <div class="form-group">
-                    <label for="produto-estoque">Quantidade em Estoque</label>
-                    <input type="number" id="produto-estoque" required>
-                </div>
-                <div class="form-group">
-                    <label for="produto-imagem">Imagem do Produto</label>
-                    <input type="file" id="produto-imagem" accept="image/*">
-                    <div id="preview-imagem" class="image-preview"></div>
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" id="cancel-produto">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Salvar</button>
-                </div>
+                <button type="submit" style="padding: 0.75rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 0.5rem;">
+                    Entrar
+                </button>
             </form>
+
+            <div id="login-error" style="display: none; margin-top: 1rem; padding: 0.75rem; background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 4px; text-align: center;"></div>
+
+
         </div>
     </div>
 
-    <!-- Modal Cliente -->
-    <div class="modal" id="cliente-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="cliente-modal-title">Adicionar Cliente</h3>
-                <button class="close-btn">&times;</button>
-            </div>
-            <form id="cliente-form">
-                <div class="form-group">
-                    <label for="cliente-nome">Nome Completo</label>
-                    <input type="text" id="cliente-nome" required>
-                </div>
-                <div class="form-group">
-                    <label for="cliente-telefone">Telefone</label>
-                    <input type="tel" id="cliente-telefone" required>
-                </div>
-                <div class="form-group">
-                    <label for="cliente-endereco">Endereço</label>
-                    <textarea id="cliente-endereco" rows="3" required></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="cliente-email">Email (opcional)</label>
-                    <input type="email" id="cliente-email">
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" id="cancel-cliente">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Salvar</button>
-                </div>
-            </form>
-        </div>
+    <!-- Main Container (Dashboard) -->
+    <div id="main-container" style="display: none;">
+        <!-- Este container será usado se necessário -->
     </div>
 
-    <!-- Modal Pedido -->
-    <div class="modal" id="pedido-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="pedido-modal-title">Novo Pedido</h3>
-                <button class="close-btn">&times;</button>
-            </div>
-            <form id="pedido-form">
-                <div class="form-group">
-                    <label for="pedido-cliente">Cliente</label>
-                    <select id="pedido-cliente" required>
-                        <option value="">Selecione um cliente</option>
-             ...(truncated 1745 characters)...
-                    </select>
-                </div>
-                <!-- Calendário e Horários -->
-                <div class="form-group">
-                    <label for="pedido-data-entrega">Data e Horário da Entrega</label>
-                    <div class="calendar-container">
-                        <!-- Calendário -->
-                        <div class="calendar">
-                            <div class="calendar-header">
-                                <button class="calendar-nav" onclick="app.previousMonth()">‹</button>
-                                <span id="calendar-title">Novembro 2025</span>
-                                <button class="calendar-nav" onclick="app.nextMonth()">›</button>
-                            </div>
-                            <div class="calendar-weekdays">
-                                <div class="weekday">Dom</div>
-                                <div class="weekday">Seg</div>
-                                <div class="weekday">Ter</div>
-                                <div class="weekday">Qua</div>
-                                <div class="weekday">Qui</div>
-                                <div class="weekday">Sex</div>
-                                <div class="weekday">Sáb</div>
-                            </div>
-                            <div id="calendar-days" class="calendar-days">
-                                <!-- Dias do calendário serão inseridos aqui -->
-                            </div>
-                        </div>
-                       
-                        <!-- Horários Disponíveis -->
-                        <div class="time-slots-container">
-                            <h4>🕐 Horários Disponíveis</h4>
-                            <div class="selected-date-info">
-                                <span id="selected-date-display">Selecione uma data</span>
-                            </div>
-                            <div id="available-times" class="time-slots">
-                                <!-- Horários disponíveis serão inseridos aqui -->
-                            </div>
-                        </div>
-                    </div>
-                   
-                    <!-- Campos ocultos para armazenar valores -->
-                    <input type="hidden" id="pedido-data-entrega" required>
-                    <input type="hidden" id="pedido-horario-entrega" required>
-                </div>
-                <div class="form-group">
-                    <label for="pedido-observacoes">Observações</label>
-                    <textarea id="pedido-observacoes" rows="3"></textarea>
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" id="cancel-pedido">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Salvar</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    <!-- Animação de Loading -->
+    <style>
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .splash-screen {
+            display: flex;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #ff6b9d, #ffa726);
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            flex-direction: column;
+        }
+    </style>
 
-    <!-- Modal Configurações -->
-    <div class="modal" id="config-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Configurações do Sistema</h3>
-                <button class="close-btn">&times;</button>
-            </div>
-            <form id="config-form">
-                <h4>Informações da Empresa</h4>
-                <div class="form-group">
-                    <label for="empresa-nome">Nome da Empresa</label>
-                    <input type="text" id="empresa-nome" value="Leo's Cake" required>
-                </div>
-                <div class="form-group">
-                    <label for="empresa-telefone">Telefone</label>
-                    <input type="tel" id="empresa-telefone" placeholder="(11) 99999-9999">
-                </div>
-                <div class="form-group">
-                    <label for="empresa-endereco">Endereço</label>
-                    <input type="text" id="empresa-endereco" placeholder="Rua, número, bairro, cidade">
-                </div>
-                <div class="form-group">
-                    <label for="empresa-email">Email da Empresa</label>
-                    <input type="email" id="empresa-email" placeholder="contato@leoscake.com">
-                </div>
+    <!-- Scripts -->
+    <script>
+        // Limpar Service Workers antigos
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                registrations.forEach(registration => {
+                    registration.unregister().catch(err => {
+                        console.warn('Erro ao desregistrar SW:', err);
+                    });
+                });
+            });
+        }
+    </script>
 
-                <h4>🔐 Segurança do Sistema</h4>
-                <div class="form-group">
-                    <label for="sistema-senha">Senha do Sistema</label>
-                    <input type="password" id="sistema-senha" placeholder="Digite a nova senha">
-                    <small>⚠️ Alterar esta senha forçará novo login em todos os dispositivos</small>
-                </div>
+    <script src="src/supabase.js"></script>
+    <script src="src/i18n.js"></script>
+    <script src="src/auth.js"></script>
 
-                <h4>👥 Gerenciar Usuários</h4>
-                <div class="form-group">
-                    <button type="button" class="btn btn-primary" id="add-user-btn">
-                        ➕ Adicionar Usuário
-                    </button>
-                    <small>Adiciona um novo usuário com acesso ao sistema</small>
-                </div>
-               
-                <div class="form-group" id="users-list">
-                    <label>Usuários Cadastrados:</label>
-                    <div id="users-container" class="users-grid">
-                        <!-- Lista de usuários será carregada aqui dinamicamente -->
-                    </div>
-                </div>
+    <script>
+        // Sistema de Login
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('🚀 Carregando sistema de login...');
 
-                <!-- Aviso sobre Configurações Sensíveis -->
-                <div id="config-warning" class="config-warning" style="display: none;">
-                    <h4>🔒 Configurações Sensíveis</h4>
-                    <p>Por segurança, configurações como URLs do Supabase e chaves de API devem ser definidas no arquivo <strong>config.json</strong> ou através de variáveis de ambiente.</p>
-                    <p>Consulte o arquivo <strong>SUPABASE_SETUP.md</strong> para instruções detalhadas.</p>
-                </div>
+            // Testar conexão com Supabase
+            setTimeout(async () => {
+                const result = await window.testSupabaseConnection?.();
+                if (result?.success) {
+                    console.log('✅ ' + result.message);
+                } else {
+                    console.warn('⚠️ ' + (result?.message || 'Erro ao conectar ao Supabase'));
+                }
+            }, 1000);
 
-                <!-- Configurações Sensíveis (ocultas em produção) -->
-                <div class="sensitive-config" style="display: none;">
-                    <h4>⚡ Configurações do Supabase (Desenvolvimento)</h4>
-                    <div class="form-group">
-                        <label for="supabase-url">Supabase URL</label>
-                        <input type="url" id="supabase-url" placeholder="https://seu-projeto.supabase.co">
-                        <small>URL do seu projeto no <a href="https://supabase.com" target="_blank">Supabase</a></small>
-                    </div>
-                    <div class="form-group">
-                        <label for="supabase-anon-key">Anon Key</label>
-                        <input type="password" id="supabase-anon-key" placeholder="eyJhbGciOiJIUzI1NI...">
-                        <small>Chave pública (anon/public) do projeto</small>
-                    </div>
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="supabase-realtime">
-                            Ativar Sincronização em Tempo Real
-                        </label>
-                        <small>Mudanças serão sincronizadas automaticamente entre dispositivos</small>
-                    </div>
-                </div>
+            // Aguardar AuthSystem estar pronto
+            let attempts = 0;
+            while (!window.authSystem?.isInitialized && attempts < 50) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
+            }
 
-                <!-- Status da Conexão -->
-                <h4>📊 Status do Sistema</h4>
-                <div class="form-group">
-                    <button type="button" class="btn btn-primary" id="test-supabase-connection">
-                        🔗 Testar Conexão Supabase
-                    </button>
-                    <span id="supabase-status" class="connection-status"></span>
-                </div>
-                <div class="form-group">
-                    <button type="button" class="btn btn-success" id="create-supabase-tables">
-                        📐 Criar Tabelas no Supabase
-                    </button>
-                    <small>Cria automaticamente as tabelas necessárias no banco</small>
-                </div>
-               
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" id="cancel-config">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Salvar</button>
-                </div>
-            </form>
-        </div>
-    </div>
+            // Se já está logado, ir para dashboard
+            if (window.authSystem?.isLoggedIn()) {
+                console.log('✅ Usuário já autenticado, redirecionando...');
+                window.location.href = 'dashboard.html';
+                return;
+            }
 
-    <!-- Modal Recibo -->
-    <div class="modal" id="recibo-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Gerar Recibo</h3>
-                <button class="close-btn">&times;</button>
-            </div>
-            <div id="recibo-preview" class="recibo-preview">
-                <!-- Preview do recibo será gerado aqui -->
-            </div>
-            <div class="form-actions">
-                <button type="button" class="btn btn-secondary" onclick="app.closeReciboModal()">Fechar</button>
-                <button type="button" class="btn btn-primary" onclick="app.baixarReciboPDF()">📥 Baixar PDF</button>
-                <button type="button" class="btn btn-success" onclick="app.enviarReciboEmail()">📧 Enviar Email</button>
-            </div>
-        </div>
-    </div>
+            // Esconder splash screen e mostrar login
+            const splashScreen = document.getElementById('splash-screen');
+            const loginContainer = document.getElementById('login-container');
 
-    <!-- Modal Usuário -->
-    <div class="modal" id="user-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="user-modal-title">Novo Usuário</h3>
-                <button class="close-btn">&times;</button>
-            </div>
-            <form id="user-form">
-                <div class="form-group">
-                    <label for="user-nome">Nome Completo</label>
-                    <input type="text" id="user-nome" required>
-                </div>
-                <div class="form-group">
-                    <label for="user-email">Email</label>
-                    <input type="email" id="user-email" required>
-                </div>
-                <div class="form-group">
-                    <label for="user-senha">Senha</label>
-                    <input type="password" id="user-senha" required minlength="6">
-                    <small>Mínimo 6 caracteres</small>
-                </div>
-                <div class="form-group">
-                    <label for="user-tipo">Tipo de Usuário</label>
-                    <select id="user-tipo" required>
-                        <option value="user">Usuário Comum</option>
-                        <option value="admin">Administrador</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="user-ativo" checked>
-                        Usuário Ativo
-                    </label>
-                </div>
-                <div class="modal-actions">
-                    <button type="submit" class="btn btn-primary">Salvar Usuário</button>
-                    <button type="button" class="btn btn-secondary" id="cancel-user">Cancelar</button>
-                </div>
-            </form>
-        </div>
-    </div>
+            setTimeout(() => {
+                if (splashScreen) splashScreen.style.display = 'none';
+                if (loginContainer) loginContainer.style.display = 'flex';
+            }, 1500);
 
-        <!-- Toast para notificações -->
-        <div id="toast" class="toast"></div>
-       
-    </div> <!-- Fim Main Container -->
+            // Setup do formulário de login
+            const loginForm = document.getElementById('login-form');
+            const loginError = document.getElementById('login-error');
 
-    <!-- Scripts externos -->
+            if (loginForm) {
+                loginForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
 
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-   
-    <!-- Scripts do sistema -->
-    <script src="js/i18n.js"></script>
-    <script src="js/auth-system.js"></script>
-    <script src="js/data-manager.js"></script>
-    <script src="js/receipt-system.js"></script>
-    <script src="js/login-app.js"></script>
+                    const email = document.getElementById('login-email').value.trim();
+                    const password = document.getElementById('login-password').value;
+
+                    if (!email || !password) {
+                        showLoginError('Preencha email e senha');
+                        return;
+                    }
+
+                    try {
+                        const result = await window.authSystem.login(email, password);
+
+                        if (result.success) {
+                            console.log('✅ Login bem-sucedido');
+                            window.location.href = 'dashboard.html';
+                        } else {
+                            showLoginError(result.message || 'Email ou senha incorretos');
+                        }
+                    } catch (error) {
+                        console.error('Erro ao fazer login:', error);
+                        showLoginError('Erro ao fazer login. Tente novamente.');
+                    }
+                });
+            }
+
+            function showLoginError(message) {
+                if (loginError) {
+                    loginError.textContent = message;
+                    loginError.style.display = 'block';
+                    setTimeout(() => {
+                        loginError.style.display = 'none';
+                    }, 5000);
+                }
+            }
+        });
+    </script>
 </body>
 </html>
