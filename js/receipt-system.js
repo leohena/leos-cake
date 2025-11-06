@@ -62,7 +62,7 @@ class ReceiptSystem {
                 emailjs.init(this.emailConfig.userId);
             }
             
-            console.log('✅ Configurações carregadas:', {
+            log('✅ Configurações carregadas:', {
                 empresa: this.companyInfo,
                 email: { ...this.emailConfig, userId: this.emailConfig.userId ? '***' : 'não configurado' }
             });
@@ -288,7 +288,7 @@ class ReceiptSystem {
                 emailData
             );
             
-            console.log('Email enviado:', response);
+            log('Email enviado:', response);
             window.app.showToast('Email de confirmação enviado!', 'success');
             
             return response;

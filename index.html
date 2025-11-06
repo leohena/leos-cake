@@ -13,7 +13,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.emailjs.com/sdk/dist/email.min.js"></script>
     <!-- Supabase -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
 <body>
     <!-- Login Screen -->
@@ -49,7 +49,7 @@
 
     <!-- Main Container - Todo o sistema -->
     <div id="main-container" class="main-container" style="display: none;">
-        
+       
         <!-- Menu de Navegação -->
         <nav class="bottom-nav">
         <button class="nav-btn active" data-page="dashboard">
@@ -112,7 +112,7 @@
                     <div class="stat-label">Entregas Hoje</div>
                 </div>
             </div>
-            
+           
             <div class="recent-section">
                 <h3>Entregas de Hoje</h3>
                 <div id="entregas-hoje" class="entregas-list">
@@ -258,36 +258,19 @@
                     <label for="pedido-cliente">Cliente</label>
                     <select id="pedido-cliente" required>
                         <option value="">Selecione um cliente</option>
+             ...(truncated 1745 characters)...
                     </select>
                 </div>
+                <!-- Calendário e Horários -->
                 <div class="form-group">
-                    <label>Produtos</label>
-                    <div id="produtos-pedido" class="produtos-pedido">
-                        <!-- Produtos do pedido serão inseridos aqui -->
-                    </div>
-                    <button type="button" class="btn btn-secondary" id="add-produto-pedido">+ Adicionar Produto</button>
-                </div>
-                <div class="form-group">
-                    <label for="pedido-valor-total">Valor Total (R$)</label>
-                    <input type="number" id="pedido-valor-total" step="0.01" readonly>
-                </div>
-                <div class="form-group">
-                    <label for="pedido-valor-pago">Valor Pago (R$)</label>
-                    <input type="number" id="pedido-valor-pago" step="0.01" required>
-                </div>
-                <div class="form-group">
-                    <label for="pedido-saldo">Saldo Restante (R$)</label>
-                    <input type="number" id="pedido-saldo" step="0.01" readonly>
-                </div>
-                <div class="form-group">
-                    <label>📅 Seleção de Data e Horário de Entrega</label>
-                    <div class="delivery-scheduler">
+                    <label for="pedido-data-entrega">Data e Horário da Entrega</label>
+                    <div class="calendar-container">
                         <!-- Calendário -->
-                        <div class="calendar-container">
+                        <div class="calendar">
                             <div class="calendar-header">
-                                <button type="button" id="prev-month" class="calendar-nav" onclick="app.previousMonth()">‹</button>
-                                <span id="current-month-year"></span>
-                                <button type="button" id="next-month" class="calendar-nav" onclick="app.nextMonth()">›</button>
+                                <button class="calendar-nav" onclick="app.previousMonth()">‹</button>
+                                <span id="calendar-title">Novembro 2025</span>
+                                <button class="calendar-nav" onclick="app.nextMonth()">›</button>
                             </div>
                             <div class="calendar-weekdays">
                                 <div class="weekday">Dom</div>
@@ -302,7 +285,7 @@
                                 <!-- Dias do calendário serão inseridos aqui -->
                             </div>
                         </div>
-                        
+                       
                         <!-- Horários Disponíveis -->
                         <div class="time-slots-container">
                             <h4>🕐 Horários Disponíveis</h4>
@@ -314,7 +297,7 @@
                             </div>
                         </div>
                     </div>
-                    
+                   
                     <!-- Campos ocultos para armazenar valores -->
                     <input type="hidden" id="pedido-data-entrega" required>
                     <input type="hidden" id="pedido-horario-entrega" required>
@@ -371,7 +354,7 @@
                     </button>
                     <small>Adiciona um novo usuário com acesso ao sistema</small>
                 </div>
-                
+               
                 <div class="form-group" id="users-list">
                     <label>Usuários Cadastrados:</label>
                     <div id="users-container" class="users-grid">
@@ -418,11 +401,11 @@
                 </div>
                 <div class="form-group">
                     <button type="button" class="btn btn-success" id="create-supabase-tables">
-                        � Criar Tabelas no Supabase
+                        📐 Criar Tabelas no Supabase
                     </button>
                     <small>Cria automaticamente as tabelas necessárias no banco</small>
                 </div>
-                
+               
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" id="cancel-config">Cancelar</button>
                     <button type="submit" class="btn btn-primary">Salvar</button>
@@ -493,14 +476,14 @@
 
         <!-- Toast para notificações -->
         <div id="toast" class="toast"></div>
-        
+       
     </div> <!-- Fim Main Container -->
 
     <!-- Scripts externos -->
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    
+   
     <!-- Scripts do sistema -->
     <script src="js/i18n.js"></script>
     <script src="js/auth-system.js"></script>

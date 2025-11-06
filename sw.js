@@ -3,8 +3,16 @@ const CACHE_NAME = 'leos-cake-v2';
 const urlsToCache = [
     './',
     './index.html',
+    './dashboard.html',
     './css/styles.css',
-    './js/app.js',
+    './css/dashboard.css',
+    './js/i18n.js',
+    './js/auth-system.js',
+    './js/data-manager.js',
+    './js/receipt-system.js',
+    './js/login-app.js',
+    './js/dashboard-app.js',
+    './js/debug.dev.js',
     './images/logo-png.png',
     './manifest.json'
 ];
