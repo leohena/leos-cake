@@ -1,4 +1,5 @@
-// app.js - Lógica principal do Dashboard
+// Removed stray closing bracket at the top of the file
+// app.js - Dashboard com Integração Supabase Completa
 
 class DashboardApp {
 	constructor() {
@@ -6,551 +7,55 @@ class DashboardApp {
 		this.products = [];
 		this.clients = [];
 		this.orders = [];
-		this.deliveries = [];
 		this.initialized = false;
 		this.currentLang = localStorage.getItem('lang') || 'pt-BR';
+		this.supabase = null;
 	}
 
 	async initialize() {
 		try {
 			console.log('🚀 Inicializando Dashboard...');
 
-			// Aguardar AuthSystem estar pronto
+			// Aguardar authSystem
 			let attempts = 0;
 			while (!window.authSystem?.isInitialized && attempts < 50) {
 				await new Promise(resolve => setTimeout(resolve, 100));
 				attempts++;
 			}
 
-			// Verificar se usuário está autenticado
 			if (!window.authSystem?.isLoggedIn()) {
-				console.log('⚠️ Usuário não autenticado, redirecionando...');
 				window.location.href = 'index.html';
 				return false;
 			}
 
 			this.currentUser = window.authSystem.getCurrentUser();
-			console.log('✅ Usuário autenticado:', this.currentUser.nome);
+			this.supabase = window.supabaseClient;
 
-			// Carregar dados primeiro
-			this.loadData();
-			
-			// Configurar UI
+			await this.loadData();
 			this.setupUI();
 			this.setupEventListeners();
 			this.setupLanguageSwitcher();
-			
-			// Criar cards e atualizar stats
 			this.createStatsCards();
 			this.createDataCards();
 			this.updateEntregasHoje();
 
-			// Ouvir mudanças de idioma
-			window.addEventListener('languageChanged', () => {
-				console.log('🌐 Idioma mudou, atualizando dashboard...');
-				this.updateAllTranslations();
-			});
+			window.addEventListener('languageChanged', () => this.updateAllTranslations());
 
 			this.initialized = true;
 			console.log('✅ Dashboard inicializado');
 			return true;
 		} catch (error) {
-			console.error('❌ Erro ao inicializar Dashboard:', error);
+			console.error('❌ Erro ao inicializar:', error);
 			return false;
 		}
 	}
 
-	setupUI() {
-		// Atualizar informações do usuário
-		const userNameEl = document.getElementById('dropdown-user-name');
-		const userAvatarEl = document.getElementById('user-avatar');
-		const welcomeName = document.getElementById('welcome-name');
-		const userType = document.getElementById('dropdown-user-type');
-
-		if (userNameEl) userNameEl.textContent = this.currentUser.nome;
-		if (userAvatarEl) {
-			userAvatarEl.src = this.currentUser.foto_url || 
-				`https://ui-avatars.com/api/?name=${encodeURIComponent(this.currentUser.nome)}&background=ff6b9d&color=fff&size=32`;
-		}
-		if (welcomeName) welcomeName.textContent = this.currentUser.nome;
-		if (userType) {
-			const lang = localStorage.getItem('lang') || 'pt-BR';
-			userType.textContent = this.currentUser.tipo === 'admin' 
-				? (lang === 'pt-BR' ? 'Administrador' : 'Administrator')
-				: (lang === 'pt-BR' ? 'Usuário' : 'User');
-		}
-
-		// Atualizar "Bem-vindo" com tradução
-		this.updateWelcomeMessage();
-
-		// Setar página título
-		const pageTitle = document.getElementById('page-title');
-		if (pageTitle) pageTitle.textContent = this.getTranslation('section.dashboard');
+	t(key) {
+		return typeof window.t === 'function' ? window.t(key) : key;
 	}
 
-	updateWelcomeMessage() {
-		const welcomeText = document.querySelector('.welcome-text');
-		if (welcomeText) {
-			const bemVindo = this.getTranslation('dashboard.bem_vindo');
-			welcomeText.innerHTML = `${bemVindo}, <strong>${this.currentUser.nome}</strong>!`;
-		}
-	}
-
-	updateAllTranslations() {
-		console.log('🔄 Atualizando traduções...');
-		
-		// Atualizar APENAS os labels dos cards de estatísticas (não os valores)
-		const labelProdutos = document.getElementById('label-produtos');
-		const labelClientes = document.getElementById('label-clientes');
-		const labelPedidos = document.getElementById('label-pedidos');
-		const labelEstoque = document.getElementById('label-estoque');
-		const labelEntregas = document.getElementById('label-entregas');
-
-		if (labelProdutos) labelProdutos.textContent = this.getTranslation('dashboard.produtos');
-		if (labelClientes) labelClientes.textContent = this.getTranslation('dashboard.clientes');
-		if (labelPedidos) labelPedidos.textContent = this.getTranslation('dashboard.pedidos');
-		if (labelEstoque) labelEstoque.textContent = this.getTranslation('dashboard.estoque');
-		if (labelEntregas) labelEntregas.textContent = this.getTranslation('dashboard.entregas');
-		
-		// Atualizar cards de dados
-		this.createDataCards();
-		
-		// Atualizar mensagem de boas-vindas
-		this.updateWelcomeMessage();
-		
-		// Atualizar navegação inferior
-		this.updateBottomNav();
-		
-		// Atualizar título da página
-		this.updatePageTitle();
-		
-		// Atualizar menu dropdown
-		this.updateDropdownMenu();
-		
-		// Atualizar tipo de usuário
-		const userType = document.getElementById('dropdown-user-type');
-		if (userType) {
-			const lang = localStorage.getItem('lang') || 'pt-BR';
-			userType.textContent = this.currentUser.tipo === 'admin' 
-				? (lang === 'pt-BR' ? 'Administrador' : 'Administrator')
-				: (lang === 'pt-BR' ? 'Usuário' : 'User');
-		}
-		
-		// Atualizar seção de entregas hoje
-		this.updateEntregasHoje();
-		
-		console.log('✅ Todas as traduções atualizadas');
-	}
-
-	updateDropdownMenu() {
-		const lang = localStorage.getItem('lang') || 'pt-BR';
-		const profileBtn = document.getElementById('profile-btn');
-		const configBtn = document.getElementById('config-btn');
-		const logoutBtn = document.getElementById('logout-btn');
-
-		if (profileBtn) {
-			const span = profileBtn.querySelector('span');
-			if (span) span.textContent = this.getTranslation('btn.profile');
-		}
-
-		if (configBtn) {
-			const span = configBtn.querySelector('span');
-			if (span) span.textContent = lang === 'pt-BR' ? 'Configurações' : 'Settings';
-		}
-
-		if (logoutBtn) {
-			const span = logoutBtn.querySelector('span');
-			if (span) span.textContent = this.getTranslation('btn.logout');
-		}
-	}
-
-	getTranslation(key) {
-		// Usar função global de tradução do i18n.js
-		if (typeof window.t === 'function') {
-			return window.t(key);
-		}
-		return key;
-	}
-
-	createStatsCards() {
-		const statsGrid = document.getElementById('stats-grid');
-		if (!statsGrid) return;
-
-		const stats = [
-			{
-				icon: 'fa-cookie-bite',
-				label: this.getTranslation('dashboard.produtos'),
-				id: 'total-produtos',
-				labelId: 'label-produtos',
-				value: this.products.length
-			},
-			{
-				icon: 'fa-users',
-				label: this.getTranslation('dashboard.clientes'),
-				id: 'total-clientes',
-				labelId: 'label-clientes',
-				value: this.clients.length
-			},
-			{
-				icon: 'fa-hourglass-end',
-				label: this.getTranslation('dashboard.pedidos'),
-				id: 'total-pedidos',
-				labelId: 'label-pedidos',
-				value: this.orders.filter(o => o.status === 'pendente').length
-			},
-			{
-				icon: 'fa-warehouse',
-				label: this.getTranslation('dashboard.estoque'),
-				id: 'total-estoque',
-				labelId: 'label-estoque',
-				value: this.products.reduce((sum, p) => sum + (p.estoque || 0), 0)
-			},
-			{
-				icon: 'fa-shipping-fast',
-				label: this.getTranslation('dashboard.entregas'),
-				id: 'total-entregas',
-				labelId: 'label-entregas',
-				value: this.countDeliveriesToday()
-			}
-		];
-
-		statsGrid.innerHTML = stats.map(stat => `
-			<div class="stat-card-container">
-				<div style="background: white; padding: 1.25rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 1rem; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; width: 100%; height: 100%;">
-					<div style="width: 50px; height: 50px; background: linear-gradient(135deg, #ff6b9d, #ffa726); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem; flex-shrink: 0;">
-						<i class="fas ${stat.icon}"></i>
-					</div>
-					<div>
-						<h3 style="margin: 0; font-size: 1.75rem; font-weight: 700; color: #333;" id="${stat.id}">${stat.value}</h3>
-						<p style="margin: 0.25rem 0 0 0; color: #666; font-size: 0.85rem;" id="${stat.labelId}">${stat.label}</p>
-					</div>
-				</div>
-			</div>
-		`).join('');
-
-		// Adicionar hover effect
-		document.querySelectorAll('.stat-card-container').forEach(card => {
-			card.addEventListener('mouseenter', function() {
-				this.querySelector('div').style.transform = 'translateY(-4px)';
-				this.querySelector('div').style.boxShadow = '0 8px 16px rgba(0,0,0,0.15)';
-			});
-			card.addEventListener('mouseleave', function() {
-				this.querySelector('div').style.transform = 'translateY(0)';
-				this.querySelector('div').style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
-			});
-		});
-	}
-
-	createDataCards() {
-		// Cards de Clientes
-		this.renderClientesPage();
-		
-		// Cards de Produtos
-		this.renderProdutosPage();
-		
-		// Cards de Pedidos
-		this.renderPedidosPage();
-		
-		// Cards de Estoque
-		this.renderEstoquePage();
-		
-		// Cards de Entregas
-		this.renderEntregasPage();
-	}
-
-	renderClientesPage() {
-		const clientesContainer = document.getElementById('clientes-container');
-		if (!clientesContainer) return;
-
-		const actionBar = `
-			<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 1rem; flex-wrap: wrap;">
-				<input type="text" id="search-clientes" placeholder="${this.currentLang === 'pt-BR' ? '🔍 Buscar cliente...' : '🔍 Search client...'}" style="flex: 1; min-width: 200px; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem;">
-				<button onclick="window.dashboardApp.openAddClientModal()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; white-space: nowrap;">
-					<i class="fas fa-plus"></i> ${this.currentLang === 'pt-BR' ? 'Novo Cliente' : 'New Client'}
-				</button>
-			</div>
-		`;
-
-		if (this.clients.length === 0) {
-			clientesContainer.innerHTML = actionBar + `
-				<div style="text-align: center; color: #888; padding: 3rem; background: white; border-radius: 8px;">
-					<i class="fas fa-users" style="font-size: 4rem; margin-bottom: 1rem; opacity: 0.3;"></i>
-					<p style="font-size: 1.1rem;">${this.getTranslation('msg.nenhum_cliente')}</p>
-				</div>
-			`;
-		} else {
-			const clientsList = this.clients.map(client => `
-				<div style="background: white; padding: 1.25rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); transition: transform 0.2s, box-shadow 0.2s;" onmouseenter="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.12)'" onmouseleave="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.08)'">
-					<div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
-						<div style="flex: 1;">
-							<h4 style="margin: 0; color: #333; font-weight: 600; font-size: 1.1rem;">${client.nome}</h4>
-							<div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem;">
-								<p style="margin: 0; color: #666; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
-									<i class="fas fa-phone" style="color: #ff6b9d; width: 16px;"></i>
-									${client.telefone}
-								</p>
-								<p style="margin: 0; color: #666; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
-									<i class="fas fa-envelope" style="color: #ff6b9d; width: 16px;"></i>
-									${client.email || (this.currentLang === 'pt-BR' ? 'Não informado' : 'Not provided')}
-								</p>
-								<p style="margin: 0; color: #666; font-size: 0.9rem; display: flex; align-items: start; gap: 0.5rem;">
-									<i class="fas fa-map-marker-alt" style="color: #ff6b9d; width: 16px; margin-top: 2px;"></i>
-									${client.endereco}
-								</p>
-							</div>
-						</div>
-						<div style="display: flex; gap: 0.5rem;">
-							<button onclick="window.dashboardApp.editClient(${client.id})" style="padding: 0.5rem; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px;" title="${this.currentLang === 'pt-BR' ? 'Editar' : 'Edit'}">
-								<i class="fas fa-edit"></i>
-							</button>
-							<button onclick="window.dashboardApp.deleteClient(${client.id})" style="padding: 0.5rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px;" title="${this.currentLang === 'pt-BR' ? 'Excluir' : 'Delete'}">
-								<i class="fas fa-trash"></i>
-							</button>
-						</div>
-					</div>
-				</div>
-			`).join('');
-
-			clientesContainer.innerHTML = actionBar + `<div style="display: flex; flex-direction: column; gap: 0.75rem;">${clientsList}</div>`;
-		}
-
-		// Adicionar busca
-		const searchInput = document.getElementById('search-clientes');
-		if (searchInput) {
-			searchInput.addEventListener('input', (e) => {
-				const term = e.target.value.toLowerCase();
-				const filtered = this.clients.filter(c => 
-					c.nome.toLowerCase().includes(term) || 
-					c.telefone.includes(term) ||
-					c.endereco.toLowerCase().includes(term)
-				);
-				// Renderizar apenas os filtrados (implementar depois)
-			});
-		}
-	}
-
-	renderProdutosPage() {
-		const produtosContainer = document.getElementById('produtos-container');
-		if (!produtosContainer) return;
-
-		const actionBar = `
-			<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 1rem; flex-wrap: wrap;">
-				<input type="text" id="search-produtos" placeholder="${this.currentLang === 'pt-BR' ? '🔍 Buscar produto...' : '🔍 Search product...'}" style="flex: 1; min-width: 200px; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem;">
-				<button onclick="window.dashboardApp.openAddProductModal()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; white-space: nowrap;">
-					<i class="fas fa-plus"></i> ${this.currentLang === 'pt-BR' ? 'Novo Produto' : 'New Product'}
-				</button>
-			</div>
-		`;
-
-		if (this.products.length === 0) {
-			produtosContainer.innerHTML = actionBar + `
-				<div style="text-align: center; color: #888; padding: 3rem; background: white; border-radius: 8px;">
-					<i class="fas fa-cookie-bite" style="font-size: 4rem; margin-bottom: 1rem; opacity: 0.3;"></i>
-					<p style="font-size: 1.1rem;">${this.getTranslation('msg.nenhum_produto')}</p>
-				</div>
-			`;
-		} else {
-			const productsList = this.products.map(product => `
-				<div style="background: white; padding: 1.25rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); transition: transform 0.2s, box-shadow 0.2s;" onmouseenter="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.12)'" onmouseleave="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.08)'">
-					<div style="display: flex; justify-content: space-between; align-items: start; gap: 1rem;">
-						<div style="flex: 1;">
-							<h4 style="margin: 0; color: #333; font-weight: 600; font-size: 1.1rem;">${product.nome}</h4>
-							<div style="display: flex; align-items: center; gap: 1rem; margin-top: 0.75rem; flex-wrap: wrap;">
-								<span style="color: #28a745; font-size: 1.25rem; font-weight: 700;">R$ ${parseFloat(product.preco).toFixed(2)}</span>
-								<span style="background: ${product.estoque > 10 ? '#28a745' : product.estoque > 0 ? '#FFC107' : '#dc3545'}; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 600;">
-									📦 ${product.estoque} ${this.currentLang === 'pt-BR' ? 'unid.' : 'units'}
-								</span>
-							</div>
-							${product.descricao ? `<p style="margin: 0.75rem 0 0 0; color: #666; font-size: 0.9rem;">${product.descricao}</p>` : ''}
-						</div>
-						<div style="display: flex; gap: 0.5rem;">
-							<button onclick="window.dashboardApp.editProduct(${product.id})" style="padding: 0.5rem; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px;" title="${this.currentLang === 'pt-BR' ? 'Editar' : 'Edit'}">
-								<i class="fas fa-edit"></i>
-							</button>
-							<button onclick="window.dashboardApp.deleteProduct(${product.id})" style="padding: 0.5rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px;" title="${this.currentLang === 'pt-BR' ? 'Excluir' : 'Delete'}">
-								<i class="fas fa-trash"></i>
-							</button>
-						</div>
-					</div>
-				</div>
-			`).join('');
-
-			produtosContainer.innerHTML = actionBar + `<div style="display: flex; flex-direction: column; gap: 0.75rem;">${productsList}</div>`;
-		}
-	}
-
-	renderPedidosPage() {
-		const pedidosContainer = document.getElementById('pedidos-container');
-		if (!pedidosContainer) return;
-
-		const actionBar = `
-			<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 1rem; flex-wrap: wrap;">
-				<input type="text" id="search-pedidos" placeholder="${this.currentLang === 'pt-BR' ? '🔍 Buscar pedido...' : '🔍 Search order...'}" style="flex: 1; min-width: 200px; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem;">
-				<button onclick="window.dashboardApp.openAddOrderModal()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; white-space: nowrap;">
-					<i class="fas fa-plus"></i> ${this.currentLang === 'pt-BR' ? 'Novo Pedido' : 'New Order'}
-				</button>
-			</div>
-		`;
-
-		if (this.orders.length === 0) {
-			pedidosContainer.innerHTML = actionBar + `
-				<div style="text-align: center; color: #888; padding: 3rem; background: white; border-radius: 8px;">
-					<i class="fas fa-receipt" style="font-size: 4rem; margin-bottom: 1rem; opacity: 0.3;"></i>
-					<p style="font-size: 1.1rem;">${this.getTranslation('msg.nenhum_pedido')}</p>
-				</div>
-			`;
-		} else {
-			const ordersList = this.orders.map(order => `
-				<div style="background: white; padding: 1.25rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); transition: transform 0.2s, box-shadow 0.2s;" onmouseenter="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.12)'" onmouseleave="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.08)'">
-					<div style="display: flex; justify-content: space-between; align-items: start; gap: 1rem;">
-						<div style="flex: 1;">
-							<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
-								<h4 style="margin: 0; color: #333; font-weight: 600; font-size: 1.1rem;">${this.getTranslation('detail.pedido')} #${order.id}</h4>
-								<span style="background: ${this.getStatusColor(order.status)}; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">${order.status}</span>
-							</div>
-							<div style="display: flex; flex-direction: column; gap: 0.5rem;">
-								<p style="margin: 0; color: #666; font-size: 0.9rem;">
-									<i class="fas fa-user" style="color: #ff6b9d; width: 16px;"></i>
-									${order.cliente_nome || 'Cliente não informado'}
-								</p>
-								<p style="margin: 0; color: #666; font-size: 0.9rem;">
-									<i class="fas fa-calendar" style="color: #ff6b9d; width: 16px;"></i>
-									${order.data_entrega || (this.currentLang === 'pt-BR' ? 'Sem data' : 'No date')}
-								</p>
-								<p style="margin: 0; color: #28a745; font-size: 1.1rem; font-weight: 700; margin-top: 0.5rem;">
-									💰 R$ ${parseFloat(order.valor_total || 0).toFixed(2)}
-								</p>
-							</div>
-						</div>
-						<div style="display: flex; gap: 0.5rem;">
-							<button onclick="window.dashboardApp.viewOrder(${order.id})" style="padding: 0.5rem; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px;" title="${this.currentLang === 'pt-BR' ? 'Ver detalhes' : 'View details'}">
-								<i class="fas fa-eye"></i>
-							</button>
-							<button onclick="window.dashboardApp.editOrder(${order.id})" style="padding: 0.5rem; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px;" title="${this.currentLang === 'pt-BR' ? 'Editar' : 'Edit'}">
-								<i class="fas fa-edit"></i>
-							</button>
-							<button onclick="window.dashboardApp.deleteOrder(${order.id})" style="padding: 0.5rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px;" title="${this.currentLang === 'pt-BR' ? 'Excluir' : 'Delete'}">
-								<i class="fas fa-trash"></i>
-							</button>
-						</div>
-					</div>
-				</div>
-			`).join('');
-
-			pedidosContainer.innerHTML = actionBar + `<div style="display: flex; flex-direction: column; gap: 0.75rem;">${ordersList}</div>`;
-		}
-	}
-
-	renderEstoquePage() {
-		const estoqueContainer = document.getElementById('estoque-container');
-		if (!estoqueContainer) return;
-
-		if (this.products.length === 0) {
-			estoqueContainer.innerHTML = `
-				<div style="text-align: center; color: #888; padding: 3rem; background: white; border-radius: 8px;">
-					<i class="fas fa-box-open" style="font-size: 4rem; margin-bottom: 1rem; opacity: 0.3;"></i>
-					<p style="font-size: 1.1rem;">${this.getTranslation('msg.sem_dados')}</p>
-				</div>
-			`;
-		} else {
-			const stockList = this.products.map(product => {
-				const percentage = Math.min((product.estoque / 100) * 100, 100);
-				const color = product.estoque > 10 ? '#28a745' : product.estoque > 5 ? '#FFC107' : '#dc3545';
-				
-				return `
-				<div style="background: white; padding: 1.25rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08);">
-					<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-						<h4 style="margin: 0; color: #333; font-weight: 600; font-size: 1.05rem;">${product.nome}</h4>
-						<span style="background: ${color}; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 600;">
-							${product.estoque} ${this.currentLang === 'pt-BR' ? 'unid.' : 'units'}
-						</span>
-					</div>
-					<div style="background: #f0f0f0; border-radius: 8px; height: 12px; overflow: hidden;">
-						<div style="background: ${color}; height: 100%; width: ${percentage}%; transition: width 0.3s;"></div>
-					</div>
-					<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem;">
-						<span style="color: #666; font-size: 0.85rem;">${this.currentLang === 'pt-BR' ? 'Nível de estoque' : 'Stock level'}</span>
-						<button onclick="window.dashboardApp.adjustStock(${product.id})" style="padding: 0.4rem 0.75rem; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">
-							<i class="fas fa-edit"></i> ${this.currentLang === 'pt-BR' ? 'Ajustar' : 'Adjust'}
-						</button>
-					</div>
-				</div>
-			`;
-			}).join('');
-
-			estoqueContainer.innerHTML = `<div style="display: flex; flex-direction: column; gap: 0.75rem;">${stockList}</div>`;
-		}
-	}
-
-	renderEntregasPage() {
-		const entregasContainer = document.getElementById('entregas-container');
-		if (!entregasContainer) return;
-
-		const actionBar = `
-			<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 1rem; flex-wrap: wrap;">
-				<input type="date" id="filter-entregas" style="padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem;">
-				<button onclick="window.dashboardApp.refreshDeliveries()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; white-space: nowrap;">
-					<i class="fas fa-sync-alt"></i> ${this.currentLang === 'pt-BR' ? 'Atualizar' : 'Refresh'}
-				</button>
-			</div>
-		`;
-
-		const deliveriesWithDates = this.orders.filter(o => o.data_entrega);
-		
-		if (deliveriesWithDates.length === 0) {
-			entregasContainer.innerHTML = actionBar + `
-				<div style="text-align: center; color: #888; padding: 3rem; background: white; border-radius: 8px;">
-					<i class="fas fa-truck" style="font-size: 4rem; margin-bottom: 1rem; opacity: 0.3;"></i>
-					<p style="font-size: 1.1rem;">${this.getTranslation('msg.nenhuma_entrega')}</p>
-				</div>
-			`;
-		} else {
-			const today = new Date().toISOString().split('T')[0];
-			const deliveriesList = deliveriesWithDates.map(order => {
-				const isToday = order.data_entrega === today;
-				
-				return `
-				<div style="background: ${isToday ? '#fff3cd' : 'white'}; padding: 1.25rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); border-left: 4px solid ${isToday ? '#FFC107' : '#ff6b9d'}; transition: transform 0.2s, box-shadow 0.2s;" onmouseenter="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.12)'" onmouseleave="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.08)'">
-					<div style="display: flex; justify-content: space-between; align-items: start; gap: 1rem;">
-						<div style="flex: 1;">
-							<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
-								<h4 style="margin: 0; color: #333; font-weight: 600; font-size: 1.1rem;">${this.currentLang === 'pt-BR' ? 'Entrega' : 'Delivery'} #${order.id}</h4>
-								${isToday ? `<span style="background: #FFC107; color: #333; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">${this.currentLang === 'pt-BR' ? 'HOJE' : 'TODAY'}</span>` : ''}
-							</div>
-							<div style="display: flex; flex-direction: column; gap: 0.5rem;">
-								<p style="margin: 0; color: #666; font-size: 0.9rem;">
-									<i class="fas fa-user" style="color: #ff6b9d; width: 16px;"></i>
-									${order.cliente_nome || (this.currentLang === 'pt-BR' ? 'Cliente não informado' : 'Client not informed')}
-								</p>
-								<p style="margin: 0; color: #666; font-size: 0.9rem;">
-									<i class="fas fa-calendar-alt" style="color: #ff6b9d; width: 16px;"></i>
-									${this.formatDate(order.data_entrega)}
-								</p>
-								<p style="margin: 0; color: #666; font-size: 0.9rem;">
-									<i class="fas fa-clock" style="color: #ff6b9d; width: 16px;"></i>
-									${order.horario_entrega || (this.currentLang === 'pt-BR' ? 'Horário não definido' : 'Time not set')}
-								</p>
-								<p style="margin: 0; color: #666; font-size: 0.9rem; display: flex; align-items: start; gap: 0.5rem;">
-									<i class="fas fa-map-marker-alt" style="color: #ff6b9d; width: 16px; margin-top: 2px;"></i>
-									${order.endereco_entrega || (this.currentLang === 'pt-BR' ? 'Endereço não informado' : 'Address not informed')}
-								</p>
-							</div>
-						</div>
-						<div style="display: flex; flex-direction: column; gap: 0.5rem;">
-							<button onclick="window.dashboardApp.markAsDelivered(${order.id})" style="padding: 0.5rem 0.75rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: 600; white-space: nowrap;">
-								<i class="fas fa-check"></i> ${this.currentLang === 'pt-BR' ? 'Entregue' : 'Delivered'}
-							</button>
-							<button onclick="window.dashboardApp.viewOrder(${order.id})" style="padding: 0.5rem; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-								<i class="fas fa-eye"></i>
-							</button>
-						</div>
-					</div>
-				</div>
-			`;
-			}).join('');
-
-			entregasContainer.innerHTML = actionBar + `<div style="display: flex; flex-direction: column; gap: 0.75rem;">${deliveriesList}</div>`;
-		}
+	formatCurrency(value) {
+		return `CAD$ ${parseFloat(value || 0).toFixed(2)}`;
 	}
 
 	formatDate(dateString) {
@@ -570,60 +75,63 @@ class DashboardApp {
 		return colors[status] || '#6c757d';
 	}
 
+	setupUI() {
+		const userNameEl = document.getElementById('dropdown-user-name');
+		const userAvatarEl = document.getElementById('user-avatar');
+		const welcomeName = document.getElementById('welcome-name');
+		const userType = document.getElementById('dropdown-user-type');
+
+		if (userNameEl) userNameEl.textContent = this.currentUser.nome;
+		if (userAvatarEl) {
+			userAvatarEl.src = this.currentUser.foto_url || 
+				`https://ui-avatars.com/api/?name=${encodeURIComponent(this.currentUser.nome)}&background=ff6b9d&color=fff&size=32`;
+		}
+		if (welcomeName) welcomeName.textContent = this.currentUser.nome;
+		if (userType) {
+			userType.textContent = this.currentUser.tipo === 'admin' 
+				? (this.currentLang === 'pt-BR' ? 'Administrador' : 'Administrator')
+				: (this.currentLang === 'pt-BR' ? 'Usuário' : 'User');
+		}
+
+		this.updateWelcomeMessage();
+		const pageTitle = document.getElementById('page-title');
+		if (pageTitle) pageTitle.textContent = this.t('section.dashboard');
+	}
+
+	updateWelcomeMessage() {
+		const welcomeText = document.querySelector('.welcome-text');
+		if (welcomeText) {
+			welcomeText.innerHTML = `${this.t('dashboard.bem_vindo')}, <strong>${this.currentUser.nome}</strong>!`;
+		}
+	}
+
 	setupEventListeners() {
-		// Menu do usuário
 		const userMenuBtn = document.getElementById('user-menu-button');
 		const userDropdown = document.getElementById('user-dropdown');
-		const profileBtn = document.getElementById('profile-btn');
-		const configBtn = document.getElementById('config-btn');
 		const logoutBtn = document.getElementById('logout-btn');
 
 		if (userMenuBtn) {
 			userMenuBtn.addEventListener('click', (e) => {
 				e.stopPropagation();
-				if (userDropdown) {
-					const isVisible = userDropdown.classList.contains('show');
-					if (isVisible) {
-						userDropdown.classList.remove('show');
-					} else {
-						userDropdown.classList.add('show');
-					}
-				}
-			});
-		}
-
-		if (profileBtn) {
-			profileBtn.addEventListener('click', () => {
-				if (userDropdown) userDropdown.classList.remove('show');
-				this.openProfileModal();
-			});
-		}
-
-		if (configBtn) {
-			configBtn.addEventListener('click', () => {
-				if (userDropdown) userDropdown.classList.remove('show');
-				this.openConfigModal();
+				userDropdown?.classList.toggle('show');
 			});
 		}
 
 		if (logoutBtn) {
 			logoutBtn.addEventListener('click', () => {
-				const lang = localStorage.getItem('lang') || 'pt-BR';
-				if (confirm(lang === 'pt-BR' ? 'Deseja realmente sair?' : 'Do you really want to logout?')) {
+				if (confirm(this.t('btn.logout') + '?')) {
 					window.authSystem.logout();
 					window.location.href = 'index.html';
 				}
 			});
 		}
 
-		// Fechar dropdown ao clicar fora
 		document.addEventListener('click', (e) => {
 			if (userDropdown && !userMenuBtn?.contains(e.target) && !userDropdown.contains(e.target)) {
 				userDropdown.classList.remove('show');
 			}
 		});
 
-		// Navegação
 		document.querySelectorAll('.nav-btn').forEach(btn => {
 			btn.addEventListener('click', (e) => {
 				const section = e.currentTarget.getAttribute('data-section');
@@ -633,7 +141,6 @@ class DashboardApp {
 	}
 
 	setupLanguageSwitcher() {
-		// Seletores de idioma (bandeiras)
 		const flagWrappers = document.querySelectorAll('.flag-wrapper');
 		flagWrappers.forEach(wrapper => {
 			wrapper.addEventListener('click', () => {
@@ -641,104 +148,83 @@ class DashboardApp {
 				this.currentLang = lang;
 				localStorage.setItem('lang', lang);
 				
-				// Atualizar visual
 				flagWrappers.forEach(fw => fw.style.opacity = '0.6');
 				wrapper.style.opacity = '1';
 				
-				// Mudar idioma via i18n
 				if (typeof window.setLang === 'function') {
 					window.setLang(lang);
 				}
-				
-				console.log('🌐 Idioma alterado para:', lang);
 			});
 		});
 
-		// Marcar idioma atual
 		const langCode = this.currentLang === 'pt-BR' ? 'pt' : 'en';
 		const currentLangBtn = document.querySelector(`.flag-wrapper[data-lang="${langCode}"]`);
 		if (currentLangBtn) currentLangBtn.style.opacity = '1';
 	}
 
-	updatePageTitle() {
-		const pageTitle = document.getElementById('page-title');
-		if (pageTitle) {
-			// Encontrar qual seção está ativa
-			const activeSection = document.querySelector('.content-section[style*="display: block"]');
-			if (activeSection) {
-				const sectionId = activeSection.id.replace('-section', '');
-				pageTitle.textContent = this.getTranslation(`section.${sectionId}`);
-			}
-		}
-	}
-
 	switchSection(section) {
-		// Esconder todas as seções
 		document.querySelectorAll('.content-section').forEach(s => s.style.display = 'none');
 		document.querySelectorAll('.nav-btn').forEach(b => b.style.color = '#888');
 
-		// Mostrar seção selecionada
 		const targetSection = document.getElementById(`${section}-section`);
-		if (targetSection) {
-			targetSection.style.display = 'block';
-		}
+		if (targetSection) targetSection.style.display = 'block';
 
-		// Marcar botão como ativo
 		const activeBtn = document.querySelector(`[data-section="${section}"]`);
 		if (activeBtn) activeBtn.style.color = '#ff6b9d';
 
-		// Atualizar título
 		const pageTitle = document.getElementById('page-title');
-		if (pageTitle) {
-			pageTitle.textContent = this.getTranslation(`section.${section}`);
-		}
+		if (pageTitle) pageTitle.textContent = this.t(`section.${section}`);
 	}
 
-	loadData() {
-		// Carregar dados do localStorage
-		try {
-			const savedProducts = localStorage.getItem('products');
-			const savedClients = localStorage.getItem('clients');
-			const savedOrders = localStorage.getItem('orders');
+	createStatsCards() {
+		const statsGrid = document.getElementById('stats-grid');
+		if (!statsGrid) return;
 
-			this.products = savedProducts ? JSON.parse(savedProducts) : [];
-			this.clients = savedClients ? JSON.parse(savedClients) : [];
-			this.orders = savedOrders ? JSON.parse(savedOrders) : [];
+		const stats = [
+			{ icon: 'fa-cookie-bite', label: this.t('dashboard.produtos'), id: 'total-produtos', labelId: 'label-produtos', value: this.products.length },
+			{ icon: 'fa-users', label: this.t('dashboard.clientes'), id: 'total-clientes', labelId: 'label-clientes', value: this.clients.length },
+			{ icon: 'fa-hourglass-end', label: this.t('dashboard.pedidos'), id: 'total-pedidos', labelId: 'label-pedidos', value: this.orders.filter(o => o.status === 'pendente').length },
+			{ icon: 'fa-warehouse', label: this.t('dashboard.estoque'), id: 'total-estoque', labelId: 'label-estoque', value: this.products.reduce((sum, p) => sum + (p.estoque || 0), 0) },
+			{ icon: 'fa-shipping-fast', label: this.t('dashboard.entregas'), id: 'total-entregas', labelId: 'label-entregas', value: this.countDeliveriesToday() }
+		];
 
-			console.log('✅ Dados carregados:', {
-				produtos: this.products.length,
-				clientes: this.clients.length,
-				pedidos: this.orders.length
-			});
-		} catch (error) {
-			console.error('Erro ao carregar dados:', error);
-		}
+		statsGrid.innerHTML = stats.map(stat => `
+			<div class="stat-card-container">
+				<div style="background: white; padding: 1.25rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 1rem; transition: transform 0.2s; cursor: pointer;">
+					<div style="width: 50px; height: 50px; background: linear-gradient(135deg, #ff6b9d, #ffa726); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem;">
+						<i class="fas ${stat.icon}"></i>
+					</div>
+					<div>
+						<h3 style="margin: 0; font-size: 1.75rem; font-weight: 700; color: #333;" id="${stat.id}">${stat.value}</h3>
+						<p style="margin: 0.25rem 0 0 0; color: #666; font-size: 0.85rem;" id="${stat.labelId}">${stat.label}</p>
+					</div>
+				</div>
+			</div>
+		`).join('');
 	}
 
-	saveData() {
-		try {
-			localStorage.setItem('products', JSON.stringify(this.products));
-			localStorage.setItem('clients', JSON.stringify(this.clients));
-			localStorage.setItem('orders', JSON.stringify(this.orders));
-			console.log('✅ Dados salvos com sucesso');
-		} catch (error) {
-			console.error('Erro ao salvar dados:', error);
-		}
+	createDataCards() {
+		this.renderClientesPage();
+		this.renderProdutosPage();
+		this.renderPedidosPage();
+		this.renderEstoquePage();
+		this.renderEntregasPage();
 	}
 
 	updateStats() {
-		// Atualizar APENAS os valores numéricos, não os labels
-		const totalProdutos = document.getElementById('total-produtos');
-		const totalClientes = document.getElementById('total-clientes');
-		const totalPedidos = document.getElementById('total-pedidos');
-		const totalEntregas = document.getElementById('total-entregas');
-		const totalEstoque = document.getElementById('total-estoque');
+		const ids = ['total-produtos', 'total-clientes', 'total-pedidos', 'total-entregas', 'total-estoque'];
+		const values = [
+			this.products.length,
+			this.clients.length,
+			this.orders.filter(o => o.status === 'pendente').length,
+			this.countDeliveriesToday(),
+			this.products.reduce((sum, p) => sum + (p.estoque || 0), 0)
+		];
 
-		if (totalProdutos) totalProdutos.textContent = this.products.length;
-		if (totalClientes) totalClientes.textContent = this.clients.length;
-		if (totalPedidos) totalPedidos.textContent = this.orders.filter(o => o.status === 'pendente').length;
-		if (totalEntregas) totalEntregas.textContent = this.countDeliveriesToday();
-		if (totalEstoque) totalEstoque.textContent = this.products.reduce((sum, p) => sum + (p.estoque || 0), 0);
+		ids.forEach((id, i) => {
+			const el = document.getElementById(id);
+			if (el) el.textContent = values[i];
+		});
 	}
 
 	countDeliveriesToday() {
@@ -752,388 +238,1287 @@ class DashboardApp {
 
 		const today = new Date().toISOString().split('T')[0];
 		const entregas = this.orders.filter(o => o.data_entrega === today);
-		
-		const msg = this.getTranslation('msg.nenhuma_entrega');
 
 		if (entregas.length === 0) {
-			entregasHoje.innerHTML = `<div style="text-align: center; color: #888; padding: 2rem;"><i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 1rem;"></i><p>${msg}</p></div>`;
+			entregasHoje.innerHTML = `<div style="text-align: center; color: #888; padding: 2rem;"><i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 1rem;"></i><p>${this.t('msg.nenhuma_entrega')}</p></div>`;
 		} else {
 			entregasHoje.innerHTML = `
 				<div style="display: flex; flex-direction: column; gap: 0.75rem;">
 					${entregas.map(order => `
 						<div style="background: #f9f9f9; padding: 0.75rem; border-left: 4px solid #ff6b9d; border-radius: 4px;">
-							<p style="margin: 0; font-weight: 600; color: #333;">${this.getTranslation('detail.pedido')} #${order.id}</p>
-							<p style="margin: 0.25rem 0 0 0; color: #666; font-size: 0.9rem;">🕐 ${order.horario_entrega || (this.currentLang === 'pt-BR' ? 'Sem horário' : 'No time')}</p>
+							<p style="margin: 0; font-weight: 600; color: #333;">${this.t('detail.pedido')} #${order.id}</p>
+							<p style="margin: 0.25rem 0 0 0; color: #666; font-size: 0.9rem;">🕐 ${order.horario_entrega || 'N/A'}</p>
 						</div>
 					`).join('')}
 				</div>
 			`;
 		}
-		
-		// Atualizar também o título da seção
-		const entregasHojeTitleWrapper = document.querySelector('#dashboard-section > div:last-child');
-		if (entregasHojeTitleWrapper) {
-			const titleElement = entregasHojeTitleWrapper.querySelector('h3');
-			if (titleElement) {
-				titleElement.textContent = '📦 ' + this.getTranslation('dashboard.entregas_hoje');
-			}
-		}
 	}
 
-	updateBottomNav() {
-		const navBtns = document.querySelectorAll('.nav-btn');
-		navBtns.forEach(btn => {
-			const section = btn.getAttribute('data-section');
-			const textSpan = btn.querySelector('span:last-child');
-			
-			if (textSpan) {
-				textSpan.textContent = this.getTranslation(`nav.${section}`);
-			}
+	updateAllTranslations() {
+		['label-produtos', 'label-clientes', 'label-pedidos', 'label-estoque', 'label-entregas'].forEach((id, i) => {
+			const el = document.getElementById(id);
+			if (el) el.textContent = this.t(['dashboard.produtos', 'dashboard.clientes', 'dashboard.pedidos', 'dashboard.estoque', 'dashboard.entregas'][i]);
 		});
+		
+		this.createDataCards();
+		this.updateWelcomeMessage();
+		this.updateEntregasHoje();
 	}
 
-	// Modal de Perfil
-	openProfileModal() {
-		const modal = document.getElementById('profile-modal');
-		if (modal) {
-			modal.style.display = 'flex';
-			this.loadProfileData();
-		}
-	}
+	// ==================== DADOS SUPABASE ====================
 
-	loadProfileData() {
-		const nameInput = document.getElementById('profile-name');
-		const emailInput = document.getElementById('profile-email');
-		const avatarPreview = document.getElementById('avatar-preview');
-		const labels = document.querySelectorAll('#profile-modal label');
-		const modalTitle = document.querySelector('#profile-modal h2');
-		const btnChangePhoto = document.querySelector('#profile-modal button[onclick*="triggerAvatarUpload"]');
-
-		if (nameInput) nameInput.value = this.currentUser.nome || '';
-		if (emailInput) emailInput.value = this.currentUser.email || '';
-
-		if (avatarPreview) {
-			const avatarUrl = this.currentUser.foto_url || 
-				`https://ui-avatars.com/api/?name=${encodeURIComponent(this.currentUser.nome)}&background=ff6b9d&color=fff&size=80`;
-			avatarPreview.style.backgroundImage = `url('${avatarUrl}')`;
-			avatarPreview.style.backgroundSize = 'cover';
-			avatarPreview.style.backgroundPosition = 'center';
-		}
-
-		// Traduzir elementos do modal
-		if (modalTitle) modalTitle.textContent = '👤 ' + this.getTranslation('modal.perfil');
-		if (labels[0]) labels[0].textContent = this.getTranslation('modal.nome');
-		if (labels[1]) labels[1].textContent = this.getTranslation('modal.email');
-		if (btnChangePhoto) btnChangePhoto.textContent = this.getTranslation('modal.alterar_foto');
-
-		// Traduzir botões
-		const btnCancel = document.querySelector('.btn-cancel');
-		const btnSave = document.querySelector('.btn-save');
-		if (btnCancel) btnCancel.textContent = this.getTranslation('modal.cancelar');
-		if (btnSave) btnSave.textContent = this.getTranslation('modal.salvar');
-	}
-
-	async saveProfile() {
-		const name = document.getElementById('profile-name').value.trim();
-		const lang = localStorage.getItem('lang') || 'pt-BR';
-
-		if (!name) {
-			alert(lang === 'pt-BR' ? 'Preencha o nome' : 'Fill in the name');
+	async loadData() {
+		if (!this.supabase) {
+			console.warn('⚠️ Supabase não disponível, usando localStorage');
+			this.loadFromLocalStorage();
 			return;
 		}
 
 		try {
-			const result = await window.authSystem.updateUserProfile({ nome: name, foto_url: this.currentUser.foto_url });
-			if (result.success) {
-				alert(lang === 'pt-BR' ? 'Perfil atualizado com sucesso!' : 'Profile updated successfully!');
-				this.currentUser = result.user;
-				this.setupUI();
-				document.getElementById('profile-modal').style.display = 'none';
+			// Carregar clientes
+			const { data: clientes, error: clientesError } = await this.supabase
+				.from('clientes')
+				.select('*')
+				.order('created_at', { ascending: false });
+
+			if (!clientesError) this.clients = clientes || [];
+
+			// Carregar produtos
+			const { data: produtos, error: produtosError } = await this.supabase
+				.from('produtos')
+				.select('*')
+				.order('created_at', { ascending: false });
+
+			if (!produtosError) this.products = produtos || [];
+
+			// Carregar pedidos
+			const { data: pedidos, error: pedidosError } = await this.supabase
+				.from('pedidos')
+				.select('*')
+				.order('created_at', { ascending: false });
+
+			if (!pedidosError) this.orders = pedidos || [];
+
+			console.log('✅ Dados carregados do Supabase:', {
+				clientes: this.clients.length,
+				produtos: this.products.length,
+				pedidos: this.orders.length
+			});
+		} catch (error) {
+			console.error('Erro ao carregar dados:', error);
+			this.loadFromLocalStorage();
+		}
+	}
+
+	loadFromLocalStorage() {
+		this.products = JSON.parse(localStorage.getItem('products') || '[]');
+		this.clients = JSON.parse(localStorage.getItem('clients') || '[]');
+		this.orders = JSON.parse(localStorage.getItem('orders') || '[]');
+	}
+
+	async saveToSupabase(table, data, id = null) {
+		if (!this.supabase) {
+			console.warn('⚠️ Supabase não disponível');
+			return null;
+		}
+
+		try {
+			if (id) {
+				const { data: result, error } = await this.supabase
+					.from(table)
+					.update(data)
+					.eq('id', id)
+					.select()
+					.single();
+
+				if (error) {
+					console.error(`Erro Supabase UPDATE [${table}]:`, error, data);
+					throw error;
+				}
+				return result;
 			} else {
-				alert(lang === 'pt-BR' ? 'Erro ao salvar perfil' : 'Error saving profile');
+				const { data: result, error } = await this.supabase
+					.from(table)
+					.insert([data])
+					.select()
+					.single();
+
+				if (error) {
+					console.error(`Erro Supabase INSERT [${table}]:`, error, data);
+					throw error;
+				}
+				return result;
 			}
 		} catch (error) {
-			alert(lang === 'pt-BR' ? 'Erro ao salvar perfil' : 'Error saving profile');
+			alert('Erro ao salvar no banco: ' + (error?.message || error));
+			console.error('Erro ao salvar:', error, data);
+			return null;
 		}
 	}
 
-	handleAvatarUpload(event) {
-		const file = event.target.files[0];
-		if (!file) return;
+	async deleteFromSupabase(table, id) {
+		if (!this.supabase) return false;
 
-		const lang = localStorage.getItem('lang') || 'pt-BR';
+		try {
+			const { error } = await this.supabase
+				.from(table)
+				.delete()
+				.eq('id', id);
 
-		if (!['image/jpeg', 'image/jpg', 'image/png', 'image/gif'].includes(file.type)) {
-			alert(lang === 'pt-BR' ? 'Selecione uma imagem válida' : 'Select a valid image');
-			return;
+			return !error;
+		} catch (error) {
+			console.error('Erro ao deletar:', error);
+			return false;
 		}
-
-		if (file.size > 5 * 1024 * 1024) {
-			alert(lang === 'pt-BR' ? 'Imagem deve ter no máximo 5MB' : 'Image must be at most 5MB');
-			return;
-		}
-
-		const reader = new FileReader();
-		reader.onload = (e) => {
-			const dataURL = e.target.result;
-			const avatarPreview = document.getElementById('avatar-preview');
-			if (avatarPreview) {
-				avatarPreview.style.backgroundImage = `url('${dataURL}')`;
-				avatarPreview.style.backgroundSize = 'cover';
-				avatarPreview.style.backgroundPosition = 'center';
-			}
-			this.currentUser.foto_url = dataURL;
-			sessionStorage.setItem('currentUser', JSON.stringify(this.currentUser));
-			this.setupUI();
-		};
-		reader.readAsDataURL(file);
 	}
 
-	// Modal de Configurações
-	openConfigModal() {
-		const lang = this.currentLang === 'pt-BR';
-		const modalHTML = `
-			<div id="config-modal" style="display: flex; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); justify-content: center; align-items: center; padding: 1rem;">
-				<div style="background: white; border-radius: 12px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
-					<div style="padding: 24px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px 12px 0 0; display: flex; justify-content: space-between; align-items: center;">
-						<h2 style="margin: 0; font-size: 1.25rem; font-weight: 600;">⚙️ ${lang ? 'Configurações' : 'Settings'}</h2>
-						<button onclick="closeModal('config-modal')" style="background: none; border: none; color: white; font-size: 28px; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; padding: 0;">&times;</button>
-					</div>
-					<div style="padding: 24px;">
-						<div style="margin-bottom: 1.5rem;">
-							<h3 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem;">${lang ? '🌐 Idioma' : '🌐 Language'}</h3>
-							<div style="display: flex; gap: 1rem;">
-								<button onclick="window.dashboardApp.changeLanguage('pt-BR')" style="flex: 1; padding: 1rem; border: 2px solid ${this.currentLang === 'pt-BR' ? '#ff6b9d' : '#ddd'}; border-radius: 8px; background: ${this.currentLang === 'pt-BR' ? '#fff0f5' : 'white'}; cursor: pointer; font-weight: 600; color: #333;">
-									🇧🇷 Português (BR)
-								</button>
-								<button onclick="window.dashboardApp.changeLanguage('en-US')" style="flex: 1; padding: 1rem; border: 2px solid ${this.currentLang === 'en-US' ? '#ff6b9d' : '#ddd'}; border-radius: 8px; background: ${this.currentLang === 'en-US' ? '#fff0f5' : 'white'}; cursor: pointer; font-weight: 600; color: #333;">
-									🇨🇦 English (CA)
-								</button>
-							</div>
-						</div>
-						<div style="margin-bottom: 1.5rem;">
-							<h3 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem;">${lang ? '📊 Dados' : '📊 Data'}</h3>
-							<button onclick="window.dashboardApp.exportData()" style="width: 100%; padding: 0.75rem; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; margin-bottom: 0.5rem;">
-								<i class="fas fa-download"></i> ${lang ? 'Exportar Dados' : 'Export Data'}
-							</button>
-							<button onclick="window.dashboardApp.clearData()" style="width: 100%; padding: 0.75rem; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
-								<i class="fas fa-trash"></i> ${lang ? 'Limpar Todos os Dados' : 'Clear All Data'}
-							</button>
-						</div>
-						<div>
-							<h3 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem;">${lang ? 'ℹ️ Sobre' : 'ℹ️ About'}</h3>
-							<p style="margin: 0; color: #666; font-size: 0.95rem;">
-								<strong>Leo's Cake</strong><br>
-								${lang ? 'Versão' : 'Version'}: 1.0.0<br>
-								${lang ? 'Sistema de Pré-Vendas' : 'Pre-Sales System'}
-							</p>
-						</div>
-					</div>
-				</div>
+	// ==================== CLIENTES ====================
+
+	async openAddClientModal() {
+	const modal = this.createModal('modal-add-client', '', false);
+	modal.querySelector('.modal-content-wrapper').innerHTML = `
+			<div style="display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.7rem;">
+				<span style="width: 50px; height: 50px; background: linear-gradient(135deg, #667eea, #6dd5ed); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.7rem;"><i class="fas fa-user"></i></span>
+				<span style="font-size: 1.35rem; font-weight: 700; color: #333;">${this.t('modal.add_client')}</span>
+				<button onclick="closeModal('modal-add-client')" style="margin-left:auto; background:none; border:none; font-size:1.3rem; color:#888; cursor:pointer;">&times;</button>
 			</div>
+			<div style="border-bottom:1px solid #eee; margin-bottom:1rem;"></div>
+			<form id="form-add-client" class="form-modal">
+				<div class="form-group">
+					<label for="client-nome">${this.t('modal.client_name')} *</label>
+					<input type="text" id="client-nome" required class="form-control" placeholder="${this.t('placeholder.enter_name')}">
+				</div>
+				<div class="form-group">
+					<label for="client-telefone">${this.t('modal.client_phone')} *</label>
+					<input type="tel" id="client-telefone" required class="form-control" placeholder="${this.t('placeholder.enter_phone')}">
+				</div>
+				<div class="form-group">
+					<label for="client-email">${this.t('modal.client_email')}</label>
+					<input type="email" id="client-email" class="form-control" placeholder="${this.t('placeholder.enter_email')}">
+				</div>
+				<div class="form-group">
+					<label for="client-endereco">${this.t('modal.client_address')} *</label>
+					<textarea id="client-endereco" required class="form-control" rows="3" placeholder="${this.t('placeholder.enter_address')}"></textarea>
+				</div>
+				<div class="modal-actions">
+					<button type="button" onclick="closeModal('modal-add-client')" class="btn btn-secondary">${this.t('btn.cancel')}</button>
+					<button type="submit" class="btn btn-primary">${this.t('btn.save')}</button>
+				</div>
+			</form>
 		`;
 		
-		// Remover modal existente se houver
-		const existingModal = document.getElementById('config-modal');
-		if (existingModal) existingModal.remove();
-		
-		// Adicionar novo modal
-		document.body.insertAdjacentHTML('beforeend', modalHTML);
-	}
+		document.getElementById('modals-container').appendChild(modal);
+		modal.classList.add('show');
 
-	changeLanguage(lang) {
-		this.currentLang = lang;
-		localStorage.setItem('lang', lang);
-		
-		// Atualizar bandeiras
-		const flagWrappers = document.querySelectorAll('.flag-wrapper');
-		flagWrappers.forEach(fw => fw.style.opacity = '0.6');
-		const langCode = lang === 'pt-BR' ? 'pt' : 'en';
-		const currentFlag = document.querySelector(`.flag-wrapper[data-lang="${langCode}"]`);
-		if (currentFlag) currentFlag.style.opacity = '1';
-		
-		// Mudar idioma via i18n
-		if (typeof window.setLang === 'function') {
-			window.setLang(lang);
-		}
-		
-		// Fechar e reabrir modal para atualizar textos
-		closeModal('config-modal');
-		setTimeout(() => this.openConfigModal(), 100);
-	}
-
-	exportData() {
-		const data = {
-			products: this.products,
-			clients: this.clients,
-			orders: this.orders,
-			exportDate: new Date().toISOString()
-		};
-		
-		const dataStr = JSON.stringify(data, null, 2);
-		const dataBlob = new Blob([dataStr], { type: 'application/json' });
-		const url = URL.createObjectURL(dataBlob);
-		const link = document.createElement('a');
-		link.href = url;
-		link.download = `leos-cake-backup-${new Date().toISOString().split('T')[0]}.json`;
-		link.click();
-		URL.revokeObjectURL(url);
-		
-		const lang = this.currentLang === 'pt-BR';
-		alert(lang ? 'Dados exportados com sucesso!' : 'Data exported successfully!');
-	}
-
-	clearData() {
-		const lang = this.currentLang === 'pt-BR';
-		if (confirm(lang ? 'Tem certeza? Todos os dados serão perdidos!' : 'Are you sure? All data will be lost!')) {
-			localStorage.removeItem('products');
-			localStorage.removeItem('clients');
-			localStorage.removeItem('orders');
-			this.products = [];
-			this.clients = [];
-			this.orders = [];
-			this.createStatsCards();
-			this.createDataCards();
-			this.updateStats();
-			alert(lang ? 'Dados limpos com sucesso!' : 'Data cleared successfully!');
-			closeModal('config-modal');
-		}
-	}
-
-	// Funções de CRUD (placeholders)
-	openAddClientModal() {
-		alert(this.currentLang === 'pt-BR' ? 'Funcionalidade em desenvolvimento' : 'Feature under development');
-	}
-
-	editClient(id) {
-		alert(`Edit client ${id}`);
-	}
-
-	deleteClient(id) {
-		const lang = this.currentLang === 'pt-BR';
-		if (confirm(lang ? 'Excluir este cliente?' : 'Delete this client?')) {
-			this.clients = this.clients.filter(c => c.id !== id);
-			this.saveData();
+		// Event listener para cadastro de cliente
+		modal.querySelector('#form-add-client').addEventListener('submit', async (e) => {
+			e.preventDefault();
+			const nome = modal.querySelector('#client-nome').value.trim();
+			const telefone = modal.querySelector('#client-telefone').value.trim();
+			const email = modal.querySelector('#client-email').value.trim();
+			const endereco = modal.querySelector('#client-endereco').value.trim();
+			if (!nome || !telefone || !endereco) {
+				alert('Preencha todos os campos obrigatórios');
+				return;
+			}
+			const clientData = { nome, telefone, email, endereco };
+			const result = await this.saveToSupabase('clientes', clientData);
+			if (result) this.clients.unshift(result);
+			await this.loadData();
 			this.renderClientesPage();
 			this.updateStats();
-			alert(lang ? 'Cliente excluído!' : 'Client deleted!');
-		}
+			closeModal('modal-add-client');
+		});
 	}
 
-	openAddProductModal() {
-		alert(this.currentLang === 'pt-BR' ? 'Funcionalidade em desenvolvimento' : 'Feature under development');
-	}
+	async deleteProduct(id) {
+		if (!confirm('Excluir este produto?')) return;
 
-	editProduct(id) {
-		alert(`Edit product ${id}`);
-	}
-
-	deleteProduct(id) {
-		const lang = this.currentLang === 'pt-BR';
-		if (confirm(lang ? 'Excluir este produto?' : 'Delete this product?')) {
+		const success = await this.deleteFromSupabase('produtos', id);
+		if (success) {
 			this.products = this.products.filter(p => p.id !== id);
-			this.saveData();
 			this.renderProdutosPage();
 			this.renderEstoquePage();
 			this.updateStats();
-			alert(lang ? 'Produto excluído!' : 'Product deleted!');
 		}
 	}
 
-	adjustStock(id) {
-		const lang = this.currentLang === 'pt-BR';
-		const product = this.products.find(p => p.id === id);
-		if (!product) return;
+	// ==================== PEDIDOS INTUITIVO ====================
 
-		const newStock = prompt(
-			lang ? `Ajustar estoque de "${product.nome}"\nEstoque atual: ${product.estoque}\n\nNovo valor:` : `Adjust stock for "${product.nome}"\nCurrent stock: ${product.estoque}\n\nNew value:`,
-			product.estoque
-		);
+	async openAddOrderModal() {
+		if (this.clients.length === 0) {
+			alert('Cadastre pelo menos um cliente primeiro');
+			return;
+		}
+		if (this.products.length === 0) {
+			alert('Cadastre pelo menos um produto primeiro');
+			return;
+		}
 
-		if (newStock !== null && !isNaN(newStock) && parseInt(newStock) >= 0) {
-			product.estoque = parseInt(newStock);
-			this.saveData();
-			this.renderEstoquePage();
+		const modal = this.createModal('modal-add-order', '🛒 ' + this.t('modal.add_order'));
+		
+        modal.style.display = 'flex';
+        modal.style.justifyContent = 'center';
+        modal.style.alignItems = 'center';
+        modal.style.minHeight = '100vh';
+        modal.innerHTML = `
+			<style>
+				@media (max-width: 600px) {
+					.modal-order-card { padding: 1rem 0.5rem !important; max-width: 100vw !important; max-height: 90vh !important; overflow-y: auto !important; }
+					.modal-order-form { gap: 0.7rem !important; max-width: 100vw !important; }
+				}
+				.modal-order-card { max-height: 90vh; overflow-y: auto; }
+			</style>
+			<div class="modal-order-card" style="background: #fff; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); padding: 2rem 1rem; max-width: 420px; width: 100%; margin: 2rem auto; box-sizing: border-box; max-height: 90vh; overflow-y: auto;">
+				<form id="form-add-order" class="modal-order-form" style="display: flex; flex-direction: column; gap: 1.1rem; width: 100%; max-width: 420px; margin: 0 auto;">
+				<!-- Passo 1: Cliente -->
+				<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1.25rem 1rem; border-radius: 10px; color: white; box-shadow: 0 2px 8px rgba(102,126,234,0.08);">
+					<h4 style="margin: 0 0 1rem 0; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem;">
+						<span style="background: white; color: #667eea; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem;">1</span>
+						Selecione o Cliente
+					</h4>
+					<select id="order-client" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem;">
+						<option value="">-- Escolha um cliente --</option>
+						${this.clients.map(c => `<option value="${c.id}">${c.nome} - ${c.telefone}</option>`).join('')}
+					</select>
+				</div>
+
+				<!-- Passo 2: Produto -->
+				<div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 1.25rem 1rem; border-radius: 10px; color: white; box-shadow: 0 2px 8px rgba(240,147,251,0.08);">
+					<h4 style="margin: 0 0 1rem 0; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem;">
+						<span style="background: white; color: #f5576c; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem;">2</span>
+						Escolha o Produto
+					</h4>
+					<select id="order-product" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem; margin-bottom: 0.75rem;">
+						<option value="">-- Escolha um produto --</option>
+						${this.products.map(p => `<option value="${p.id}" data-price="${p.preco}">${p.nome} - ${this.formatCurrency(p.preco)}</option>`).join('')}
+					</select>
+					<input type="number" id="order-quantity" required min="1" value="1" placeholder="Quantidade" style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem;">
+				</div>
+
+				<!-- Passo 3: Entrega -->
+				<div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 1.25rem 1rem; border-radius: 10px; color: white; box-shadow: 0 2px 8px rgba(79,172,254,0.08);">
+					<h4 style="margin: 0 0 1rem 0; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem;">
+						<span style="background: white; color: #4facfe; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem;">3</span>
+						Dados de Entrega
+					</h4>
+					<div style="display: grid; gap: 0.75rem;">
+						<input type="date" id="order-date" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem;">
+						<input type="time" id="order-time" style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem;">
+						<textarea id="order-address" required rows="2" placeholder="Endereço de entrega" style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem; resize: none;"></textarea>
+					</div>
+				</div>
+
+				<!-- Total -->
+				<div style="background: #28a745; padding: 1.25rem 1rem; border-radius: 10px; color: white; text-align: center; box-shadow: 0 2px 8px rgba(40,167,69,0.08);">
+					<h3 style="margin: 0; font-size: 0.9rem; font-weight: 400; opacity: 0.9;">VALOR TOTAL</h3>
+					<h2 id="order-total" style="margin: 0.5rem 0 0 0; font-size: 2.2rem; font-weight: 700;">CAD$ 0.00</h2>
+					<div style="margin-top: 1rem; text-align: left;">
+						<label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; color: #fff;">
+							<input type="checkbox" id="order-full-payment" checked style="accent-color: #28a745; width: 18px; height: 18px;"> Pagamento total?
+						</label>
+						<div id="order-sinal-group" style="display: none; margin-top: 0.5rem;">
+							<label for="order-sinal" style="color: #fff; font-weight: 500;">Valor do sinal:</label>
+							<input type="number" id="order-sinal" min="0" step="0.01" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none; margin-top: 0.25rem;">
+							<p id="order-restante" style="margin: 0.5rem 0 0 0; color: #fff; font-size: 0.95rem;"></p>
+						</div>
+					</div>
+				</div>
+
+				<!-- Forma de Pagamento -->
+				<div style="background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%); padding: 1.25rem 1rem; border-radius: 10px; color: #333; box-shadow: 0 2px 8px rgba(255,179,71,0.08); margin-top: 0.5rem;">
+					<h4 style="margin: 0 0 1rem 0; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem;">
+						<span style="background: white; color: #ffb347; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem;">💰</span>
+						Forma de Pagamento
+					</h4>
+					<select id="order-payment" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem;">
+						<option value="dinheiro">Dinheiro</option>
+						<option value="transferencia">Transferência</option>
+					</select>
+				</div>
+
+				<div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+					<button type="button" onclick="closeModal('modal-add-order')" class="btn btn-secondary" style="padding: 0.75rem 2rem;">Cancelar</button>
+					<button type="submit" class="btn btn-success" style="padding: 0.75rem 2rem; background: #28a745;">✓ Criar Pedido</button>
+				</div>
+			</form>
+			</form>
+			</div>
+		`;
+		
+		document.getElementById('modals-container').appendChild(modal);
+		modal.classList.add('show');
+
+		// Auto-preencher endereço
+		document.getElementById('order-client').addEventListener('change', (e) => {
+			const clientId = parseInt(e.target.value);
+			const client = this.clients.find(c => c.id === clientId);
+			if (client) document.getElementById('order-address').value = client.endereco;
+		});
+
+		// Calcular total em tempo real
+		const updateTotal = () => {
+			const productSelect = document.getElementById('order-product');
+			const quantity = parseInt(document.getElementById('order-quantity').value) || 0;
+			const selectedOption = productSelect.options[productSelect.selectedIndex];
+			const price = parseFloat(selectedOption.dataset.price) || 0;
+			const total = price * quantity;
+			document.getElementById('order-total').textContent = this.formatCurrency(total);
+		};
+
+		document.getElementById('order-product').addEventListener('change', updateTotal);
+		document.getElementById('order-quantity').addEventListener('input', updateTotal);
+		
+		// Pagamento total/sinal
+		const fullPaymentCheckbox = modal.querySelector('#order-full-payment');
+		const sinalGroup = modal.querySelector('#order-sinal-group');
+		const sinalInput = modal.querySelector('#order-sinal');
+		const restanteLabel = modal.querySelector('#order-restante');
+		fullPaymentCheckbox.addEventListener('change', () => {
+			if (fullPaymentCheckbox.checked) {
+				sinalGroup.style.display = 'none';
+			} else {
+				sinalGroup.style.display = 'block';
+				updateRestante();
+			}
+		});
+		sinalInput.addEventListener('input', updateRestante);
+		function updateRestante() {
+			const total = parseFloat(document.getElementById('order-total').textContent.replace(/[^\d\.,]/g, '').replace(',', '.')) || 0;
+			const sinal = parseFloat(sinalInput.value) || 0;
+			const restante = total - sinal;
+			restanteLabel.textContent = restante > 0 ? `Valor restante na entrega: ${window.dashboardApp.formatCurrency(restante)}` : '';
+		}
+		document.getElementById('form-add-order').addEventListener('submit', (e) => {
+			e.preventDefault();
+			this.saveOrder();
+		});
+	}
+
+	async saveOrder(editId = null) {
+		const clientId = parseInt(document.getElementById('order-client').value);
+		const productId = parseInt(document.getElementById('order-product').value);
+		const quantidade = parseInt(document.getElementById('order-quantity').value);
+		const data_entrega = document.getElementById('order-date').value;
+		const horario_entrega = document.getElementById('order-time').value;
+		const endereco_entrega = document.getElementById('order-address').value.trim();
+
+		const client = this.clients.find(c => c.id === clientId);
+		const product = this.products.find(p => p.id === productId);
+
+		if (!client || !product || !quantidade || !data_entrega || !endereco_entrega) {
+			alert('Preencha todos os campos obrigatórios');
+			return;
+		}
+
+		const valor_unitario = product.preco;
+		const valor_total = valor_unitario * quantidade;
+
+		const orderData = {
+			cliente_id: clientId,
+			cliente_nome: client.nome,
+			produto_id: productId,
+			produto_nome: product.nome,
+			quantidade,
+			valor_unitario,
+			valor_total,
+			data_entrega,
+			horario_entrega,
+			endereco_entrega,
+			status: editId ? document.getElementById('order-status')?.value || 'pendente' : 'pendente'
+		};
+
+		if (editId) {
+			const result = await this.saveToSupabase('pedidos', orderData, editId);
+			if (result) {
+				const index = this.orders.findIndex(o => o.id === editId);
+				if (index !== -1) this.orders[index] = result;
+			}
+		} else {
+			const result = await this.saveToSupabase('pedidos', orderData);
+			if (result) this.orders.unshift(result);
+		}
+
+		await this.loadData();
+		this.renderPedidosPage();
+		this.renderEntregasPage();
+		this.updateStats();
+		this.updateEntregasHoje();
+		closeModal(editId ? 'modal-edit-order' : 'modal-add-order');
+	}
+
+	async editOrder(id) {
+		const order = this.orders.find(o => o.id === id);
+		if (!order) return;
+
+		const modal = this.createModal('modal-edit-order', '✏️ Editar Pedido #' + id);
+		
+		modal.innerHTML += `
+			<form id="form-edit-order" style="display: flex; flex-direction: column; gap: 1rem;">
+				<div>
+					<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Cliente *</label>
+					<select id="order-client" required class="form-control">
+						${this.clients.map(c => `<option value="${c.id}" ${c.id === order.cliente_id ? 'selected' : ''}>${c.nome}</option>`).join('')}
+					</select>
+				</div>
+				<div>
+					<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Produto *</label>
+					<select id="order-product" required class="form-control">
+						${this.products.map(p => `<option value="${p.id}" data-price="${p.preco}" ${p.id === order.produto_id ? 'selected' : ''}>${p.nome} - ${this.formatCurrency(p.preco)}</option>`).join('')}
+					</select>
+				</div>
+				<div>
+					<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Quantidade *</label>
+					<input type="number" id="order-quantity" required class="form-control" min="1" value="${order.quantidade}">
+				</div>
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Data *</label>
+						<input type="date" id="order-date" required class="form-control" value="${order.data_entrega}">
+					</div>
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Horário</label>
+						<input type="time" id="order-time" class="form-control" value="${order.horario_entrega || ''}">
+					</div>
+				</div>
+				<div>
+					<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Endereço *</label>
+					<textarea id="order-address" required class="form-control" rows="2">${order.endereco_entrega}</textarea>
+				</div>
+				<div>
+					<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Status *</label>
+					<select id="order-status" required class="form-control">
+						<option value="pendente" ${order.status === 'pendente' ? 'selected' : ''}>Pendente</option>
+						<option value="pago" ${order.status === 'pago' ? 'selected' : ''}>Pago</option>
+						<option value="entregue" ${order.status === 'entregue' ? 'selected' : ''}>Entregue</option>
+						<option value="cancelado" ${order.status === 'cancelado' ? 'selected' : ''}>Cancelado</option>
+					</select>
+				</div>
+				<div>
+					<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Forma de Pagamento *</label>
+					<select id="order-payment" required class="form-control">
+						<option value="dinheiro" ${order.forma_pagamento === 'dinheiro' ? 'selected' : ''}>Dinheiro</option>
+						<option value="transferencia" ${order.forma_pagamento === 'transferencia' ? 'selected' : ''}>Transferência</option>
+					</select>
+				</div>
+				<div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+					<strong>Total:</strong> <span id="order-total" style="color: #28a745; font-size: 1.2rem; font-weight: 600;">${this.formatCurrency(order.valor_total)}</span>
+				</div>
+				<div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1rem;">
+					<button type="button" onclick="closeModal('modal-edit-order')" class="btn btn-secondary">Cancelar</button>
+					<button type="submit" class="btn btn-primary">Salvar</button>
+				</div>
+			</form>
+		`;
+		
+		document.getElementById('modals-container').appendChild(modal);
+		modal.classList.add('show');
+
+		const updateTotal = () => {
+			const productSelect = document.getElementById('order-product');
+			const quantity = parseInt(document.getElementById('order-quantity').value) || 0;
+			const selectedOption = productSelect.options[productSelect.selectedIndex];
+			const price = parseFloat(selectedOption.dataset.price) || 0;
+			document.getElementById('order-total').textContent = this.formatCurrency(price * quantity);
+		};
+
+		document.getElementById('order-product').addEventListener('change', updateTotal);
+		document.getElementById('order-quantity').addEventListener('input', updateTotal);
+		
+		document.getElementById('form-edit-order').addEventListener('submit', (e) => {
+			e.preventDefault();
+			this.saveOrder(id);
+		});
+	}
+
+	async deleteOrder(id) {
+		if (!confirm('Excluir este pedido?')) return;
+
+		const success = await this.deleteFromSupabase('pedidos', id);
+		if (success) {
+			this.orders = this.orders.filter(o => o.id !== id);
+			this.renderPedidosPage();
+			this.renderEntregasPage();
 			this.updateStats();
-			alert(lang ? 'Estoque atualizado!' : 'Stock updated!');
+			this.updateEntregasHoje();
 		}
-	}
-
-	openAddOrderModal() {
-		alert(this.currentLang === 'pt-BR' ? 'Funcionalidade em desenvolvimento' : 'Feature under development');
 	}
 
 	viewOrder(id) {
 		const order = this.orders.find(o => o.id === id);
 		if (!order) return;
 
-		const lang = this.currentLang === 'pt-BR';
-		alert(`${lang ? 'Pedido' : 'Order'} #${id}\n\n${lang ? 'Cliente' : 'Client'}: ${order.cliente_nome}\n${lang ? 'Valor' : 'Value'}: R$ ${parseFloat(order.valor_total || 0).toFixed(2)}\n${lang ? 'Status' : 'Status'}: ${order.status}`);
+		const modal = this.createModal('modal-view-order', `📋 Pedido #${order.id}`, false);
+		
+		modal.innerHTML += `
+			<div style="display: flex; flex-direction: column; gap: 1rem;">
+				<div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 1.5rem; border-radius: 8px; color: white;">
+					<div style="display: flex; justify-content: space-between; align-items: center;">
+						<h3 style="margin: 0;">Pedido #${order.id}</h3>
+						<span style="background: rgba(255,255,255,0.3); padding: 0.5rem 1rem; border-radius: 20px; font-weight: 600;">${order.status.toUpperCase()}</span>
+					</div>
+				</div>
+
+				<div style="display: grid; gap: 1rem;">
+					<div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+						<h4 style="margin: 0 0 0.75rem 0; color: #667eea;">👤 Cliente</h4>
+						<p style="margin: 0; color: #333; font-size: 1.1rem; font-weight: 600;">${order.cliente_nome}</p>
+					</div>
+
+					<div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+						<h4 style="margin: 0 0 0.75rem 0; color: #667eea;">🛍️ Produto</h4>
+						<p style="margin: 0; color: #333;"><strong>${order.produto_nome}</strong></p>
+						<p style="margin: 0.25rem 0 0 0; color: #666;">Quantidade: ${order.quantidade}</p>
+						<p style="margin: 0.25rem 0 0 0; color: #666;">Valor unitário: ${this.formatCurrency(order.valor_unitario)}</p>
+					</div>
+
+					<div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+						<h4 style="margin: 0 0 0.75rem 0; color: #667eea;">🚚 Entrega</h4>
+						<p style="margin: 0; color: #666;">📅 ${this.formatDate(order.data_entrega)}</p>
+						<p style="margin: 0.25rem 0 0 0; color: #666;">🕐 ${order.horario_entrega || 'Não informado'}</p>
+						<p style="margin: 0.25rem 0 0 0; color: #666;">📍 ${order.endereco_entrega}</p>
+					</div>
+
+					<div style="background: #28a745; padding: 1.5rem; border-radius: 8px; text-align: center; color: white;">
+						<h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; font-weight: 400; opacity: 0.9;">VALOR TOTAL</h4>
+						<h2 style="margin: 0; font-size: 2rem;">${this.formatCurrency(order.valor_total)}</h2>
+					</div>
+				</div>
+
+				<div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1rem;">
+					<button type="button" onclick="closeModal('modal-view-order')" class="btn btn-secondary">Fechar</button>
+					<button type="button" onclick="closeModal('modal-view-order'); window.dashboardApp.editOrder(${order.id});" class="btn btn-primary">
+						✏️ Editar
+					</button>
+				</div>
+			</div>
+		`;
+		
+		document.getElementById('modals-container').appendChild(modal);
+		modal.classList.add('show');
 	}
 
-	editOrder(id) {
-		alert(`Edit order ${id}`);
-	}
+	async markAsDelivered(id) {
+		if (!confirm('Marcar como entregue?')) return;
 
-	deleteOrder(id) {
-		const lang = this.currentLang === 'pt-BR';
-		if (confirm(lang ? 'Excluir este pedido?' : 'Delete this order?')) {
-			this.orders = this.orders.filter(o => o.id !== id);
-			this.saveData();
-			this.renderPedidosPage();
-			this.renderEntregasPage();
-			this.updateStats();
-			this.updateEntregasHoje();
-			alert(lang ? 'Pedido excluído!' : 'Order deleted!');
-		}
-	}
-
-	markAsDelivered(id) {
-		const lang = this.currentLang === 'pt-BR';
 		const order = this.orders.find(o => o.id === id);
-		if (!order) return;
-
-		if (confirm(lang ? 'Marcar como entregue?' : 'Mark as delivered?')) {
+		if (order) {
+			await this.saveToSupabase('pedidos', { status: 'entregue' }, id);
 			order.status = 'entregue';
-			this.saveData();
 			this.renderPedidosPage();
 			this.renderEntregasPage();
 			this.updateStats();
 			this.updateEntregasHoje();
-			alert(lang ? 'Pedido marcado como entregue!' : 'Order marked as delivered!');
 		}
 	}
 
-	refreshDeliveries() {
-		this.renderEntregasPage();
-		const lang = this.currentLang === 'pt-BR';
-		alert(lang ? 'Entregas atualizadas!' : 'Deliveries refreshed!');
+	createModal(id, title, showClose = true) {
+		const modal = document.createElement('div');
+		modal.id = id;
+		modal.className = 'modal-overlay';
+		modal.onclick = closeModalOverlay;
+
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" onclick="event.stopPropagation()" style="max-width: 400px; width: 100%; padding: 1.5rem;">
+				<div style="margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid #eee;">
+					<div style="display: flex; justify-content: space-between; align-items: center;">
+						<h3 style="margin: 0; color: #333; font-size: 1.25rem;">${title}</h3>
+						${showClose ? `<button onclick="closeModal('${id}')" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #888; line-height: 1;">&times;</button>` : ''}
+					</div>
+				</div>
+		`;
+
+		return modal;
+	}
+
+	// ==================== RENDERIZAÇÃO ====================
+
+	renderClientesPage() {
+		const container = document.getElementById('clientes-container');
+		if (!container) return;
+	container.style.display = '';
+	container.style.flexDirection = '';
+	container.style.gap = '';
+
+		const actionBar = `
+			<button onclick="window.dashboardApp.openAddClientModal()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 1rem; box-shadow: 0 4px 12px rgba(255,107,157,0.3);">
+				<i class="fas fa-plus"></i> Novo Cliente
+			</button>
+		`;
+
+		if (this.clients.length === 0) {
+			container.innerHTML = actionBar + `<p style="text-align: center; padding: 3rem; color: #888;">Nenhum cliente cadastrado</p>`;
+		} else {
+			const list = this.clients.map(c => `
+				<div style="background: white; padding: 1.25rem; border-radius: 10px; margin-bottom: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid #667eea;">
+					<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+						<div style="background: linear-gradient(135deg, #667eea, #6dd5ed); border-radius: 8px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+							<i class="fas fa-user" style="color: #fff; font-size: 1.5rem;"></i>
+						</div>
+						<h4 style="margin: 0; color: #333; font-size: 1.15rem; font-weight: 700;">${c.nome}</h4>
+					</div>
+					<div style="display: flex; justify-content: space-between; align-items: flex-start;">
+						<div style="flex: 1;">
+							<p style="margin: 0 0 0.25rem 0; color: #666; font-size: 0.9rem;"><i class="fas fa-phone" style="color: #667eea; width: 20px;"></i> ${c.telefone}</p>
+							${c.email ? `<p style="margin: 0 0 0.25rem 0; color: #666; font-size: 0.9rem;"><i class="fas fa-envelope" style="color: #667eea; width: 20px;"></i> ${c.email}</p>` : ''}
+							<p style="margin: 0; color: #666; font-size: 0.9rem;"><i class="fas fa-map-marker-alt" style="color: #667eea; width: 20px;"></i> ${c.endereco}</p>
+						</div>
+						<div style="display: flex; gap: 0.5rem; align-items: center;">
+							<button onclick="window.dashboardApp.editClient(${c.id})" style="padding: 0.5rem 0.75rem; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;" title="Editar">
+								<i class="fas fa-edit"></i>
+							</button>
+							<button onclick="window.dashboardApp.deleteClient(${c.id})" style="padding: 0.5rem 0.75rem; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;" title="Deletar">
+								<i class="fas fa-trash"></i>
+							</button>
+						</div>
+					</div>
+				</div>
+			`).join('');
+			container.innerHTML = actionBar + list;
+		}
+	}
+	// ==================== PRODUTOS ====================
+	async openAddProductModal() {
+	const modal = this.createModal('modal-add-product', '', false);
+	modal.querySelector('.modal-content-wrapper').innerHTML = `
+			<div style="display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.7rem;">
+				<span style="width: 50px; height: 50px; background: linear-gradient(135deg, #f5576c, #ff6b9d); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.7rem;"><i class="fas fa-cookie-bite"></i></span>
+				<span style="font-size: 1.35rem; font-weight: 700; color: #333;">${this.t('modal.add_product')}</span>
+				<button onclick="closeModal('modal-add-product')" style="margin-left:auto; background:none; border:none; font-size:1.3rem; color:#888; cursor:pointer;">&times;</button>
+			</div>
+			<div style="border-bottom:1px solid #eee; margin-bottom:1rem;"></div>
+			<form id="form-add-product" class="form-modal">
+				<div class="form-group">
+					<label for="product-nome">${this.t('modal.product_name')} *</label>
+					<input type="text" id="product-nome" required class="form-control" placeholder="${this.t('placeholder.enter_name')}">
+				</div>
+				<div class="form-group">
+					<label for="product-categoria">Categoria *</label>
+					<input type="text" id="product-categoria" required class="form-control" placeholder="Ex: Bolo, Torta, Docinho">
+				</div>
+				<div class="form-group">
+					<label for="product-preco">${this.t('modal.product_price')} *</label>
+					<input type="text" id="product-preco" required class="form-control" inputmode="decimal" pattern="^\\d+(\\,|\\.)?\\d{0,2}$" placeholder="${this.t('placeholder.enter_price')}">
+				</div>
+				<div class="form-group">
+					<label for="product-estoque">${this.t('modal.product_stock')} *</label>
+					<input type="number" id="product-estoque" required class="form-control" min="0" step="1" placeholder="${this.t('placeholder.enter_stock')}">
+				</div>
+				<div class="form-group">
+					<label for="product-ativo">Produto Ativo?</label>
+					<select id="product-ativo" class="form-control">
+						<option value="true" selected>Sim</option>
+						<option value="false">Não</option>
+					</select>
+				</div>
+				<div class="form-group">
+					<label for="product-preparo">Status do Produto *</label>
+					<select id="product-preparo" class="form-control" required>
+						<option value="pronta_entrega">Pronta Entrega</option>
+						<option value="sob_encomenda">Sob Encomenda</option>
+					</select>
+				</div>
+				<div class="form-group">
+					<label for="product-descricao">${this.t('modal.product_description')}</label>
+					<textarea id="product-descricao" class="form-control" rows="2" placeholder="Descrição do produto"></textarea>
+				</div>
+				<div class="form-group">
+					<label for="product-fotos">Fotos do Produto (máx. 5)</label>
+					<input type="file" id="product-fotos" class="form-control" accept="image/*" multiple max="5">
+					<div id="preview-fotos" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;"></div>
+				</div>
+				<div class="modal-actions">
+					<button type="button" onclick="closeModal('modal-add-product')" class="btn btn-secondary">${this.t('btn.cancel')}</button>
+					<button type="submit" class="btn btn-primary">${this.t('btn.save')}</button>
+				</div>
+			</form>
+		`;
+
+		// Carrossel de fotos preview
+		const fotosInput = modal.querySelector('#product-fotos');
+		const previewFotos = modal.querySelector('#preview-fotos');
+		fotosInput.addEventListener('change', (e) => {
+			previewFotos.innerHTML = '';
+			const files = Array.from(e.target.files).slice(0, 5);
+			files.forEach((file) => {
+				const reader = new FileReader();
+				reader.onload = (ev) => {
+					const img = document.createElement('img');
+					img.src = ev.target.result;
+					img.style.width = '60px';
+					img.style.height = '60px';
+					img.style.objectFit = 'cover';
+					img.style.borderRadius = '4px';
+					previewFotos.appendChild(img);
+				};
+				reader.readAsDataURL(file);
+			});
+		});
+
+		modal.querySelector('#form-add-product').addEventListener('submit', async (e) => {
+			e.preventDefault();
+			const nome = modal.querySelector('#product-nome').value.trim();
+			const categoria = modal.querySelector('#product-categoria').value.trim();
+			let precoStr = modal.querySelector('#product-preco').value.trim();
+			precoStr = precoStr.replace(',', '.');
+			const preco = parseFloat(precoStr);
+			const estoque = parseInt(modal.querySelector('#product-estoque').value);
+			const ativo = modal.querySelector('#product-ativo').value === 'true';
+			const status_produto = modal.querySelector('#product-preparo').value;
+			const descricao = modal.querySelector('#product-descricao').value.trim();
+			const fotosInput = modal.querySelector('#product-fotos');
+			const fotosFiles = fotosInput ? Array.from(fotosInput.files).slice(0, 5) : [];
+			if (!nome || !categoria || isNaN(preco) || isNaN(estoque) || !status_produto) {
+				alert('Preencha todos os campos obrigatórios');
+				return;
+			}
+			// Salvar fotos como base64 (para exemplo, ideal: upload para storage)
+			const fotos = [];
+			for (const file of fotosFiles) {
+				const reader = new FileReader();
+				const base64 = await new Promise(resolve => {
+					reader.onload = (ev) => resolve(ev.target.result);
+					reader.readAsDataURL(file);
+				});
+				fotos.push(base64);
+			}
+			const productData = {
+				nome,
+				categoria,
+				preco,
+				estoque,
+				ativo,
+				status_produto,
+				descricao,
+				fotos: JSON.stringify(fotos)
+			};
+			const result = await this.saveToSupabase('produtos', productData);
+			if (result) this.products.unshift(result);
+			await this.loadData();
+			this.renderProdutosPage();
+			this.renderEstoquePage();
+			this.updateStats();
+			closeModal('modal-add-product');
+		});
+		document.getElementById('modals-container').appendChild(modal);
+		modal.classList.add('show');
+	}
+
+	renderProdutosPage() {
+		const container = document.getElementById('produtos-container');
+		if (!container) return;
+		container.style.display = '';
+		container.style.flexDirection = '';
+		container.style.gap = '';
+
+		const actionBar = `
+			<button onclick="window.dashboardApp.openAddProductModal()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 1rem; box-shadow: 0 4px 12px rgba(255,107,157,0.3);">
+				<i class="fas fa-plus"></i> Novo Produto
+			</button>
+		`;
+
+		if (this.products.length === 0) {
+			container.innerHTML = actionBar + `<p style="text-align: center; padding: 3rem; color: #888;">Nenhum produto cadastrado</p>`;
+		} else {
+			const list = this.products.map(p => {
+				const fotos = p.fotos ? JSON.parse(p.fotos) : [];
+				const carrossel = fotos.length > 0 ? `
+					<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; margin-bottom: 1rem; background: #f0f0f0;">
+						<div id="carousel-${p.id}" style="display: flex; transition: transform 0.3s ease;">
+							${fotos.map((foto, i) => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: cover;">`).join('')}
+						</div>
+						${fotos.length > 1 ? `
+							<button onclick="window.dashboardApp.prevPhoto(${p.id}, ${fotos.length})" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer;">‹</button>
+							<button onclick="window.dashboardApp.nextPhoto(${p.id}, ${fotos.length})" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer;">›</button>
+						` : ''}
+					</div>
+				` : '';
+
+				return `
+					<div style="background: white; padding: 1.25rem; border-radius: 10px; margin-bottom: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid #f5576c;">
+						<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+							<div style="background: linear-gradient(135deg, #f5576c, #ff6b9d); border-radius: 8px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+								<i class="fas fa-cookie-bite" style="color: #fff; font-size: 1.5rem;"></i>
+							</div>
+							<h4 style="margin: 0; color: #333; font-size: 1.15rem; font-weight: 700;">${p.nome}</h4>
+						</div>
+						${carrossel}
+						<div style="display: flex; justify-content: space-between; align-items: flex-start;">
+							<div style="flex: 1;">
+								<p style="margin: 0; color: #28a745; font-size: 1.3rem; font-weight: 700;">${this.formatCurrency(p.preco)}</p>
+								<p style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;">📦 Estoque: <strong>${p.estoque}</strong></p>
+								${p.descricao ? `<p style="margin: 0.5rem 0 0 0; color: #888; font-size: 0.85rem;">${p.descricao}</p>` : ''}
+							</div>
+							<div style="display: flex; gap: 0.5rem; align-items: center;">
+								<button onclick="window.dashboardApp.editProduct(${p.id})" style="padding: 0.5rem 0.75rem; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;">
+									<i class="fas fa-edit"></i>
+								</button>
+								<button onclick="window.dashboardApp.deleteProduct(${p.id})" style="padding: 0.5rem 0.75rem; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;">
+									<i class="fas fa-trash"></i>
+								</button>
+							</div>
+						</div>
+					</div>
+				`;
+			}).join('');
+			container.innerHTML = actionBar + list;
+		}
+	}
+
+	nextPhoto(productId, totalPhotos) {
+		const carousel = document.getElementById(`carousel-${productId}`);
+		if (!carousel) return;
+		
+		const current = parseInt(carousel.dataset.current || 0);
+		const next = (current + 1) % totalPhotos;
+		carousel.style.transform = `translateX(-${next * 100}%)`;
+		carousel.dataset.current = next;
+	}
+
+	prevPhoto(productId, totalPhotos) {
+		const carousel = document.getElementById(`carousel-${productId}`);
+		if (!carousel) return;
+		
+		const current = parseInt(carousel.dataset.current || 0);
+		const prev = current === 0 ? totalPhotos - 1 : current - 1;
+		carousel.style.transform = `translateX(-${prev * 100}%)`;
+		carousel.dataset.current = prev;
+	}
+
+	renderPedidosPage() {
+		const container = document.getElementById('pedidos-container');
+		if (!container) return;
+
+		if (!this.cart) this.cart = {};
+		let cartTotal = 0;
+		Object.values(this.cart).forEach(item => {
+			cartTotal += item.quantidade * item.preco;
+		});
+
+		// Cria ou remove carrinho centralizado no header conforme o contador
+		const header = document.querySelector('header.header');
+	// O contador do carrinho só soma produtos com quantidade > 0 e adicionado: true
+	let cartCount = Object.values(this.cart).filter(item => item.quantidade > 0 && item.adicionado).reduce((acc, item) => acc + item.quantidade, 0);
+		let headCart = document.getElementById('head-cart');
+		if (headCart && cartCount === 0) {
+			headCart.remove();
+		}
+		if (cartCount > 0 && header) {
+			if (!headCart) {
+				headCart = document.createElement('div');
+				headCart.id = 'head-cart';
+				headCart.style.position = 'absolute';
+				headCart.style.left = '50%';
+				headCart.style.top = '50%';
+				headCart.style.transform = 'translate(-50%, -50%)';
+				headCart.style.background = '#fff';
+				headCart.style.borderRadius = '50%';
+				headCart.style.boxShadow = '0 2px 8px rgba(0,0,0,0.12)';
+				headCart.style.width = '32px';
+				headCart.style.height = '32px';
+				headCart.style.display = 'flex';
+				headCart.style.flexDirection = 'column';
+				headCart.style.alignItems = 'center';
+				headCart.style.justifyContent = 'center';
+				headCart.style.cursor = 'pointer';
+				headCart.onclick = () => window.dashboardApp.abrirFinalizarPedidoModal();
+				header.appendChild(headCart);
+			}
+			headCart.innerHTML = `
+				<i class='fas fa-shopping-cart' style='font-size: 1rem; color: #ff6b9d; position: relative;'></i>
+				<span id="cart-count" style="position: absolute; top: -4px; right: -4px; background: #dc3545; color: #fff; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.10);">${cartCount}</span>
+			`;
+			headCart.onclick = (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				if (typeof window.dashboardApp.abrirFinalizarPedidoModal === 'function') {
+					window.dashboardApp.abrirFinalizarPedidoModal();
+				}
+			};
+		}
+
+		// Mensagem aparece no marketplace, carrinho flutuante no topo
+		const showCart = Object.values(this.cart).some(item => item.quantidade > 0);
+		let cartMessageHtml = '';
+		if (showCart) {
+			cartMessageHtml = `
+				<div id="cart-message" style="width: 100%; text-align: center; margin: 1.2rem 0 0 0;">
+					<div style="display: inline-flex; align-items: center; gap: 0.7rem; background: #ff6b9d; color: white; border-radius: 16px; padding: 0.7rem 2rem; font-weight: 600; font-size: 1.1rem;">
+						Clique no carrinho para fechar o pedido
+					</div>
+				</div>
+			`;
+		}
+
+		container.innerHTML = `
+			<div id="produtos-marketplace" style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center;">
+				${this.products.map(produto => {
+					let fotos = [];
+					if (produto.fotos) {
+						try { fotos = JSON.parse(produto.fotos); } catch {}
+					}
+					return `
+						<div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.2rem; max-width: 320px; width: 100%; display: flex; flex-direction: column; align-items: center;">
+							<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
+								<div id="market-carousel-${produto.id}" style="display: flex; transition: transform 0.3s ease;">
+									${fotos.map((foto, i) => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: cover;">`).join('')}
+								</div>
+								${fotos.length > 1 ? `
+									<button data-action="prev-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
+									<button data-action="next-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">›</button>
+								` : ''}
+							</div>
+							<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
+								<span style="font-size: 1.2rem; font-weight: 700; color: #ff6b9d;">${this.formatCurrency(produto.preco)}</span>
+							</div>
+							<div style="display: flex; align-items: center; justify-content: center; gap: 1rem; width: 100%; margin-bottom: 0.5rem;">
+								<button data-action="decrement-produto" data-id="${produto.id}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2rem; cursor: pointer;">-</button>
+								<span id="contador-produto-${produto.id}" style="font-size: 1.2rem; font-weight: 600; min-width: 32px; text-align: center;">${this.cart[produto.id]?.quantidade || 0}</span>
+								<button data-action="increment-produto" data-id="${produto.id}" data-preco="${produto.preco}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2rem; cursor: pointer;">+</button>
+							</div>
+							<button data-action="adicionar-carrinho" data-id="${produto.id}" data-preco="${produto.preco}" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 0; font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-bottom: 0.5rem;">Adicionar ao Carrinho</button>
+						</div>
+					`;
+				}).join('')}
+			</div>
+			${cartMessageHtml}
+			<div style="width: 100%; text-align: center; margin: 2rem 0 0 0;">
+				<span style="font-size: 1.3rem; font-weight: 700; color: #28a745;">Total do Carrinho: ${this.formatCurrency(cartTotal)}</span>
+			</div>
+		`;
+		this.setupPedidosEventDelegation();
+	}
+
+	setupPedidosEventDelegation() {
+		const marketContainer = document.getElementById('produtos-marketplace');
+		if (!marketContainer) return;
+		if (marketContainer._delegationAttached) return;
+		marketContainer.addEventListener('click', (e) => {
+			const btn = e.target.closest('button[data-action]');
+			if (!btn) return;
+			const action = btn.getAttribute('data-action');
+			const produtoId = btn.getAttribute('data-id');
+			const preco = btn.getAttribute('data-preco');
+			const total = btn.getAttribute('data-total');
+			switch (action) {
+				case 'prev-produto-photo':
+					this.prevProdutoPhoto(produtoId, parseInt(total));
+					break;
+				case 'next-produto-photo':
+					this.nextProdutoPhoto(produtoId, parseInt(total));
+					break;
+				case 'increment-produto':
+					this.incrementProdutoCarrinho(produtoId, parseFloat(preco));
+					break;
+				case 'decrement-produto':
+					this.decrementProdutoCarrinho(produtoId);
+					break;
+				case 'adicionar-carrinho':
+					this.adicionarAoCarrinho(produtoId, parseFloat(preco));
+					break;
+			}
+		});
+		marketContainer._delegationAttached = true;
+	}
+	abrirFinalizarPedidoModal() {
+		// Modal para finalizar pedido com lista de produtos
+		const modal = this.createModal('modal-finalizar-pedido', '🛒 Finalizar Pedido');
+		modal.classList.add('show');
+		Object.assign(modal.style, {
+			display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.4)', zIndex: '2000'
+		});
+		let modalsContainer = document.getElementById('modals-container');
+		if (!modalsContainer) {
+			modalsContainer = document.createElement('div');
+			modalsContainer.id = 'modals-container';
+			document.body.appendChild(modalsContainer);
+		}
+		modalsContainer.appendChild(modal);
+		// Produtos do carrinho
+		const produtosCarrinho = Object.entries(this.cart)
+			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado)
+			.map(([id, item]) => {
+				const produto = this.products.find(p => p.id == id);
+				return produto ? `<li style="margin-bottom: 0.5rem; font-size: 1rem; color: #333; background: #f8f9fa; border-radius: 8px; padding: 0.5rem 1rem; display: flex; justify-content: space-between; align-items: center;">
+					<span>${produto.nome}</span>
+					<span style="font-weight: bold; color: #dc3545;">x${item.quantidade}</span>
+					<span style="color: #28a745; font-weight: 600;">${this.formatCurrency(item.preco * item.quantidade)}</span>
+				</li>` : '';
+			}).join('');
+		// Modal HTML
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 430px; width: 100%; padding: 2.2rem 1.7rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 1.3rem;">
+				<div style="display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.7rem;">
+					<span style="width: 50px; height: 50px; background: linear-gradient(135deg, #ff6b9d, #ffa726); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.7rem;"><i class="fas fa-shopping-cart"></i></span>
+					<span style="font-size: 1.35rem; font-weight: 700; color: #333;">Finalizar Pedido</span>
+					<button onclick="closeModal('modal-finalizar-pedido')" style="margin-left:auto; background:none; border:none; font-size:1.3rem; color:#888; cursor:pointer;">&times;</button>
+				</div>
+				<div style="border-bottom:1px solid #eee; margin-bottom:1rem;"></div>
+				<form id="form-finalizar-pedido" style="display: flex; flex-direction: column; gap: 1.3rem; width: 100%;">
+					<div style="padding: 1.25rem 1rem; border-radius: 10px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+						<h4 style="margin: 0 0 1rem 0; font-size: 1.08rem; color: #764ba2;">Produtos no Carrinho</h4>
+						<ul style="list-style: none; padding: 0; margin: 0;">
+							${produtosCarrinho}
+						</ul>
+					</div>
+					<div style="padding: 1.25rem 1rem; border-radius: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+						<h4 style="margin: 0 0 1rem 0; font-size: 1.08rem;">Selecione o Cliente</h4>
+						<select id="finalizar-cliente" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1.02rem;">
+							<option value="">-- Escolha um cliente --</option>
+							${this.clients.map(c => `<option value="${c.id}">${c.nome} - ${c.telefone}</option>`).join('')}
+						</select>
+					</div>
+					<div style="padding: 1.25rem 1rem; border-radius: 10px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
+						<h4 style="margin: 0 0 1rem 0; font-size: 1.08rem;">Forma de Pagamento</h4>
+						<select id="finalizar-pagamento" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1.02rem;">
+							<option value="">-- Escolha o pagamento --</option>
+							<option value="dinheiro">Dinheiro</option>
+							<option value="transferencia">Transferência</option>
+						</select>
+						<div style="margin-top: 1rem; text-align: left;">
+							<label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; color: #fff;">
+								<input type="checkbox" id="finalizar-full-payment" checked style="accent-color: #f5576c; width: 18px; height: 18px;"> Pagamento total?
+							</label>
+							<div id="finalizar-sinal-group" style="display: none; margin-top: 0.5rem;">
+								<label for="finalizar-sinal" style="color: #fff; font-weight: 500;">Valor do sinal:</label>
+								<div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+									<span style="color: #fff; font-weight: 600;">CAD$</span>
+									<input type="text" id="finalizar-sinal" inputmode="decimal" pattern="^\\d+(\\.|\\,)\\d{0,2}$" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none;">
+								</div>
+								<p id="finalizar-restante" style="margin: 0.5rem 0 0 0; color: #fff; font-size: 0.95rem;"></p>
+							</div>
+						</div>
+					</div>
+					<div style="padding: 1.25rem 1rem; border-radius: 10px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white;">
+						<h4 style="margin: 0 0 1rem 0; font-size: 1.08rem;">Tipo de Entrega</h4>
+						<select id="finalizar-entrega" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1.02rem;">
+							<option value="">-- Escolha a entrega --</option>
+							<option value="retirada">Retirada</option>
+							<option value="entrega">Entrega</option>
+						</select>
+					</div>
+					<div style="width: 100%; text-align: center; margin: 1rem 0 0 0;">
+						<span style="font-size: 1.35rem; font-weight: 700; color: #28a745;">Total do Carrinho: ${this.formatCurrency(Object.entries(this.cart).filter(([_, item]) => item && item.quantidade > 0 && item.adicionado).reduce((acc, [_, item]) => acc + item.preco * item.quantidade, 0))}</span>
+					</div>
+					<button type="submit" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 0; font-size: 1.13rem; font-weight: 700; cursor: pointer; margin-bottom: 0.5rem;">Finalizar Pedido</button>
+				</form>
+			</div>`;
+		// Evento de submit
+		const finalizarForm = document.getElementById('form-finalizar-pedido');
+		if (finalizarForm) {
+			// Pagamento total/sinal
+			const fullPaymentCheckbox = document.getElementById('finalizar-full-payment');
+			const sinalGroup = document.getElementById('finalizar-sinal-group');
+			const sinalInput = document.getElementById('finalizar-sinal');
+			sinalInput.setAttribute('inputmode', 'decimal');
+			sinalInput.setAttribute('pattern', '^\\d+(\\.|\\,)\\d{0,2}$');
+			sinalInput.addEventListener('input', function(e) {
+				let val = e.target.value.replace(',', '.');
+				// Permite apenas números e ponto, e no máximo duas casas decimais
+				val = val.replace(/[^\d.]/g, '');
+				if ((val.match(/\./g) || []).length > 1) {
+					val = val.replace(/\.+$/, '');
+				}
+				if (val.includes('.')) {
+					const [intPart, decPart] = val.split('.');
+					val = intPart + '.' + (decPart ? decPart.slice(0,2) : '');
+				}
+				e.target.value = val;
+			});
+			const restanteLabel = document.getElementById('finalizar-restante');
+			fullPaymentCheckbox.addEventListener('change', () => {
+				if (fullPaymentCheckbox.checked) {
+					sinalGroup.style.display = 'none';
+				} else {
+					sinalGroup.style.display = 'block';
+					updateRestante();
+				}
+			});
+			sinalInput.addEventListener('input', updateRestante);
+			function updateRestante() {
+				const total = Object.entries(window.dashboardApp.cart).filter(([_, item]) => item && item.quantidade > 0 && item.adicionado).reduce((acc, [_, item]) => acc + item.preco * item.quantidade, 0);
+				const sinal = parseFloat(sinalInput.value) || 0;
+				const restante = total - sinal;
+				restanteLabel.textContent = restante > 0 ? `Valor restante na entrega: ${window.dashboardApp.formatCurrency(restante)}` : '';
+			}
+			finalizarForm.addEventListener('submit', (e) => {
+				e.preventDefault();
+				// Aqui você pode implementar a lógica de salvar o pedido no banco
+				closeModal('modal-finalizar-pedido');
+				if (document.getElementById('cart-message')) document.getElementById('cart-message').remove();
+				this.cart = {};
+				this.renderPedidosPage();
+			});
+		}
+	}
+	incrementProdutoCarrinho(produtoId, preco) {
+		if (!this.cart) this.cart = {};
+		if (!this.cart[produtoId]) this.cart[produtoId] = { quantidade: 0, preco };
+		this.cart[produtoId].quantidade++;
+		this.renderPedidosPage();
+	}
+
+	decrementProdutoCarrinho(produtoId) {
+		if (!this.cart || !this.cart[produtoId]) return;
+		if (this.cart[produtoId].quantidade > 0) this.cart[produtoId].quantidade--;
+		this.renderPedidosPage();
+	}
+
+	adicionarAoCarrinho(produtoId, preco) {
+		if (!this.cart) this.cart = {};
+		if (!this.cart[produtoId]) this.cart[produtoId] = { quantidade: 1, preco, adicionado: true };
+		else {
+			this.cart[produtoId].quantidade = Math.max(1, this.cart[produtoId].quantidade);
+			this.cart[produtoId].adicionado = true;
+		}
+		this.renderPedidosPage();
+	}
+
+	prevProdutoPhoto(produtoId, totalPhotos) {
+		const carousel = document.getElementById(`market-carousel-${produtoId}`);
+		if (!carousel) return;
+		const current = parseInt(carousel.dataset.current || 0);
+		const prev = current === 0 ? totalPhotos - 1 : current - 1;
+	carousel.style.transform = `translateX(-${prev * 100}%)`;
+		carousel.dataset.current = prev;
+	}
+
+	nextProdutoPhoto(produtoId, totalPhotos) {
+		const carousel = document.getElementById(`market-carousel-${produtoId}`);
+		if (!carousel) return;
+		const current = parseInt(carousel.dataset.current || 0);
+		const next = (current + 1) % totalPhotos;
+	carousel.style.transform = `translateX(-${next * 100}%)`;
+		carousel.dataset.current = next;
+	}
+
+	nextPedidoPhoto(orderId, totalPhotos) {
+		const carousel = document.getElementById(`pedido-carousel-${orderId}`);
+		if (!carousel) return;
+		const current = parseInt(carousel.dataset.current || 0);
+		const next = (current + 1) % totalPhotos;
+	carousel.style.transform = `translateX(-${next * 100}%)`;
+		carousel.dataset.current = next;
+	}
+
+	prevPedidoPhoto(orderId, totalPhotos) {
+		const carousel = document.getElementById(`pedido-carousel-${orderId}`);
+		if (!carousel) return;
+		const current = parseInt(carousel.dataset.current || 0);
+		const prev = current === 0 ? totalPhotos - 1 : current - 1;
+	carousel.style.transform = `translateX(-${prev * 100}%)`;
+		carousel.dataset.current = prev;
+	}
+
+	renderEstoquePage() {
+		const container = document.getElementById('estoque-container');
+		if (!container) return;
+
+		if (this.products.length === 0) {
+			container.innerHTML = `<p style="text-align: center; padding: 3rem; color: #888;">Nenhum produto cadastrado</p>`;
+		} else {
+			const list = this.products.map(p => {
+				const color = p.estoque > 10 ? '#28a745' : p.estoque > 5 ? '#FFC107' : '#dc3545';
+				const percentage = Math.min((p.estoque / 50) * 100, 100);
+				return `
+				<div style="background: white; padding: 1.25rem; border-radius: 10px; margin-bottom: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+					<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+						<h4 style="margin: 0; color: #333;">${p.nome}</h4>
+						<span style="background: ${color}; color: white; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.9rem; font-weight: 600;">${p.estoque}</span>
+					</div>
+					<div style="background: #e9ecef; border-radius: 10px; height: 14px; overflow: hidden; margin-bottom: 0.75rem;">
+						<div style="background: ${color}; height: 100%; width: ${percentage}%; transition: width 0.3s ease;"></div>
+					</div>
+					<button onclick="window.dashboardApp.adjustStock(${p.id})" style="padding: 0.5rem 1rem; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">
+						<i class="fas fa-edit"></i> Ajustar Estoque
+					</button>
+				</div>
+			`;
+			}).join('');
+			container.innerHTML = list;
+		}
+	}
+
+	async adjustStock(id) {
+		const product = this.products.find(p => p.id === id);
+		if (!product) return;
+
+		const newStock = prompt(
+			`Ajustar estoque de "${product.nome}"\nEstoque atual: ${product.estoque}`,
+			product.estoque
+		);
+
+		if (newStock !== null && !isNaN(newStock) && parseInt(newStock) >= 0) {
+			await this.saveToSupabase('produtos', { estoque: parseInt(newStock) }, id);
+			product.estoque = parseInt(newStock);
+			this.renderEstoquePage();
+			this.renderProdutosPage();
+			this.updateStats();
+		}
+	}
+
+	renderEntregasPage() {
+		const container = document.getElementById('entregas-container');
+		if (!container) return;
+
+		const today = new Date().toISOString().split('T')[0];
+		const entregas = this.orders.filter(o => o.data_entrega && o.status !== 'cancelado');
+
+		if (entregas.length === 0) {
+			container.innerHTML = `<p style="text-align: center; padding: 3rem; color: #888;">Nenhuma entrega agendada</p>`;
+		} else {
+			const list = entregas.map(o => {
+				const isToday = o.data_entrega === today;
+				const isPast = o.data_entrega < today;
+				const bgColor = isToday ? '#fff3cd' : isPast ? '#f8d7da' : 'white';
+				const borderColor = isToday ? '#FFC107' : isPast ? '#dc3545' : '#17a2b8';
+				
+				return `
+				<div style="background: ${bgColor}; padding: 1.25rem; border-radius: 10px; margin-bottom: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid ${borderColor};">
+					<div style="display: flex; justify-content: space-between; align-items: start;">
+						<div style="flex: 1;">
+							<h4 style="margin: 0 0 0.75rem 0; color: #333;">
+								🚚 Entrega #${o.id} 
+								${isToday ? '<span style="background: #FFC107; color: white; padding: 0.25rem 0.5rem; border-radius: 8px; font-size: 0.75rem; margin-left: 0.5rem;">HOJE</span>' : ''}
+								${isPast ? '<span style="background: #dc3545; color: white; padding: 0.25rem 0.5rem; border-radius: 8px; font-size: 0.75rem; margin-left: 0.5rem;">ATRASADO</span>' : ''}
+							</h4>
+							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>👤</strong> ${o.cliente_nome}</p>
+							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>📦</strong> ${o.produto_nome}</p>
+							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>📅</strong> ${this.formatDate(o.data_entrega)}</p>
+							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>🕐</strong> ${o.horario_entrega || 'Não informado'}</p>
+							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>📍</strong> ${o.endereco_entrega}</p>
+							<span style="display: inline-block; margin-top: 0.5rem; background: ${this.getStatusColor(o.status)}; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem;">${o.status.toUpperCase()}</span>
+						</div>
+						<div style="display: flex; flex-direction: column; gap: 0.5rem;">
+							${o.status !== 'entregue' ? `
+								<button onclick="window.dashboardApp.markAsDelivered(${o.id})" style="padding: 0.5rem 0.75rem; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; white-space: nowrap;">
+									<i class="fas fa-check"></i> Entregue
+								</button>
+							` : ''}
+							<button onclick="window.dashboardApp.viewOrder(${o.id})" style="padding: 0.5rem 0.75rem; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer;">
+								<i class="fas fa-eye"></i> Ver
+							</button>
+						</div>
+					</div>
+				</div>
+			`;
+			}).join('');
+			container.innerHTML = list;
+		}
 	}
 }
 
-// Inicializar quando DOM estiver pronto
+// ========== INICIALIZAÇÃO ==========
+
 document.addEventListener('DOMContentLoaded', async () => {
 	try {
 		const app = new DashboardApp();
 		const initialized = await app.initialize();
-		
 		if (initialized) {
 			window.dashboardApp = app;
-
-			// Expor funções globais para HTML
-			window.openProfileModal = () => app.openProfileModal();
-			window.closeModal = (modalId) => {
-				const modal = document.getElementById(modalId);
-				if (modal) modal.remove();
-			};
-			window.saveProfile = () => app.saveProfile();
-			window.triggerAvatarUpload = () => {
-				const input = document.getElementById('avatar-upload');
-				if (input) input.click();
-			};
-			window.handleAvatarUpload = (event) => app.handleAvatarUpload(event);
 		}
 	} catch (error) {
-		console.error('❌ Erro crítico na inicialização:', error);
+		console.error('Erro ao inicializar aplicação:', error);
 	}
 });
