@@ -433,8 +433,7 @@ class DashboardApp {
 	}
 
 	async deleteProduct(id) {
-		if (!confirm('Excluir este produto?')) return;
-
+		// Removida confirmação daqui, pois já existe na renderProdutosPage
 		const success = await this.deleteFromSupabase('produtos', id);
 		if (success) {
 			this.products = this.products.filter(p => p.id !== id);
@@ -1005,6 +1004,80 @@ class DashboardApp {
 		modal.classList.add('show');
 	}
 
+	async editProduct(id) {
+		const product = this.products.find(p => p.id == id);
+		if (!product) return;
+		const modal = this.createModal('modal-edit-product', '✏️ Editar Produto');
+		modal.classList.add('show');
+		let modalsContainer = document.getElementById('modals-container');
+		if (!modalsContainer) {
+			modalsContainer = document.createElement('div');
+			modalsContainer.id = 'modals-container';
+			document.body.appendChild(modalsContainer);
+		}
+		modalsContainer.appendChild(modal);
+		// Corrige: insere o formulário dentro do .modal-content-wrapper
+		const wrapper = modal.querySelector('.modal-content-wrapper');
+		wrapper.innerHTML += `
+			<form id="form-edit-product" class="form-modal">
+				<div class="form-group">
+					<label for="edit-nome">Nome *</label>
+					<input type="text" id="edit-nome" required value="${product.nome}" class="form-control">
+				</div>
+				<div class="form-group">
+					<label for="edit-categoria">Categoria *</label>
+					<input type="text" id="edit-categoria" required value="${product.categoria}" class="form-control">
+				</div>
+				<div class="form-group">
+					<label for="edit-preco">Preço *</label>
+					<input type="text" id="edit-preco" required value="${product.preco}" class="form-control" inputmode="decimal" pattern="^\\d+(\\.|\\,)?\\d{0,2}$">
+				</div>
+				<div class="form-group">
+					<label for="edit-estoque">Estoque *</label>
+					<input type="number" id="edit-estoque" required value="${product.estoque}" class="form-control" min="0" step="1">
+				</div>
+				<div class="form-group">
+					<label for="edit-descricao">Descrição</label>
+					<textarea id="edit-descricao" class="form-control" rows="2">${product.descricao || ''}</textarea>
+				</div>
+				<div class="modal-actions">
+					<button type="button" onclick="closeModal('modal-edit-product')" class="btn btn-secondary">Cancelar</button>
+					<button type="submit" class="btn btn-primary">Salvar</button>
+				</div>
+			</form>
+		`;
+		modal.querySelector('#form-edit-product').addEventListener('submit', async (e) => {
+			e.preventDefault();
+			const nome = modal.querySelector('#edit-nome').value.trim();
+			const categoria = modal.querySelector('#edit-categoria').value.trim();
+			let precoStr = modal.querySelector('#edit-preco').value.trim();
+			precoStr = precoStr.replace(',', '.');
+			const preco = parseFloat(precoStr);
+			const estoque = parseInt(modal.querySelector('#edit-estoque').value);
+			const descricao = modal.querySelector('#edit-descricao').value.trim();
+			if (!nome || !categoria || isNaN(preco) || isNaN(estoque)) {
+				alert('Preencha todos os campos obrigatórios');
+				return;
+			}
+			const productData = {
+				nome,
+				categoria,
+				preco,
+				estoque,
+				descricao
+			};
+			const result = await this.saveToSupabase('produtos', productData, id);
+			if (result) {
+				const idx = this.products.findIndex(p => p.id == id);
+				if (idx !== -1) this.products[idx] = { ...this.products[idx], ...productData };
+				this.renderProdutosPage();
+				this.renderEstoquePage();
+				this.updateStats();
+			}
+			closeModal('modal-edit-product');
+		});
+	}
+
 	renderProdutosPage() {
 		const container = document.getElementById('produtos-container');
 		if (!container) return;
@@ -1024,17 +1097,16 @@ class DashboardApp {
 			const list = this.products.map(p => {
 				const fotos = p.fotos ? JSON.parse(p.fotos) : [];
 				const carrossel = fotos.length > 0 ? `
-					<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; margin-bottom: 1rem; background: #f0f0f0;">
-						<div id="carousel-${p.id}" style="display: flex; transition: transform 0.3s ease;">
+					<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; margin-bottom: 0.7rem; background: #f0f0f0;">
+						<div id="carousel-${p.id}" data-current="0" style="display: flex; transition: transform 0.3s ease;">
 							${fotos.map((foto, i) => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: cover;">`).join('')}
 						</div>
 						${fotos.length > 1 ? `
-							<button onclick="window.dashboardApp.prevPhoto(${p.id}, ${fotos.length})" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer;">‹</button>
-							<button onclick="window.dashboardApp.nextPhoto(${p.id}, ${fotos.length})" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer;">›</button>
+							<button data-action="prev-photo" data-id="${p.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer;">‹</button>
+							<button data-action="next-photo" data-id="${p.id}" data-total="${fotos.length}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer;">›</button>
 						` : ''}
 					</div>
 				` : '';
-
 				return `
 					<div style="background: white; padding: 1.25rem; border-radius: 10px; margin-bottom: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid #f5576c;">
 						<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
@@ -1051,10 +1123,10 @@ class DashboardApp {
 								${p.descricao ? `<p style="margin: 0.5rem 0 0 0; color: #888; font-size: 0.85rem;">${p.descricao}</p>` : ''}
 							</div>
 							<div style="display: flex; gap: 0.5rem; align-items: center;">
-								<button onclick="window.dashboardApp.editProduct(${p.id})" style="padding: 0.5rem 0.75rem; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;">
+								<button data-action="edit-product" data-id="${p.id}" style="padding: 0.5rem 0.75rem; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;">
 									<i class="fas fa-edit"></i>
 								</button>
-								<button onclick="window.dashboardApp.deleteProduct(${p.id})" style="padding: 0.5rem 0.75rem; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;">
+								<button data-action="delete-product" data-id="${p.id}" style="padding: 0.5rem 0.75rem; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;">
 									<i class="fas fa-trash"></i>
 								</button>
 							</div>
@@ -1062,7 +1134,26 @@ class DashboardApp {
 					</div>
 				`;
 			}).join('');
-			container.innerHTML = actionBar + list;
+			container.innerHTML = actionBar + `<div style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: flex-start;">${list}</div>`;
+			// Delegação de eventos para carrossel e botões
+			container.onclick = (e) => {
+				const btn = e.target.closest('button[data-action]');
+				if (!btn) return;
+				const action = btn.getAttribute('data-action');
+				const id = btn.getAttribute('data-id');
+				const total = parseInt(btn.getAttribute('data-total'));
+				if (action === 'prev-photo') this.prevPhoto(id, total);
+				if (action === 'next-photo') this.nextPhoto(id, total);
+				if (action === 'edit-product') {
+					this.editProduct(id);
+				}
+				if (action === 'delete-product') {
+					// Apenas uma confirmação
+					if (window.confirm('Tem certeza que deseja excluir este produto?')) {
+						this.deleteProduct(id);
+					}
+				}
+			};
 		}
 	}
 
@@ -1201,6 +1292,7 @@ class DashboardApp {
 			const produtoId = btn.getAttribute('data-id');
 			const preco = btn.getAttribute('data-preco');
 			const total = btn.getAttribute('data-total');
+		
 			switch (action) {
 				case 'prev-produto-photo':
 					this.prevProdutoPhoto(produtoId, parseInt(total));
@@ -1486,7 +1578,7 @@ class DashboardApp {
 							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>👤</strong> ${o.cliente_nome}</p>
 							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>📦</strong> ${o.produto_nome}</p>
 							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>📅</strong> ${this.formatDate(o.data_entrega)}</p>
-							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>🕐</strong> ${o.horario_entrega || 'Não informado'}</p>
+							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>🕐</strong> ${order.horario_entrega || 'Não informado'}</p>
 							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>📍</strong> ${o.endereco_entrega}</p>
 							<span style="display: inline-block; margin-top: 0.5rem; background: ${this.getStatusColor(o.status)}; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem;">${o.status.toUpperCase()}</span>
 						</div>
