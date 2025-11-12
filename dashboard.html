@@ -214,7 +214,7 @@
         <img src="images/logo-png.png" alt="Leo's Cake" style="width: 100px; height: 100px; margin-bottom: 20px; border-radius: 10px;">
         <h1 style="color: white; margin: 0; font-size: 2rem;">Leo's Cake</h1>
         <p style="color: rgba(255,255,255,0.8); margin: 10px 0; font-size: 1rem;">Sistema de Pré-Vendas</p>
-        <div style="width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px;"></div>
+    <div id="splash-spinner" style="width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px;"></div>
     </div>
 
     <style>
@@ -275,16 +275,12 @@
         <!-- Dashboard Section -->
         <section id="dashboard-section" class="content-section" style="display: block;">
             <div style="text-align: center; margin-bottom: 2rem;">
-                <h2 style="margin: 0; color: #333; font-size: 1.5rem; font-weight: 600;">Dashboard</h2>
                 <p class="welcome-text" style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;">Bem-vindo(a), <strong id="welcome-name">Usuário</strong>!</p>
             </div>
-            
             <div id="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
                 <!-- Stats serão carregados aqui -->
             </div>
-
             <div style="background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                <h3 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem;">📦 Entregas de Hoje</h3>
                 <div id="entregas-hoje" style="text-align: center; color: #888; padding: 2rem;">
                     Nenhuma entrega agendada para hoje
                 </div>
@@ -293,31 +289,26 @@
 
         <!-- Clientes Section -->
         <section id="clientes-section" class="content-section" style="display: none;">
-            <h2>👥 Clientes</h2>
             <div id="clientes-container"></div>
         </section>
 
         <!-- Produtos Section -->
         <section id="produtos-section" class="content-section" style="display: none;">
-            <h2>🍰 Produtos</h2>
             <div id="produtos-container"></div>
         </section>
 
         <!-- Pedidos Section -->
         <section id="pedidos-section" class="content-section" style="display: none;">
-            <h2>📋 Pedidos</h2>
             <div id="pedidos-container"></div>
         </section>
 
         <!-- Estoque Section -->
         <section id="estoque-section" class="content-section" style="display: none;">
-            <h2>📦 Estoque</h2>
             <div id="estoque-container"></div>
         </section>
 
         <!-- Entregas Section -->
         <section id="entregas-section" class="content-section" style="display: none;">
-            <h2>🚚 Entregas</h2>
             <div id="entregas-container"></div>
         </section>
     </main>
@@ -362,15 +353,6 @@
             });
         }
 
-        // Esconder splash screen após 2 segundos
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                const splashScreen = document.getElementById('splash-screen');
-                if (splashScreen) {
-                    splashScreen.style.display = 'none';
-                }
-            }, 2000);
-        });
 
         // Funções globais para fechar modais
         function closeModal(modalId) {
