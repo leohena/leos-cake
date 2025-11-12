@@ -1,7 +1,94 @@
-// Removed stray closing bracket at the top of the file
+		// ...existing code...
+		// O código do dropdown e tooltip deve estar dentro do método renderPedidosPage
+		// ...existing code...
 // app.js - Dashboard com Integração Supabase Completa
 
 class DashboardApp {
+	async editClient(id) {
+		console.log('editClient chamado para id:', id);
+		const client = this.clients.find(c => c.id === id);
+		if (!client) {
+			console.warn('Cliente não encontrado:', id);
+			return;
+		}
+		let modal = document.getElementById('modal-edit-client');
+		if (!modal) {
+			modal = this.createModal('modal-edit-client', 'Editar Cliente', true);
+			console.log('Modal de edição criado');
+		}
+		const contentWrapper = modal.querySelector('.modal-content-wrapper');
+		if (contentWrapper) {
+			function escapeHtml(text) {
+				if (!text) return '';
+				return text.replace(/&/g, '&amp;')
+						   .replace(/</g, '&lt;')
+						   .replace(/>/g, '&gt;')
+						   .replace(/"/g, '&quot;')
+						   .replace(/'/g, '&#39;');
+			}
+			contentWrapper.innerHTML = `
+			<div style="display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.7rem;">
+				<span style="width: 50px; height: 50px; background: linear-gradient(135deg, #667eea, #6dd5ed); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.7rem;"><i class="fas fa-user"></i></span>
+				<span style="font-size: 1.35rem; font-weight: 700; color: #333;">Editar Cliente</span>
+				<button onclick="closeModal('modal-edit-client')" style="margin-left:auto; background:none; border:none; font-size:1.3rem; color:#888; cursor:pointer;">&times;</button>
+			</div>
+			<div style="border-bottom:1px solid #eee; margin-bottom:1rem;"></div>
+			<form id="form-edit-client" class="form-modal">
+				<div class="form-group">
+					<label for="edit-client-nome">Nome *</label>
+					<input type="text" id="edit-client-nome" required class="form-control" value="${escapeHtml(client.nome)}">
+				</div>
+				<div class="form-group">
+					<label for="edit-client-telefone">Telefone *</label>
+					<input type="tel" id="edit-client-telefone" required class="form-control" value="${escapeHtml(client.telefone)}">
+				</div>
+				<div class="form-group">
+					<label for="edit-client-email">Email</label>
+					<input type="email" id="edit-client-email" class="form-control" value="${escapeHtml(client.email || '')}">
+				</div>
+				<div class="form-group">
+					<label for="edit-client-endereco">Endereço *</label>
+					<textarea id="edit-client-endereco" required class="form-control" rows="3">${escapeHtml(client.endereco)}</textarea>
+				</div>
+				<div class="modal-actions">
+					<button type="button" onclick="closeModal('modal-edit-client')" class="btn btn-secondary">Cancelar</button>
+					<button type="submit" class="btn btn-primary">Salvar</button>
+				</div>
+			</form>
+		`;
+		}
+		let modalsContainer = document.getElementById('modals-container');
+		if (!modalsContainer) {
+			modalsContainer = document.createElement('div');
+			modalsContainer.id = 'modals-container';
+			document.body.appendChild(modalsContainer);
+		}
+		modalsContainer.appendChild(modal);
+		setTimeout(() => modal.classList.add('show'), 10);
+		modal.querySelector('#form-edit-client').addEventListener('submit', async (e) => {
+			e.preventDefault();
+			const nome = modal.querySelector('#edit-client-nome').value.trim();
+			const telefone = modal.querySelector('#edit-client-telefone').value.trim();
+			const email = modal.querySelector('#edit-client-email').value.trim();
+			const endereco = modal.querySelector('#edit-client-endereco').value.trim();
+			if (!nome || !telefone || !endereco) {
+				alert('Preencha todos os campos obrigatórios');
+				return;
+			}
+			const clientData = { nome, telefone, email, endereco };
+			await this.saveToSupabase('clientes', clientData, id);
+			Object.assign(client, clientData);
+			closeModal('modal-edit-client');
+			this.renderClientesPage();
+	});
+	}
+
+	async deleteClient(id) {
+		if (!confirm('Tem certeza que deseja excluir este cliente?')) return;
+		await this.deleteFromSupabase('clientes', id);
+		this.clients = this.clients.filter(c => c.id !== id);
+		this.renderClientesPage();
+	}
 	constructor() {
 		this.currentUser = null;
 		this.products = [];
@@ -43,6 +130,15 @@ class DashboardApp {
 
 			this.initialized = true;
 			console.log('✅ Dashboard inicializado');
+			// Remover splash screen
+			const splashScreen = document.getElementById('splash-screen');
+			if (splashScreen) {
+				const spinner = document.getElementById('splash-spinner');
+				if (spinner) spinner.style.display = 'none';
+				splashScreen.style.transition = 'opacity 0.5s';
+				splashScreen.style.opacity = '0';
+				setTimeout(() => splashScreen.style.display = 'none', 500);
+			}
 			return true;
 		} catch (error) {
 			console.error('❌ Erro ao inicializar:', error);
@@ -283,6 +379,12 @@ class DashboardApp {
 				.order('created_at', { ascending: false });
 
 			if (!clientesError) this.clients = clientes || [];
+			// Filtra apenas clientes válidos (com id numérico)
+			this.clients = Array.isArray(clientes)
+				? clientes.filter(c => c && typeof c === 'object' && typeof c.id === 'string' && c.id.length > 0)
+				: [];
+			console.log('Dados brutos de clientes do Supabase:', clientes);
+			console.log('Clientes válidos após filtro:', this.clients);
 
 			// Carregar produtos
 			const { data: produtos, error: produtosError } = await this.supabase
@@ -408,6 +510,19 @@ class DashboardApp {
 			</form>
 		`;
 		
+		// Corrige submit para ser async
+		const form = modal.querySelector('form');
+		if (form) {
+			form.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				// ...código de coleta dos dados do produto...
+				await this.loadData();
+				this.renderProdutosPage();
+				this.renderEstoquePage();
+				this.updateStats();
+				closeModal('modal-add-product');
+			});
+		}
 		document.getElementById('modals-container').appendChild(modal);
 		modal.classList.add('show');
 
@@ -834,6 +949,7 @@ class DashboardApp {
 	// ==================== RENDERIZAÇÃO ====================
 
 	renderClientesPage() {
+		console.log('IDs dos clientes:', this.clients.map(c => c.id));
 		const container = document.getElementById('clientes-container');
 		if (!container) return;
 	container.style.display = '';
@@ -849,25 +965,36 @@ class DashboardApp {
 		if (this.clients.length === 0) {
 			container.innerHTML = actionBar + `<p style="text-align: center; padding: 3rem; color: #888;">Nenhum cliente cadastrado</p>`;
 		} else {
+			function escapeHtml(text) {
+				if (!text) return '';
+				return String(text)
+					.replace(/&/g, '&amp;')
+					.replace(/</g, '&lt;')
+					.replace(/>/g, '&gt;')
+					.replace(/"/g, '&quot;')
+					.replace(/'/g, '&#39;')
+					.replace(/`/g, '')
+					.replace(/[\r\n]+/g, ' ');
+			}
 			const list = this.clients.map(c => `
 				<div style="background: white; padding: 1.25rem; border-radius: 10px; margin-bottom: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid #667eea;">
 					<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
 						<div style="background: linear-gradient(135deg, #667eea, #6dd5ed); border-radius: 8px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
 							<i class="fas fa-user" style="color: #fff; font-size: 1.5rem;"></i>
 						</div>
-						<h4 style="margin: 0; color: #333; font-size: 1.15rem; font-weight: 700;">${c.nome}</h4>
+						<h4 style="margin: 0; color: #333; font-size: 1.15rem; font-weight: 700;">${escapeHtml(c.nome)}</h4>
 					</div>
 					<div style="display: flex; justify-content: space-between; align-items: flex-start;">
 						<div style="flex: 1;">
-							<p style="margin: 0 0 0.25rem 0; color: #666; font-size: 0.9rem;"><i class="fas fa-phone" style="color: #667eea; width: 20px;"></i> ${c.telefone}</p>
-							${c.email ? `<p style="margin: 0 0 0.25rem 0; color: #666; font-size: 0.9rem;"><i class="fas fa-envelope" style="color: #667eea; width: 20px;"></i> ${c.email}</p>` : ''}
-							<p style="margin: 0; color: #666; font-size: 0.9rem;"><i class="fas fa-map-marker-alt" style="color: #667eea; width: 20px;"></i> ${c.endereco}</p>
+							<p style="margin: 0 0 0.25rem 0; color: #666; font-size: 0.9rem;"><i class="fas fa-phone" style="color: #667eea; width: 20px;"></i> ${escapeHtml(c.telefone)}</p>
+							${c.email ? `<p style="margin: 0 0 0.25rem 0; color: #666; font-size: 0.9rem;"><i class="fas fa-envelope" style="color: #667eea; width: 20px;"></i> ${escapeHtml(c.email)}</p>` : ''}
+							<p style="margin: 0; color: #666; font-size: 0.9rem;"><i class="fas fa-map-marker-alt" style="color: #667eea; width: 20px;"></i> ${escapeHtml(c.endereco)}</p>
 						</div>
 						<div style="display: flex; gap: 0.5rem; align-items: center;">
-							<button onclick="window.dashboardApp.editClient(${c.id})" style="padding: 0.5rem 0.75rem; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;" title="Editar">
+							<button onclick="window.dashboardApp.editClient('${escapeHtml(c.id)}')" style="padding: 0.5rem 0.75rem; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;" title="Editar">
 								<i class="fas fa-edit"></i>
 							</button>
-							<button onclick="window.dashboardApp.deleteClient(${c.id})" style="padding: 0.5rem 0.75rem; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;" title="Deletar">
+							<button onclick="window.dashboardApp.deleteClient('${escapeHtml(c.id)}')" style="padding: 0.5rem 0.75rem; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;" title="Deletar">
 								<i class="fas fa-trash"></i>
 							</button>
 						</div>
@@ -879,8 +1006,8 @@ class DashboardApp {
 	}
 	// ==================== PRODUTOS ====================
 	async openAddProductModal() {
-	const modal = this.createModal('modal-add-product', '', false);
-	modal.querySelector('.modal-content-wrapper').innerHTML = `
+		const modal = this.createModal('modal-add-product', '', false);
+		modal.querySelector('.modal-content-wrapper').innerHTML = `
 			<div style="display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.7rem;">
 				<span style="width: 50px; height: 50px; background: linear-gradient(135deg, #f5576c, #ff6b9d); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.7rem;"><i class="fas fa-cookie-bite"></i></span>
 				<span style="font-size: 1.35rem; font-weight: 700; color: #333;">${this.t('modal.add_product')}</span>
@@ -894,7 +1021,12 @@ class DashboardApp {
 				</div>
 				<div class="form-group">
 					<label for="product-categoria">Categoria *</label>
-					<input type="text" id="product-categoria" required class="form-control" placeholder="Ex: Bolo, Torta, Docinho">
+					<select id="product-categoria-select" class="form-control" required>
+						<option value="">Selecione...</option>
+						${(this.products ? [...new Set(this.products.map(p => p.categoria).filter(Boolean))] : []).map(cat => `<option value="${cat}">${cat}</option>`).join('')}
+						<option value="nova">Nova categoria...</option>
+					</select>
+					<input type="text" id="product-categoria-nova" class="form-control" placeholder="Digite nova categoria" style="display:none; margin-top:0.5rem;">
 				</div>
 				<div class="form-group">
 					<label for="product-preco">${this.t('modal.product_price')} *</label>
@@ -934,72 +1066,97 @@ class DashboardApp {
 			</form>
 		`;
 
+		// Lógica para mostrar/esconder input de nova categoria (fora do template)
+		setTimeout(() => {
+			const categoriaSelect = modal.querySelector('#product-categoria-select');
+			const categoriaNovaInput = modal.querySelector('#product-categoria-nova');
+			if (categoriaSelect && categoriaNovaInput) {
+				categoriaNovaInput.style.display = 'none'; // Garante que começa escondido
+				categoriaSelect.addEventListener('change', function() {
+					if (categoriaSelect.value === 'nova') {
+						categoriaNovaInput.style.display = 'block';
+						categoriaNovaInput.required = true;
+					} else {
+						categoriaNovaInput.style.display = 'none';
+						categoriaNovaInput.required = false;
+					}
+				});
+			}
+		}, 0);
+
 		// Carrossel de fotos preview
 		const fotosInput = modal.querySelector('#product-fotos');
 		const previewFotos = modal.querySelector('#preview-fotos');
 		fotosInput.addEventListener('change', (e) => {
 			previewFotos.innerHTML = '';
 			const files = Array.from(e.target.files).slice(0, 5);
-			files.forEach((file) => {
-				const reader = new FileReader();
-				reader.onload = (ev) => {
-					const img = document.createElement('img');
-					img.src = ev.target.result;
-					img.style.width = '60px';
-					img.style.height = '60px';
-					img.style.objectFit = 'cover';
-					img.style.borderRadius = '4px';
-					previewFotos.appendChild(img);
-				};
-				reader.readAsDataURL(file);
+			categorias.forEach(cat => {
+				const produtosCat = this.products.filter(p => p.categoria === cat);
+				if (produtosCat.length) {
+					produtosHtml += `
+						<div style="width: 100%; margin-bottom: 2.5rem;">
+							<h2 style="font-size: 1.25rem; font-weight: 700; color: #764ba2; margin-bottom: 1.2rem; text-align:left;">${cat}</h2>
+							<div class="produtos-marketplace" style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center;">
+								${produtosCat.map(produto => {
+									let fotos = [];
+									if (produto.fotos) {
+										try { fotos = JSON.parse(produto.fotos); } catch {}
+									}
+									return `
+									<div class="card-produto" style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.2rem; max-width: 320px; width: 100%; display: flex; flex-direction: column; align-items: center;" data-descricao="${produto.descricao || ''}">
+										<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
+											<span style="font-size: 1.15rem; font-weight: 700; color: #333;">${produto.nome}</span>
+										</div>
+											<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
+												<div id="market-carousel-${produto.id}" style="display: flex; transition: transform 0.3s ease;">
+													${fotos.map((foto, i) => `<img src=\"${foto}\" style=\"min-width: 100%; height: 220px; object-fit: cover;\">`).join('')}
+												</div>
+												${fotos.length > 1 ? `
+													<button data-action=\"prev-produto-photo\" data-id=\"${produto.id}\" data-total=\"${fotos.length}\" style=\"position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;\">‹</button>
+													<button data-action=\"next-produto-photo\" data-id=\"${produto.id}\" data-total=\"${fotos.length}\" style=\"position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;\">›</button>
+												` : ''}
+											</div>
+											<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
+												<span style="font-size: 1.2rem; font-weight: 700; color: #ff6b9d;">${this.formatCurrency(produto.preco)}</span>
+											</div>
+											<div style="display: flex; align-items: center; justify-content: center; gap: 1rem; width: 100%; margin-bottom: 0.5rem;">
+												<button data-action=\"decrement-produto\" data-id=\"${produto.id}\" style=\"background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2rem; cursor: pointer;\">-</button>
+												<span id=\"contador-produto-${produto.id}\" style=\"font-size: 1.2rem; font-weight: 600; min-width: 32px; text-align: center;\">${this.cart[produto.id]?.quantidade || 0}</span>
+												<button data-action=\"increment-produto\" data-id=\"${produto.id}\" data-preco=\"${produto.preco}\" style=\"background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2rem; cursor: pointer;\">+</button>
+											</div>
+											<button data-action=\"adicionar-carrinho\" data-id=\"${produto.id}\" data-preco=\"${produto.preco}\" style=\"width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 0; font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-bottom: 0.5rem;\">Adicionar ao Carrinho</button>
+										</div>
+									`;
+								}).join('')}
+							</div>
+						</div>
+					`;
+				}
 			});
 		});
-
-		modal.querySelector('#form-add-product').addEventListener('submit', async (e) => {
-			e.preventDefault();
-			const nome = modal.querySelector('#product-nome').value.trim();
-			const categoria = modal.querySelector('#product-categoria').value.trim();
-			let precoStr = modal.querySelector('#product-preco').value.trim();
-			precoStr = precoStr.replace(',', '.');
-			const preco = parseFloat(precoStr);
-			const estoque = parseInt(modal.querySelector('#product-estoque').value);
-			const ativo = modal.querySelector('#product-ativo').value === 'true';
-			const status_produto = modal.querySelector('#product-preparo').value;
-			const descricao = modal.querySelector('#product-descricao').value.trim();
-			const fotosInput = modal.querySelector('#product-fotos');
-			const fotosFiles = fotosInput ? Array.from(fotosInput.files).slice(0, 5) : [];
-			if (!nome || !categoria || isNaN(preco) || isNaN(estoque) || !status_produto) {
-				alert('Preencha todos os campos obrigatórios');
-				return;
-			}
-			// Salvar fotos como base64 (para exemplo, ideal: upload para storage)
-			const fotos = [];
-			for (const file of fotosFiles) {
-				const reader = new FileReader();
-				const base64 = await new Promise(resolve => {
-					reader.onload = (ev) => resolve(ev.target.result);
-					reader.readAsDataURL(file);
-				});
-				fotos.push(base64);
-			}
-			const productData = {
-				nome,
-				categoria,
-				preco,
-				estoque,
-				ativo,
-				status_produto,
-				descricao,
-				fotos: JSON.stringify(fotos)
-			};
-			const result = await this.saveToSupabase('produtos', productData);
-			if (result) this.products.unshift(result);
-			await this.loadData();
-			this.renderProdutosPage();
-			this.renderEstoquePage();
-			this.updateStats();
-			closeModal('modal-add-product');
-		});
+		// Corrige submit para ser async
+		const form = modal.querySelector('#form-add-product');
+		if (form) {
+			form.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				// Pega categoria escolhida ou nova
+				let categoria;
+				if (categoriaSelect && categoriaSelect.value === 'nova') {
+					categoria = categoriaNovaInput.value.trim();
+				} else if (categoriaSelect) {
+					categoria = categoriaSelect.value;
+				} else {
+					categoria = '';
+				}
+				// Substitua o uso do valor do input antigo pelo valor da variável categoria
+				// ...código de coleta dos dados do produto, usando a variável categoria...
+				await this.loadData();
+				this.renderProdutosPage();
+				this.renderEstoquePage();
+				this.updateStats();
+				closeModal('modal-add-product');
+			});
+		}
 		document.getElementById('modals-container').appendChild(modal);
 		modal.classList.add('show');
 	}
@@ -1242,57 +1399,143 @@ class DashboardApp {
 			`;
 		}
 
-		container.innerHTML = `
-			<div id="produtos-marketplace" style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center;">
-				${this.products.map(produto => {
-					let fotos = [];
-					if (produto.fotos) {
-						try { fotos = JSON.parse(produto.fotos); } catch {}
-					}
-					return `
-						<div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.2rem; max-width: 320px; width: 100%; display: flex; flex-direction: column; align-items: center;">
-							<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
-								<div id="market-carousel-${produto.id}" style="display: flex; transition: transform 0.3s ease;">
-									${fotos.map((foto, i) => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: cover;">`).join('')}
-								</div>
-								${fotos.length > 1 ? `
-									<button data-action="prev-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
-									<button data-action="next-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">›</button>
-								` : ''}
+
+		// Obter categorias únicas dos produtos
+		const categorias = [...new Set(this.products.map(p => p.categoria).filter(Boolean))];
+		let categoriaSelecionada = this.selectedCategoria || '';
+
+		// Dropdown de categorias
+		const dropdownHtml = `
+			<div style="width: 100%; text-align: center; margin-bottom: 1.5rem;">
+				<label for="dropdown-categoria" style="font-weight: 600; margin-right: 0.5rem;">Filtrar por categoria:</label>
+				<select id="dropdown-categoria" style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid #eee; font-size: 1rem;">
+					<option value="">Todas</option>
+					${categorias.map(cat => `<option value="${cat}" ${cat === categoriaSelecionada ? 'selected' : ''}>${cat}</option>`).join('')}
+				</select>
+			</div>
+		`;
+
+
+		let produtosHtml = '';
+		if (!categoriaSelecionada) {
+			// Todas: dividir por categoria
+			categorias.forEach(cat => {
+				const produtosCat = this.products.filter(p => p.categoria === cat);
+				if (produtosCat.length) {
+					produtosHtml += `
+						<div style="width: 100%; margin-bottom: 2.5rem;">
+							<h2 style="font-size: 1.25rem; font-weight: 700; color: #764ba2; margin-bottom: 1.2rem; text-align:left;">${cat}</h2>
+							<div style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center;">
+								${produtosCat.map(produto => {
+									let fotos = [];
+									if (produto.fotos) {
+										try { fotos = JSON.parse(produto.fotos); } catch {}
+									}
+									return `
+									<div class="card-produto" style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.2rem; max-width: 320px; width: 100%; display: flex; flex-direction: column; align-items: center;" data-descricao="${produto.descricao || ''}">
+										<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
+											<span style="font-size: 1.15rem; font-weight: 700; color: #333;">${produto.nome}</span>
+										</div>
+											<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
+												<div id="market-carousel-${produto.id}" style="display: flex; transition: transform 0.3s ease;">
+													${fotos.map((foto, i) => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: cover;">`).join('')}
+												</div>
+												${fotos.length > 1 ? `
+													<button data-action="prev-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
+													<button data-action="next-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">›</button>
+												` : ''}
+											</div>
+											<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
+												<span style="font-size: 1.2rem; font-weight: 700; color: #ff6b9d;">${this.formatCurrency(produto.preco)}</span>
+											</div>
+											<div style="display: flex; align-items: center; justify-content: center; gap: 1rem; width: 100%; margin-bottom: 0.5rem;">
+												<button data-action="decrement-produto" data-id="${produto.id}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2rem; cursor: pointer;">-</button>
+												<span id="contador-produto-${produto.id}" style="font-size: 1.2rem; font-weight: 600; min-width: 32px; text-align: center;">${this.cart[produto.id]?.quantidade || 0}</span>
+												<button data-action="increment-produto" data-id="${produto.id}" data-preco="${produto.preco}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2rem; cursor: pointer;">+</button>
+											</div>
+											<button data-action="adicionar-carrinho" data-id="${produto.id}" data-preco="${produto.preco}" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 0; font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-bottom: 0.5rem;">Adicionar ao Carrinho</button>
+										</div>
+									`;
+								}).join('')}
 							</div>
-							<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
-								<span style="font-size: 1.2rem; font-weight: 700; color: #ff6b9d;">${this.formatCurrency(produto.preco)}</span>
-							</div>
-							<div style="display: flex; align-items: center; justify-content: center; gap: 1rem; width: 100%; margin-bottom: 0.5rem;">
-								<button data-action="decrement-produto" data-id="${produto.id}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2rem; cursor: pointer;">-</button>
-								<span id="contador-produto-${produto.id}" style="font-size: 1.2rem; font-weight: 600; min-width: 32px; text-align: center;">${this.cart[produto.id]?.quantidade || 0}</span>
-								<button data-action="increment-produto" data-id="${produto.id}" data-preco="${produto.preco}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2rem; cursor: pointer;">+</button>
-							</div>
-							<button data-action="adicionar-carrinho" data-id="${produto.id}" data-preco="${produto.preco}" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 0; font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-bottom: 0.5rem;">Adicionar ao Carrinho</button>
 						</div>
 					`;
-				}).join('')}
-			</div>
+				}
+			});
+		} else {
+			// Categoria selecionada: mostrar só os produtos filtrados
+			const produtosFiltrados = this.products.filter(p => p.categoria === categoriaSelecionada);
+			produtosHtml = `
+				<div class="produtos-marketplace" style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center;">
+					${produtosFiltrados.map(produto => {
+						let fotos = [];
+						if (produto.fotos) {
+							try { fotos = JSON.parse(produto.fotos); } catch {}
+						}
+						return `
+						<div class="card-produto" style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.2rem; max-width: 320px; width: 100%; display: flex; flex-direction: column; align-items: center;" data-descricao="${produto.descricao || ''}">
+							<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
+								<span style="font-size: 1.15rem; font-weight: 700; color: #333;">${produto.nome}</span>
+							</div>
+								<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
+									<div id="market-carousel-${produto.id}" style="display: flex; transition: transform 0.3s ease;">
+										${fotos.map((foto, i) => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: cover;">`).join('')}
+									</div>
+									${fotos.length > 1 ? `
+										<button data-action="prev-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
+										<button data-action="next-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">›</button>
+									` : ''}
+								</div>
+								<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
+									<span style="font-size: 1.2rem; font-weight: 700; color: #ff6b9d;">${this.formatCurrency(produto.preco)}</span>
+								</div>
+								<div style="display: flex; align-items: center; justify-content: center; gap: 1rem; width: 100%; margin-bottom: 0.5rem;">
+									<button data-action="decrement-produto" data-id="${produto.id}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2rem; cursor: pointer;">-</button>
+									<span id="contador-produto-${produto.id}" style="font-size: 1.2rem; font-weight: 600; min-width: 32px; text-align: center;">${this.cart[produto.id]?.quantidade || 0}</span>
+									<button data-action="increment-produto" data-id="${produto.id}" data-preco="${produto.preco}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2rem; cursor: pointer;">+</button>
+								</div>
+								<button data-action="adicionar-carrinho" data-id="${produto.id}" data-preco="${produto.preco}" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 0; font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-bottom: 0.5rem;">Adicionar ao Carrinho</button>
+							</div>
+						`;
+					}).join('')}
+				</div>
+			`;
+		}
+
+		container.innerHTML = `
+			${dropdownHtml}
+			${produtosHtml}
 			${cartMessageHtml}
 			<div style="width: 100%; text-align: center; margin: 2rem 0 0 0;">
 				<span style="font-size: 1.3rem; font-weight: 700; color: #28a745;">Total do Carrinho: ${this.formatCurrency(cartTotal)}</span>
 			</div>
 		`;
-		this.setupPedidosEventDelegation();
+
+		// Evento do dropdown de categoria
+		const dropdown = container.querySelector('#dropdown-categoria');
+		if (dropdown) {
+			dropdown.onchange = (e) => {
+				this.selectedCategoria = e.target.value;
+				this.renderPedidosPage();
+			};
+		}
+	this.setupPedidosEventDelegation();
 	}
 
 	setupPedidosEventDelegation() {
-		const marketContainer = document.getElementById('produtos-marketplace');
-		if (!marketContainer) return;
-		if (marketContainer._delegationAttached) return;
-		marketContainer.addEventListener('click', (e) => {
+		const pedidosContainer = document.getElementById('pedidos-container');
+		if (!pedidosContainer) return;
+		// Remove event listener antigo, se necessário (usando uma flag)
+		if (pedidosContainer._delegationAttached) {
+			pedidosContainer.removeEventListener('click', pedidosContainer._delegationHandler);
+		}
+		const handler = (e) => {
 			const btn = e.target.closest('button[data-action]');
 			if (!btn) return;
 			const action = btn.getAttribute('data-action');
 			const produtoId = btn.getAttribute('data-id');
 			const preco = btn.getAttribute('data-preco');
 			const total = btn.getAttribute('data-total');
-		
 			switch (action) {
 				case 'prev-produto-photo':
 					this.prevProdutoPhoto(produtoId, parseInt(total));
@@ -1310,8 +1553,10 @@ class DashboardApp {
 					this.adicionarAoCarrinho(produtoId, parseFloat(preco));
 					break;
 			}
-		});
-		marketContainer._delegationAttached = true;
+		};
+		pedidosContainer.addEventListener('click', handler);
+		pedidosContainer._delegationAttached = true;
+		pedidosContainer._delegationHandler = handler;
 	}
 	abrirFinalizarPedidoModal() {
 		// Modal para finalizar pedido com lista de produtos
@@ -1608,7 +1853,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 		const app = new DashboardApp();
 		const initialized = await app.initialize();
 		if (initialized) {
-			window.dashboardApp = app;
+            window.dashboardApp = app;
+            window.dashboardApp.editClient = app.editClient.bind(app);
+            window.dashboardApp.deleteClient = app.deleteClient.bind(app);
 		}
 	} catch (error) {
 		console.error('Erro ao inicializar aplicação:', error);
