@@ -37,6 +37,45 @@ body {
   align-items: center;
   gap: 0.75rem;
 }
+/* styles.css - Leo's Cake Dashboard (2025)
+   Estrutura simplificada, responsiva e moderna */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0 0 80px 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f8f9fa;
+  color: #222;
+  line-height: 1.5;
+}
+
+/* Header */
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 56px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+  justify-content: space-between;
+}
+
+.header-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
 
 .header-logo img {
   width: 40px;
@@ -307,9 +346,33 @@ textarea.form-control {
 /* Stats Grid */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1.2rem;
+  align-items: stretch;
+}
+
+@media (max-width: 600px) {
+  .stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.6rem;
+  }
+  .stat-card {
+    padding: 0.6rem 0.4rem;
+    border-radius: 10px;
+  }
+  .stat-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 1rem;
+  }
+  .stat-value {
+    font-size: 1rem;
+  }
+  .stat-label {
+    font-size: 0.7rem;
+  }
+}
 }
 
 .stat-card-container {
@@ -317,43 +380,47 @@ textarea.form-control {
 }
 
 .stat-card {
+  min-width: 220px;
+  box-sizing: border-box;
   background: white;
-  padding: 1.25rem;
+  padding: 1rem 0.8rem;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 1rem;
-  transition: all 0.3s ease;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
   cursor: pointer;
 }
 
 .stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
 }
 
 .stat-icon {
-  width: 50px;
-  height: 50px;
+  width: 40px;
+  height: 40px;
   background: linear-gradient(135deg, #ff6b9d, #ffa726);
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   flex-shrink: 0;
-}
+/* ...existing code... */
 
 .stat-value {
-  font-size: 1.75rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: #333;
 }
 
 .stat-label {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: #666;
   margin: 0.25rem 0 0 0;
 }
@@ -481,4 +548,438 @@ textarea.form-control {
 
 .gap-1 { gap: 0.5rem; }
 .gap-2 { gap: 1rem; }
+/* ...existing code... */
+/* styles.css - Leo's Cake Dashboard (2025)
+   Estrutura simplificada, responsiva e moderna */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0 0 80px 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f8f9fa;
+  color: #222;
+  line-height: 1.5;
+}
+
+/* Header */
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 56px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+  justify-content: space-between;
+}
+
+.header-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.header-logo img {
+  width: 36px;
+  height: 36px;
+  font-size: 1.15rem;
+}
+
+.header-logo h1 {
+  margin: 0;
+  color: white;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Navbar */
+.navbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 64px;
+  background: white;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 100;
+}
+
+.nav-btn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: color 0.2s;
+  flex: 1;
+  gap: 0.25rem;
+  padding: 0.5rem;
+}
+
+.nav-btn.active {
+  color: #ff6b9d;
+}
+
+.nav-btn span {
+  font-size: 0.75rem;
+}
+
+/* Buttons */
+.btn {
+  background: #ff6b9d;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-weight: 500;
+}
+
+.btn:hover {
+  background: #e0557f;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #ff6b9d, #ffa726);
+  color: white;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #5a6268;
+}
+
+.btn-success {
+  background: #28a745;
+  color: white;
+}
+
+.btn-success:hover {
+  background: #218838;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
+/* Forms */
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.form-control {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: #ff6b9d;
+  box-shadow: 0 0 0 3px rgba(255, 107, 157, 0.1);
+}
+
+textarea.form-control {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* Tables */
+.table-container {
+  margin: 1rem 0;
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #eee;
+  text-align: left;
+}
+
+.data-table th {
+  background: #f3f3f3;
+  color: #ff6b9d;
+  font-weight: 600;
+}
+
+.data-table tr:hover {
+  background: #f9f9f9;
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Modals */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.4);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.modal.show {
+  display: flex;
+}
+
+.modal-content {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.5rem;
+  min-width: 320px;
+  max-width: 90vw;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #333;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #888;
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: #333;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+/* Toast Notifications */
+.toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ff6b9d;
+  color: #fff;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+  z-index: 300;
+}
+
+.toast.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Stats Grid */
+
+/* Content Sections */
+.content-section {
+  animation: fadeIn 0.3s ease-in;
+}
+
+#clientes-container,
+#produtos-container,
+#pedidos-container,
+#estoque-container,
+#entregas-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Page Headers */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+}
+
+.search-box {
+  margin-bottom: 1.5rem;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+/* Responsividade do header */
+@media (max-width: 768px) {
+  .header {
+    flex-direction: row !important;
+    height: 48px !important;
+    padding: 0 0.5rem !important;
+    align-items: center !important;
+  }
+  .header-logo img {
+    width: 32px !important;
+    height: 32px !important;
+  }
+  .header-logo h1 {
+    font-size: 0.95rem !important;
+  }
+  .header-actions {
+    gap: 0.5rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-logo h1 {
+    font-size: 0.85rem !important;
+  }
+  .header-actions {
+    gap: 0.25rem !important;
+  }
+
+  .stat-value {
+    font-size: 1.5rem;
+  }
+
+  .modal-content {
+    padding: 1rem;
+  }
+
+  .form-group {
+    margin-bottom: 0.75rem;
+  }
+}
+
+/* Utility Classes */
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.mb-1 { margin-bottom: 0.5rem; }
+.mb-2 { margin-bottom: 1rem; }
+.mb-3 { margin-bottom: 1.5rem; }
+.mb-4 { margin-bottom: 2rem; }
+
+.mt-1 { margin-top: 0.5rem; }
+.mt-2 { margin-top: 1rem; }
+.mt-3 { margin-top: 1.5rem; }
+.mt-4 { margin-top: 2rem; }
+
+.hidden {
+  display: none !important;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gap-1 { gap: 0.5rem; }
+.gap-2 { gap: 1rem; }
 .gap-3 { gap: 1.5rem; }
+.gap-3 { gap: 1.5rem; }
+}

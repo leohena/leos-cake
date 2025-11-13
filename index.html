@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leo's Cake - Sistema de Pré-Vendas</title>
+    <title>Leo's Cake - Sistema de Vendas</title>
     
     <meta name="theme-color" content="#ff6b9d">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -24,12 +24,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.emailjs.com/sdk/dist/email.min.js"></script>
 </head>
+<script>
+    (function(){
+        emailjs.init('vv8Q2vZmtBAstixZR'); // Substitua pelo seu User ID do EmailJS
+    })();
+</script>
+</head>
 <body>
     <!-- Splash Screen -->
     <div id="splash-screen" class="splash-screen" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); align-items: center; justify-content: center; z-index: 9999; flex-direction: column;">
         <img src="images/logo-png.png" alt="Leo's Cake" style="width: 100px; height: 100px; margin-bottom: 20px; border-radius: 10px;">
         <h1 style="color: white; margin: 0; font-size: 2rem;">Leo's Cake</h1>
-        <p style="color: rgba(255,255,255,0.8); margin: 10px 0; font-size: 1rem;">Sistema de Pré-Vendas</p>
+    <p style="color: rgba(255,255,255,0.8); margin: 10px 0; font-size: 1rem;">Sistema de Vendas</p>
         <div style="width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px;"></div>
     </div>
 
@@ -39,7 +45,7 @@
             <div style="text-align: center; margin-bottom: 2rem;">
                 <img src="images/logo-png.png" alt="Leo's Cake" style="width: 80px; height: 80px; border-radius: 8px; margin-bottom: 1rem;">
                 <h1 style="margin: 0; font-size: 1.5rem; color: #333;">Leo's Cake</h1>
-                <p style="margin: 0.5rem 0 0 0; color: #666;">Sistema de Pré-Vendas</p>
+                <p style="margin: 0.5rem 0 0 0; color: #666;">Sistema de Vendas</p>
             </div>
 
             <form id="login-form" style="display: flex; flex-direction: column; gap: 1rem;">
