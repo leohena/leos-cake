@@ -1,4 +1,376 @@
+// Modal de cadastro de novo usuário
+window.showUsuariosModal = async function() {
+	let modal = document.getElementById('modal-usuarios');
+	if (!modal) {
+		modal = window.dashboardApp.createModal('modal-usuarios', 'Gerenciar Usuários', true);
+		// Aumenta a largura do modal
+		const wrapper = modal.querySelector('.modal-content-wrapper');
+		if (wrapper) {
+			wrapper.style.maxWidth = '1200px';
+		}
+	}
+	const contentWrapper = modal.querySelector('.modal-content-wrapper');
+	if (contentWrapper) {
+		contentWrapper.innerHTML = `
+			<div id="usuarios-table-container"></div>
+			<div style="display:flex;align-items:center;gap:8px;margin-top:1rem;justify-content:flex-end;">
+				<button id="add-user-btn" class="btn btn-primary">Adicionar Novo Usuário</button>
+				<button id="reset-all-btn" class="btn btn-warning">Senha padrão</button>
+				<button id="edit-all-btn" class="btn btn-secondary">Editar</button>
+				<button id="delete-all-btn" class="btn btn-danger">Excluir</button>
+			</div>
+		`;
+	}
+	// Função para atualizar tabela após cada ação
+	async function refreshUsuariosTable() {
+		closeModal('modal-usuarios');
+		await window.showUsuariosModal();
+	}
+	let modalsContainer = document.getElementById('modals-container');
+	if (!modalsContainer) {
+		modalsContainer = document.createElement('div');
+		modalsContainer.id = 'modals-container';
+		document.body.appendChild(modalsContainer);
+	}
+	modalsContainer.appendChild(modal);
+	setTimeout(() => modal.classList.add('show'), 10);
+
+	// Carregar usuários da tabela
+	const supabase = window.authSystem?.supabaseClient;
+	if (!supabase) return;
+	const { data: usuarios, error } = await supabase.from('usuarios').select('*');
+	const tableContainer = modal.querySelector('#usuarios-table-container');
+	if (error || !usuarios) {
+		tableContainer.innerHTML = '<p style="color:#dc3545;">Erro ao carregar usuários.</p>';
+		return;
+	}
+	if (usuarios.length === 0) {
+		tableContainer.innerHTML = '<p>Nenhum usuário cadastrado.</p>';
+		return;
+	}
+	tableContainer.innerHTML = `<table style="width:100%;border-collapse:collapse;">
+		<thead>
+			<tr style="background:#f5f5f5;">
+				<th style="padding:8px;border:1px solid #eee;">Foto</th>
+				<th style="padding:8px;border:1px solid #eee;">Nome</th>
+				<th style="padding:8px;border:1px solid #eee;">Email</th>
+				<th style="padding:8px;border:1px solid #eee;">Tipo</th>
+				<th style="padding:8px;border:1px solid #eee;">Telefone</th>
+				<th style="padding:8px;border:1px solid #eee;">Endereço</th>
+			</tr>
+		</thead>
+		<tbody>
+			${usuarios.map(u => `
+				<tr>
+					<td style="padding:8px;border:1px solid #eee;text-align:center;">
+						${u.foto_url ? `<img src="${u.foto_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">` : '<span style="color:#aaa;font-size:1.5rem;"><i class="fas fa-user"></i></span>'}
+					</td>
+					<td style="padding:8px;border:1px solid #eee;">${u.nome}</td>
+					<td style="padding:8px;border:1px solid #eee;">${u.email}</td>
+					<td style="padding:8px;border:1px solid #eee;">${u.role || u.tipo || ''}</td>
+					<td style="padding:8px;border:1px solid #eee;">${u.telefone || ''}</td>
+					<td style="padding:8px;border:1px solid #eee;">${u.endereco || ''}</td>
+				</tr>
+			`).join('')}
+		</tbody>
+	</table>`;
+
+	// Funções de ação em lote (exemplo: senha padrão para todos)
+	modal.querySelector('#reset-all-btn').onclick = async function() {
+		const supabase = window.authSystem?.supabaseClient;
+		if (!supabase) return alert('Supabase não inicializado');
+		const senhaPadrao = '123456';
+		const password_hash = btoa(senhaPadrao);
+		const { error } = await supabase.from('usuarios').update({ password_hash });
+		if (error) {
+			alert('Erro ao redefinir senhas: ' + (error.message || error));
+		} else {
+			alert('Todas as senhas foram redefinidas para padrão: ' + senhaPadrao);
+			await refreshUsuariosTable();
+		}
+	};
+	// Funções de editar e excluir em lote (apenas alertas por enquanto)
+	modal.querySelector('#edit-all-btn').onclick = async function() {
+		alert('Função editar em lote em breve');
+		await refreshUsuariosTable();
+	};
+	modal.querySelector('#delete-all-btn').onclick = async function() {
+		alert('Função excluir em lote em breve');
+		await refreshUsuariosTable();
+	};
+	// Botão adicionar novo usuário
+	modal.querySelector('#add-user-btn').onclick = function() {
+		closeModal('modal-usuarios');
+		window.showAddUserModal?.();
+	};
+
+	// Botão para adicionar novo usuário
+	modal.querySelector('#add-user-btn').onclick = function() {
+		closeModal('modal-usuarios');
+		window.showAddUserModal?.();
+	};
+};
+
+// Modal de cadastro de novo usuário separado
+window.showAddUserModal = function() {
+	let modal = document.getElementById('modal-add-user');
+	if (!modal) {
+		modal = window.dashboardApp.createModal('modal-add-user', 'Cadastrar Novo Usuário', true);
+	}
+	const contentWrapper = modal.querySelector('.modal-content-wrapper');
+	if (contentWrapper) {
+		contentWrapper.innerHTML = `
+			<form id="form-add-user" class="form-modal">
+				<div class="form-group">
+					<label for="add-nome">Nome *</label>
+					<input type="text" id="add-nome" required class="form-control" value="">
+				</div>
+				<div class="form-group">
+					<label for="add-email">Email *</label>
+					<input type="email" id="add-email" required class="form-control" value="">
+				</div>
+				<div class="form-group">
+					<label for="add-role">Tipo</label>
+					<select id="add-role" class="form-control">
+						<option value="user">Usuário</option>
+						<option value="admin">Administrador</option>
+						<option value="sale">Vendedor</option>
+					</select>
+				</div>
+				<div class="form-group">
+					<label for="add-telefone">Telefone</label>
+					<input type="tel" id="add-telefone" class="form-control" value="">
+				</div>
+				<div class="form-group">
+					<label for="add-endereco">Endereço</label>
+					<textarea id="add-endereco" class="form-control" rows="2"></textarea>
+				</div>
+				<div class="form-group">
+					<label for="add-foto">Foto</label>
+					<input type="file" id="add-foto" accept="image/*" class="form-control">
+					<img src="" id="add-foto-preview" style="max-width:80px;max-height:80px;margin-top:8px;display:none;">
+				</div>
+				<div class="form-group">
+					<label for="add-password">Senha *</label>
+					<input type="password" id="add-password" required class="form-control" autocomplete="new-password">
+				</div>
+				<div class="modal-actions">
+					<button type="button" onclick="closeModal('modal-add-user')" class="btn btn-secondary">Cancelar</button>
+					<button type="submit" class="btn btn-primary">Cadastrar</button>
+				</div>
+			</form>
+		`;
+	}
+	let modalsContainer = document.getElementById('modals-container');
+	if (!modalsContainer) {
+		modalsContainer = document.createElement('div');
+		modalsContainer.id = 'modals-container';
+		document.body.appendChild(modalsContainer);
+	}
+	modalsContainer.appendChild(modal);
+	setTimeout(() => modal.classList.add('show'), 10);
+
+	// Preview da foto
+	const fotoInput = modal.querySelector('#add-foto');
+	const fotoPreview = modal.querySelector('#add-foto-preview');
+	if (fotoInput && fotoPreview) {
+		fotoInput.onchange = function(e) {
+			const file = e.target.files[0];
+			if (file) {
+				const reader = new FileReader();
+				reader.onload = function(ev) {
+					fotoPreview.src = ev.target.result;
+					fotoPreview.style.display = '';
+				};
+				reader.readAsDataURL(file);
+			}
+		};
+	}
+
+	// Submit do formulário
+	modal.querySelector('#form-add-user').addEventListener('submit', async (e) => {
+		e.preventDefault();
+		const nome = modal.querySelector('#add-nome').value.trim();
+		const email = modal.querySelector('#add-email').value.trim();
+		const role = modal.querySelector('#add-role').value;
+		const telefone = modal.querySelector('#add-telefone').value.trim();
+		const endereco = modal.querySelector('#add-endereco').value.trim();
+		let foto_url = '';
+		const fotoFile = fotoInput?.files[0];
+		if (fotoFile) {
+			const reader = new FileReader();
+			foto_url = await new Promise(resolve => {
+				reader.onload = e => resolve(e.target.result);
+				reader.readAsDataURL(fotoFile);
+			});
+		}
+		const password = modal.querySelector('#add-password').value;
+		if (!nome || !email || !password) {
+			alert('Preencha todos os campos obrigatórios!');
+			return;
+		}
+		// Cadastrar usuário na tabela 'usuarios' do Supabase
+		try {
+			const supabase = window.authSystem?.supabaseClient;
+			if (!supabase) throw new Error('Supabase não inicializado');
+			const username = email;
+			const password_hash = btoa(password);
+			const basicUser = {
+				nome, email, username, role, telefone, endereco, foto_url, ativo: true, password_hash
+			};
+			console.log('Cadastro usuário:', basicUser);
+			const { data, error } = await supabase.from('usuarios').insert([basicUser]);
+			if (error) throw error;
+			alert('Usuário cadastrado com sucesso!');
+			closeModal('modal-add-user');
+		} catch (err) {
+			alert('Erro ao cadastrar usuário: ' + (err.message || err));
+		}
+	});
+};
+// Modal de edição/cadastro de usuário completo
+window.showConfigModal = function() {
+	const user = window.authSystem?.currentUser || {};
+	let modal = document.getElementById('modal-config-user');
+	if (!modal) {
+		modal = window.dashboardApp.createModal('modal-config-user', 'Editar Perfil', true);
+	}
+	const contentWrapper = modal.querySelector('.modal-content-wrapper');
+	if (contentWrapper) {
+		contentWrapper.innerHTML = `
+			<form id="form-config-user" class="form-modal">
+				<div class="form-group">
+					<label for="config-nome">Nome *</label>
+					<input type="text" id="config-nome" required class="form-control" value="${user.nome || ''}">
+				</div>
+				<div class="form-group">
+					<label for="config-email">Email *</label>
+					<input type="email" id="config-email" required class="form-control" value="${user.email || ''}" disabled>
+				</div>
+				<div class="form-group">
+					<label for="config-role">Tipo</label>
+					<select id="config-role" class="form-control">
+						<option value="user" ${user.role === 'user' ? 'selected' : ''}>Usuário</option>
+						<option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Administrador</option>
+						<option value="sale" ${user.role === 'sale' || user.role === 'vendedor' ? 'selected' : ''}>Vendedor</option>
+					</select>
+				</div>
+				<div class="form-group">
+					<label for="config-telefone">Telefone</label>
+					<input type="tel" id="config-telefone" class="form-control" value="${user.telefone || ''}">
+				</div>
+				<div class="form-group">
+					<label for="config-endereco">Endereço</label>
+					<textarea id="config-endereco" class="form-control" rows="2">${user.endereco || ''}</textarea>
+				</div>
+				<div class="form-group">
+					<label for="config-foto">Foto</label>
+					<input type="file" id="config-foto" accept="image/*" class="form-control">
+					<img src="${user.foto_url || ''}" id="config-foto-preview" style="max-width:80px;max-height:80px;margin-top:8px;${user.foto_url ? '' : 'display:none;'}">
+				</div>
+				<div class="form-group">
+					<label for="config-password">Nova Senha</label>
+					<input type="password" id="config-password" class="form-control" autocomplete="new-password">
+				</div>
+				<div class="modal-actions">
+					<button type="button" onclick="closeModal('modal-config-user')" class="btn btn-secondary">Cancelar</button>
+					<button type="submit" class="btn btn-primary">Salvar</button>
+				</div>
+			</form>
+		`;
+	}
+	let modalsContainer = document.getElementById('modals-container');
+	if (!modalsContainer) {
+		modalsContainer = document.createElement('div');
+		modalsContainer.id = 'modals-container';
+		document.body.appendChild(modalsContainer);
+	}
+	modalsContainer.appendChild(modal);
+	setTimeout(() => modal.classList.add('show'), 10);
+
+	// Preview da foto
+	const fotoInput = modal.querySelector('#config-foto');
+	const fotoPreview = modal.querySelector('#config-foto-preview');
+	if (fotoInput && fotoPreview) {
+		fotoInput.onchange = function(e) {
+			const file = e.target.files[0];
+			if (file) {
+				const reader = new FileReader();
+				reader.onload = function(ev) {
+					fotoPreview.src = ev.target.result;
+					fotoPreview.style.display = '';
+				};
+				reader.readAsDataURL(file);
+			}
+		};
+	}
+
+	// Submit do formulário
+	modal.querySelector('#form-config-user').addEventListener('submit', async (e) => {
+		e.preventDefault();
+		const nome = modal.querySelector('#config-nome').value.trim();
+		const role = modal.querySelector('#config-role').value;
+		const telefone = modal.querySelector('#config-telefone').value.trim();
+		const endereco = modal.querySelector('#config-endereco').value.trim();
+		let foto_url = user.foto_url;
+		const fotoFile = fotoInput?.files[0];
+		if (fotoFile) {
+			const upload = await window.authSystem.uploadUserPhoto(fotoFile);
+			if (upload.success) foto_url = upload.photoUrl;
+		}
+		const password = modal.querySelector('#config-password').value;
+		let password_hash = undefined;
+		if (password) password_hash = btoa(password); // Simples hash base64
+		const profileData = { nome, role, telefone, endereco, foto_url };
+		if (password_hash) profileData.password_hash = password_hash;
+		// Atualizar no banco diretamente
+		const supabase = window.authSystem?.supabaseClient;
+		if (supabase && window.authSystem?.currentUser?.id) {
+			const updateData = { nome, role, telefone, endereco, foto_url };
+			if (password_hash) updateData.password_hash = password_hash;
+			await supabase.from('usuarios').update(updateData).eq('id', window.authSystem.currentUser.id);
+		}
+		const result = await window.authSystem.updateUserProfile(profileData);
+		if (result.success) {
+			alert('Perfil atualizado com sucesso!');
+			closeModal('modal-config-user');
+			window.dashboardApp.setupUI();
+		} else {
+			alert('Erro ao atualizar perfil: ' + (result.message || ''));
+		}
+	});
+};
 		// ...existing code...
+		// Exibir menus/páginas conforme perfil
+		let role = '';
+		if (this.currentUser && (this.currentUser.role || this.currentUser.tipo)) {
+			role = (this.currentUser.role || this.currentUser.tipo || '').toLowerCase();
+		}
+		const menuDashboard = document.getElementById('menu-dashboard');
+		const menuPedidos = document.getElementById('menu-pedidos');
+		const menuEntregas = document.getElementById('menu-entregas');
+		const menuEstoque = document.getElementById('menu-estoque');
+		const menuClientes = document.getElementById('menu-clientes');
+		const menuProdutos = document.getElementById('menu-produtos');
+		const menuUsuarios = document.getElementById('menu-usuarios');
+		if (role === 'sale' || role === 'vendedor') {
+			if (menuDashboard) menuDashboard.style.display = '';
+			if (menuPedidos) menuPedidos.style.display = '';
+			if (menuEntregas) menuEntregas.style.display = '';
+			if (menuEstoque) menuEstoque.style.display = 'none';
+			if (menuClientes) menuClientes.style.display = 'none';
+			if (menuProdutos) menuProdutos.style.display = 'none';
+			if (menuUsuarios) menuUsuarios.style.display = 'none';
+		} else {
+			// ...para outros perfis, exibe tudo normalmente
+			if (menuDashboard) menuDashboard.style.display = '';
+			if (menuPedidos) menuPedidos.style.display = '';
+			if (menuEntregas) menuEntregas.style.display = '';
+			if (menuEstoque) menuEstoque.style.display = '';
+			if (menuClientes) menuClientes.style.display = '';
+			if (menuProdutos) menuProdutos.style.display = '';
+			if (menuUsuarios) menuUsuarios.style.display = '';
+		}
 		// O código do dropdown e tooltip deve estar dentro do método renderPedidosPage
 		// ...existing code...
 // app.js - Dashboard com Integração Supabase Completa
@@ -115,16 +487,30 @@ class DashboardApp {
 				return false;
 			}
 
-			this.currentUser = window.authSystem.getCurrentUser();
+			this.currentUser = await window.authSystem.getCurrentUser();
 			this.supabase = window.supabaseClient;
 
-			await this.loadData();
-			this.setupUI();
-			this.setupEventListeners();
-			this.setupLanguageSwitcher();
-			this.createStatsCards();
-			this.createDataCards();
-			this.updateEntregasHoje();
+			// Controle de acesso: vendedor vê apenas seus pedidos e dashboard
+			if (this.currentUser.tipo === 'vendedor') {
+				await this.loadData();
+				// Filtrar pedidos do vendedor
+				this.orders = this.orders.filter(o => o.vendedor_id === this.currentUser.id);
+				this.setupUI();
+				this.setupEventListeners();
+				this.setupLanguageSwitcher();
+				this.createStatsCards();
+				this.createDataCards();
+				this.updateEntregasHoje();
+			} else {
+				// Admin vê tudo
+				await this.loadData();
+				this.setupUI();
+				this.setupEventListeners();
+				this.setupLanguageSwitcher();
+				this.createStatsCards();
+				this.createDataCards();
+				this.updateEntregasHoje();
+			}
 
 			window.addEventListener('languageChanged', () => this.updateAllTranslations());
 
@@ -164,6 +550,7 @@ class DashboardApp {
 	getStatusColor(status) {
 		const colors = {
 			'pendente': '#FFC107',
+			'confirmado': '#007bff',
 			'pago': '#28a745',
 			'entregue': '#17a2b8',
 			'cancelado': '#dc3545'
@@ -172,10 +559,60 @@ class DashboardApp {
 	}
 
 	setupUI() {
+		// Always get role from currentUser
+		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
+
+		// Hide/show menu items
+		const menuDashboard = document.getElementById('menu-dashboard');
+		const menuPedidos = document.getElementById('menu-pedidos');
+		const menuEntregas = document.getElementById('menu-entregas');
+		const menuEstoque = document.getElementById('menu-estoque');
+		const menuClientes = document.getElementById('menu-clientes');
+		const menuProdutos = document.getElementById('menu-produtos');
+		const menuUsuarios = document.getElementById('menu-usuarios');
+		if (role === 'sale' || role === 'vendedor') {
+			if (menuDashboard) menuDashboard.style.display = '';
+			if (menuPedidos) menuPedidos.style.display = '';
+			if (menuEntregas) menuEntregas.style.display = '';
+			if (menuEstoque) menuEstoque.style.display = 'none';
+			if (menuClientes) menuClientes.style.display = 'none';
+			if (menuProdutos) menuProdutos.style.display = 'none';
+			if (menuUsuarios) menuUsuarios.style.display = 'none';
+		} else {
+			if (menuDashboard) menuDashboard.style.display = '';
+			if (menuPedidos) menuPedidos.style.display = '';
+			if (menuEntregas) menuEntregas.style.display = '';
+			if (menuEstoque) menuEstoque.style.display = '';
+			if (menuClientes) menuClientes.style.display = '';
+			if (menuProdutos) menuProdutos.style.display = '';
+			if (menuUsuarios) menuUsuarios.style.display = '';
+		}
+
+		// Sempre inicia mostrando apenas o dashboard
+		const dashboardSection = document.getElementById('dashboard-section');
+		const clientesSection = document.getElementById('clientes-section');
+		const produtosSection = document.getElementById('produtos-section');
+		const estoqueSection = document.getElementById('estoque-section');
+		const usuariosSection = document.getElementById('usuarios-section');
+		if (dashboardSection) dashboardSection.style.display = 'block';
+		if (clientesSection) clientesSection.style.display = 'none';
+		if (produtosSection) produtosSection.style.display = 'none';
+		if (estoqueSection) estoqueSection.style.display = 'none';
+		if (usuariosSection) usuariosSection.style.display = 'none';
+
+		// Filter dashboard data for vendor
+		if (role === 'sale' || role === 'vendedor') {
+			if (Array.isArray(this.orders) && this.currentUser?.id) {
+				this.orders = this.orders.filter(o => o.vendedor_id === this.currentUser.id);
+			}
+		}
+
+		// User info and dropdown
 		const userNameEl = document.getElementById('dropdown-user-name');
 		const userAvatarEl = document.getElementById('user-avatar');
 		const welcomeName = document.getElementById('welcome-name');
 		const userType = document.getElementById('dropdown-user-type');
+		const usuariosBtn = document.getElementById('usuarios-btn');
 
 		if (userNameEl) userNameEl.textContent = this.currentUser.nome;
 		if (userAvatarEl) {
@@ -184,10 +621,29 @@ class DashboardApp {
 		}
 		if (welcomeName) welcomeName.textContent = this.currentUser.nome;
 		if (userType) {
-			userType.textContent = this.currentUser.tipo === 'admin' 
-				? (this.currentLang === 'pt-BR' ? 'Administrador' : 'Administrator')
-				: (this.currentLang === 'pt-BR' ? 'Usuário' : 'User');
+			if (role === 'admin') {
+				userType.textContent = this.currentLang === 'pt-BR' ? 'Administrador' : 'Administrator';
+				if (usuariosBtn) usuariosBtn.style.display = 'flex';
+			} else if (role === 'sale' || role === 'vendedor') {
+				userType.textContent = this.currentLang === 'pt-BR' ? 'Vendedor' : 'Salesperson';
+				if (usuariosBtn) usuariosBtn.style.display = 'none';
+			} else {
+				userType.textContent = this.currentLang === 'pt-BR' ? 'Usuário' : 'User';
+				if (usuariosBtn) usuariosBtn.style.display = 'none';
+			}
 		}
+
+		// Dropdown events
+		const profileBtn = document.getElementById('profile-btn');
+		if (profileBtn) profileBtn.onclick = () => window.showConfigModal?.();
+		const configBtn = document.getElementById('config-btn');
+		if (configBtn) configBtn.onclick = null;
+		if (usuariosBtn) usuariosBtn.onclick = () => window.showUsuariosModal?.();
+		const logoutBtn = document.getElementById('logout-btn');
+		if (logoutBtn) logoutBtn.onclick = () => {
+			window.authSystem.logout();
+			window.location.href = 'index.html';
+		};
 
 		this.updateWelcomeMessage();
 		const pageTitle = document.getElementById('page-title');
@@ -276,12 +732,56 @@ class DashboardApp {
 		const statsGrid = document.getElementById('stats-grid');
 		if (!statsGrid) return;
 
+		// Contagem por status
+		const statusCounts = {
+			pendente: this.orders.filter(o => o.status === 'pendente').length,
+			confirmado: this.orders.filter(o => o.status === 'confirmado').length,
+			pago: this.orders.filter(o => o.status === 'pago').length,
+			entregue: this.orders.filter(o => o.status === 'entregue').length,
+			cancelado: this.orders.filter(o => o.status === 'cancelado').length
+		};
+
+
+		// Novo cálculo dos valores pagos e a receber
+		let totalPago = 0;
+		let totalAReceber = 0;
+		this.orders.forEach(o => {
+			const valorTotal = parseFloat(o.valor_total || 0);
+			const sinal = parseFloat(o.valor_pago || 0); // valor_pago representa o sinal ou valor já pago
+			// Se pedido está pendente e tem sinal, soma o sinal ao totalPago e o restante ao totalAReceber
+			if (o.status === 'pendente' && sinal > 0 && sinal < valorTotal) {
+				totalPago += sinal;
+				totalAReceber += (valorTotal - sinal);
+			}
+			// Se pedido está pago
+			else if (o.status === 'pago') {
+				// Se tem pagamento parcial, soma o valor pago ao totalPago e o restante ao totalAReceber
+				if (sinal > 0 && sinal < valorTotal) {
+					totalPago += sinal;
+					totalAReceber += (valorTotal - sinal);
+				} else {
+					// Pagamento total
+					totalPago += valorTotal;
+				}
+			}
+			// Se pedido está entregue, considera como totalmente pago
+			else if (o.status === 'entregue') {
+				totalPago += valorTotal;
+			}
+		});
+
 		const stats = [
-			{ icon: 'fa-cookie-bite', label: this.t('dashboard.produtos'), id: 'total-produtos', labelId: 'label-produtos', value: this.products.length },
-			{ icon: 'fa-users', label: this.t('dashboard.clientes'), id: 'total-clientes', labelId: 'label-clientes', value: this.clients.length },
-			{ icon: 'fa-hourglass-end', label: this.t('dashboard.pedidos'), id: 'total-pedidos', labelId: 'label-pedidos', value: this.orders.filter(o => o.status === 'pendente').length },
-			{ icon: 'fa-warehouse', label: this.t('dashboard.estoque'), id: 'total-estoque', labelId: 'label-estoque', value: this.products.reduce((sum, p) => sum + (p.estoque || 0), 0) },
-			{ icon: 'fa-shipping-fast', label: this.t('dashboard.entregas'), id: 'total-entregas', labelId: 'label-entregas', value: this.countDeliveriesToday() }
+				{ icon: 'fa-cookie-bite', label: this.t('dashboard.produtos'), id: 'total-produtos', labelId: 'label-produtos', value: this.products.length },
+				{ icon: 'fa-users', label: this.t('dashboard.clientes'), id: 'total-clientes', labelId: 'label-clientes', value: this.clients.length },
+				{ icon: 'fa-clock', label: this.t('dashboard.pendentes'), id: 'pedidos-pendentes', labelId: 'label-pendentes', value: statusCounts.pendente },
+				   { icon: 'fa-user-check', label: this.t('dashboard.confirmados'), id: 'pedidos-confirmados', labelId: 'label-confirmados', value: statusCounts.confirmado },
+				   { icon: 'fa-money-bill-wave', label: this.t('dashboard.pagos'), id: 'pedidos-pagos', labelId: 'label-pagos', value: statusCounts.pago },
+				   { icon: 'fa-check-circle', label: this.t('dashboard.entregues'), id: 'pedidos-entregues', labelId: 'label-entregues', value: statusCounts.entregue },
+				   { icon: 'fa-ban', label: this.t('dashboard.cancelados'), id: 'pedidos-cancelados', labelId: 'label-cancelados', value: statusCounts.cancelado },
+				   { icon: 'fa-warehouse', label: this.t('dashboard.estoque'), id: 'total-estoque', labelId: 'label-estoque', value: this.products.reduce((sum, p) => sum + (p.estoque || 0), 0) },
+				   { icon: 'fa-shipping-fast', label: this.t('dashboard.entregas'), id: 'total-entregas', labelId: 'label-entregas', value: this.countDeliveriesToday() },
+				  { icon: 'fa-hand-holding-usd', label: this.t('dashboard.total_pago'), id: 'total-pago', labelId: 'label-total-pago', value: this.formatCurrency(totalPago) },
+			   { icon: 'fa-money-check-alt', label: 'A Receber (parcial)', id: 'total-a-receber', labelId: 'label-total-a-receber', value: this.formatCurrency(totalAReceber) }
 		];
 
 		statsGrid.innerHTML = stats.map(stat => `
@@ -297,6 +797,67 @@ class DashboardApp {
 				</div>
 			</div>
 		`).join('');
+
+		// Lista de pedidos e status para gerenciamento
+		let pedidosListContainer = document.getElementById('pedidos-list-container');
+		if (!pedidosListContainer) {
+			pedidosListContainer = document.createElement('div');
+			pedidosListContainer.id = 'pedidos-list-container';
+			pedidosListContainer.style.marginTop = '2rem';
+			pedidosListContainer.innerHTML = `<h2 style="font-size:1.3rem; color:#333; margin-bottom:1rem;">Pedidos e Status</h2>`;
+			// Insere acima da lista de entregas do dia
+			const entregasHoje = document.getElementById('entregas-hoje');
+			if (entregasHoje && entregasHoje.parentElement) {
+				entregasHoje.parentElement.insertBefore(pedidosListContainer, entregasHoje);
+			} else {
+				document.getElementById('stats-grid').parentElement.appendChild(pedidosListContainer);
+			}
+		} else {
+			pedidosListContainer.innerHTML = `<h2 style="font-size:1.3rem; color:#333; margin-bottom:1rem;">Pedidos e Status</h2>`;
+		}
+
+		const pedidosList = this.orders.map(order => {
+			   return `<div style="background:#fff; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.07); margin-bottom:0.5rem; padding:0.75rem 1rem; display:flex; align-items:center; justify-content:space-between;">
+				   <div>
+					   <strong>#${order.numero_pedido || order.id}</strong> - ${order.cliente_nome || 'Cliente'}<br>
+					   <span style="color:#888; font-size:0.95rem;">${order.data_entrega ? 'Entrega: ' + order.data_entrega : ''}</span>
+				   </div>
+				   <div style="display: flex; align-items: center; gap: 0.5rem;">
+					   <select data-order-id="${order.id}" style="padding:0.3rem 0.7rem; border-radius:6px; border:1px solid #ccc;">
+						   <option value="pendente" ${order.status==='pendente'?'selected':''}>Pendente</option>
+						   <option value="pago" ${order.status==='pago'?'selected':''}>Pago</option>
+						   <option value="entregue" ${order.status==='entregue'?'selected':''}>Entregue</option>
+						   <option value="cancelado" ${order.status==='cancelado'?'selected':''}>Cancelado</option>
+					   </select>
+					   <button class="btn-visualizar-recibo" data-order-id="${order.id}" style="background: none; border: none; cursor: pointer; color: #667eea; font-size: 1.3rem;" aria-label="Visualizar Pedido">
+						   <i class="fas fa-file-invoice"></i>
+					   </button>
+				   </div>
+			   </div>`;
+		}).join('');
+
+		const pedidosListContainerFinal = document.getElementById('pedidos-list-container');
+		if (pedidosListContainerFinal) {
+			   pedidosListContainerFinal.innerHTML += pedidosList;
+			   // Adiciona evento para atualizar status
+			   pedidosListContainerFinal.querySelectorAll('select[data-order-id]').forEach(select => {
+				   select.onchange = async (e) => {
+					   const orderId = e.target.getAttribute('data-order-id');
+					   const newStatus = e.target.value;
+					   await this.supabase.from('pedidos').update({ status: newStatus }).eq('id', orderId);
+					   const order = this.orders.find(o => o.id == orderId);
+					   if (order) order.status = newStatus;
+					   this.createStatsCards();
+				   };
+			   });
+			   // Adiciona evento para visualizar recibo
+			   pedidosListContainerFinal.querySelectorAll('.btn-visualizar-recibo').forEach(btn => {
+				   btn.addEventListener('click', (e) => {
+					   const orderId = btn.getAttribute('data-order-id');
+					   window.dashboardApp.viewOrder(orderId);
+				   });
+			   });
+		}
 	}
 
 	createDataCards() {
@@ -308,11 +869,33 @@ class DashboardApp {
 	}
 
 	updateStats() {
-		const ids = ['total-produtos', 'total-clientes', 'total-pedidos', 'total-entregas', 'total-estoque'];
+		const statusCounts = {
+			pendente: this.orders.filter(o => o.status === 'pendente').length,
+			pago: this.orders.filter(o => o.status === 'pago').length,
+			entregue: this.orders.filter(o => o.status === 'entregue').length,
+			cancelado: this.orders.filter(o => o.status === 'cancelado').length
+		};
+
+		const ids = [
+			'total-produtos',
+			'total-clientes',
+			'total-pedidos',
+			'pedidos-pendentes',
+			'pedidos-pagos',
+			'pedidos-entregues',
+			'pedidos-cancelados',
+			'total-entregas',
+			'total-estoque'
+		];
+
 		const values = [
 			this.products.length,
 			this.clients.length,
-			this.orders.filter(o => o.status === 'pendente').length,
+			this.orders.length,
+			statusCounts.pendente,
+			statusCounts.pago,
+			statusCounts.entregue,
+			statusCounts.cancelado,
 			this.countDeliveriesToday(),
 			this.products.reduce((sum, p) => sum + (p.estoque || 0), 0)
 		];
@@ -332,8 +915,14 @@ class DashboardApp {
 		const entregasHoje = document.getElementById('entregas-hoje');
 		if (!entregasHoje) return;
 
-		const today = new Date().toISOString().split('T')[0];
-		const entregas = this.orders.filter(o => o.data_entrega === today);
+	const today = new Date().toISOString().split('T')[0];
+	// Só pedidos com data_entrega igual a hoje, status diferente de 'cancelado', e tipo_entrega igual a 'entrega' (não retirada)
+	const entregas = this.orders.filter(o =>
+		o.data_entrega === today &&
+		o.status !== 'cancelado' &&
+		o.status !== 'entregue' &&
+		(o.tipo_entrega === 'entrega' || !o.tipo_entrega)
+	);
 
 		if (entregas.length === 0) {
 			entregasHoje.innerHTML = `<div style="text-align: center; color: #888; padding: 2rem;"><i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 1rem;"></i><p>${this.t('msg.nenhuma_entrega')}</p></div>`;
@@ -352,11 +941,33 @@ class DashboardApp {
 	}
 
 	updateAllTranslations() {
-		['label-produtos', 'label-clientes', 'label-pedidos', 'label-estoque', 'label-entregas'].forEach((id, i) => {
+		const labelIds = [
+			'label-produtos',
+			'label-clientes',
+			'label-pedidos',
+			'label-pendentes',
+			'label-pagos',
+			'label-entregues',
+			'label-cancelados',
+			'label-entregas',
+			'label-estoque'
+		];
+		const labelKeys = [
+			'dashboard.produtos',
+			'dashboard.clientes',
+			'dashboard.pedidos',
+			'dashboard.pendentes',
+			'dashboard.pagos',
+			'dashboard.entregues',
+			'dashboard.cancelados',
+			'dashboard.entregas',
+			'dashboard.estoque'
+		];
+		labelIds.forEach((id, i) => {
 			const el = document.getElementById(id);
-			if (el) el.textContent = this.t(['dashboard.produtos', 'dashboard.clientes', 'dashboard.pedidos', 'dashboard.estoque', 'dashboard.entregas'][i]);
+			if (el) el.textContent = this.t(labelKeys[i]);
 		});
-		
+
 		this.createDataCards();
 		this.updateWelcomeMessage();
 		this.updateEntregasHoje();
@@ -743,15 +1354,34 @@ class DashboardApp {
 			status: editId ? document.getElementById('order-status')?.value || 'pendente' : 'pendente'
 		};
 
+		let pedidoSalvo;
 		if (editId) {
-			const result = await this.saveToSupabase('pedidos', orderData, editId);
-			if (result) {
+			pedidoSalvo = await this.saveToSupabase('pedidos', orderData, editId);
+			if (pedidoSalvo) {
 				const index = this.orders.findIndex(o => o.id === editId);
-				if (index !== -1) this.orders[index] = result;
+				if (index !== -1) this.orders[index] = pedidoSalvo;
 			}
 		} else {
-			const result = await this.saveToSupabase('pedidos', orderData);
-			if (result) this.orders.unshift(result);
+			pedidoSalvo = await this.saveToSupabase('pedidos', orderData);
+			if (pedidoSalvo) this.orders.unshift(pedidoSalvo);
+		}
+
+		// Envio de recibo ou confirmação após salvar pedido
+		if (pedidoSalvo) {
+			const cliente = this.clients.find(c => c.id === pedidoSalvo.cliente_id);
+			const valorPago = pedidoSalvo.valor_pago || pedidoSalvo.valor_total;
+			const isRetirada = pedidoSalvo.tipo_entrega === 'retirada' || pedidoSalvo.endereco_entrega?.toLowerCase().includes('retirada');
+			if (cliente && cliente.email) {
+				if (valorPago >= pedidoSalvo.valor_total && isRetirada) {
+					// Recibo para retirada com pagamento total
+					window.gerarEEnviarRecibo({ ...pedidoSalvo, produtos: [{ nome: pedidoSalvo.produto_nome, quantidade: pedidoSalvo.quantidade }] }, cliente.email);
+				} else if (valorPago < pedidoSalvo.valor_total) {
+					// Confirmação de compra para pagamento parcial
+					if (window.gerarEEnviarConfirmacaoCompra) {
+						window.gerarEEnviarConfirmacaoCompra({ ...pedidoSalvo, produtos: [{ nome: pedidoSalvo.produto_nome, quantidade: pedidoSalvo.quantidade }] }, cliente.email);
+					}
+				}
+			}
 		}
 
 		await this.loadData();
@@ -863,51 +1493,50 @@ class DashboardApp {
 		const order = this.orders.find(o => o.id === id);
 		if (!order) return;
 
-		const modal = this.createModal('modal-view-order', `📋 Pedido #${order.id}`, false);
+		const modal = this.createModal('modal-view-order', '', false);
 		
-		modal.innerHTML += `
-			<div style="display: flex; flex-direction: column; gap: 1rem;">
-				<div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 1.5rem; border-radius: 8px; color: white;">
-					<div style="display: flex; justify-content: space-between; align-items: center;">
-						<h3 style="margin: 0;">Pedido #${order.id}</h3>
-						<span style="background: rgba(255,255,255,0.3); padding: 0.5rem 1rem; border-radius: 20px; font-weight: 600;">${order.status.toUpperCase()}</span>
-					</div>
-				</div>
-
-				<div style="display: grid; gap: 1rem;">
-					<div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-						<h4 style="margin: 0 0 0.75rem 0; color: #667eea;">👤 Cliente</h4>
-						<p style="margin: 0; color: #333; font-size: 1.1rem; font-weight: 600;">${order.cliente_nome}</p>
-					</div>
-
-					<div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-						<h4 style="margin: 0 0 0.75rem 0; color: #667eea;">🛍️ Produto</h4>
-						<p style="margin: 0; color: #333;"><strong>${order.produto_nome}</strong></p>
-						<p style="margin: 0.25rem 0 0 0; color: #666;">Quantidade: ${order.quantidade}</p>
-						<p style="margin: 0.25rem 0 0 0; color: #666;">Valor unitário: ${this.formatCurrency(order.valor_unitario)}</p>
-					</div>
-
-					<div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-						<h4 style="margin: 0 0 0.75rem 0; color: #667eea;">🚚 Entrega</h4>
-						<p style="margin: 0; color: #666;">📅 ${this.formatDate(order.data_entrega)}</p>
-						<p style="margin: 0.25rem 0 0 0; color: #666;">🕐 ${order.horario_entrega || 'Não informado'}</p>
-						<p style="margin: 0.25rem 0 0 0; color: #666;">📍 ${order.endereco_entrega}</p>
-					</div>
-
-					<div style="background: #28a745; padding: 1.5rem; border-radius: 8px; text-align: center; color: white;">
-						<h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; font-weight: 400; opacity: 0.9;">VALOR TOTAL</h4>
-						<h2 style="margin: 0; font-size: 2rem;">${this.formatCurrency(order.valor_total)}</h2>
-					</div>
-				</div>
-
-				<div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1rem;">
-					<button type="button" onclick="closeModal('modal-view-order')" class="btn btn-secondary">Fechar</button>
-					<button type="button" onclick="closeModal('modal-view-order'); window.dashboardApp.editOrder(${order.id});" class="btn btn-primary">
-						✏️ Editar
-					</button>
-				</div>
-			</div>
-		`;
+		   const client = this.clients.find(c => c.id == order.cliente_id);
+		   modal.querySelector('.modal-content-wrapper').style.maxWidth = '430px';
+		   modal.querySelector('.modal-content-wrapper').style.padding = '2.2rem 1.7rem';
+		   modal.querySelector('.modal-content-wrapper').innerHTML = `
+			   <div style="display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.7rem;">
+				   <span style="width: 50px; height: 50px; background: linear-gradient(135deg, #ff6b9d, #ffa726); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.7rem;"><i class="fas fa-file-invoice"></i></span>
+				   <span style="font-size: 1.35rem; font-weight: 700; color: #333;">Pedido Nº ${order.numero_pedido || order.id}</span>
+				   <button onclick="closeModal('modal-view-order')" style="margin-left:auto; background:none; border:none; font-size:1.3rem; color:#888; cursor:pointer;">&times;</button>
+			   </div>
+			   <div style="border-bottom:1px solid #eee; margin-bottom:1rem;"></div>
+			   <div style="padding: 1.25rem 1rem; border-radius: 10px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+				   <h4 style="margin: 0 0 1rem 0; font-size: 1.08rem; color: #764ba2;">Cliente</h4>
+				   <input type="text" class="form-control" value="${order.cliente_nome || ''}" readonly style="width: 100%; margin-bottom: 0.2rem;">
+			   </div>
+			   <div style="padding: 1.25rem 1rem; border-radius: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+				   <h4 style="margin: 0 0 1rem 0; font-size: 1.08rem;">Produto</h4>
+				   <input type="text" class="form-control" value="${order.produto_nome || ''}" readonly style="width: 100%; margin-bottom: 0.2rem;">
+				   <div style="display: flex; gap: 0.5rem;">
+					   <input type="text" class="form-control" value="Qtd: ${order.quantidade || ''}" readonly style="width: 50%;">
+					   <input type="text" class="form-control" value="${this.formatCurrency(order.valor_unitario)}" readonly style="width: 50%;">
+				   </div>
+			   </div>
+			   <div style="padding: 1.25rem 1rem; border-radius: 10px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
+				   <h4 style="margin: 0 0 1rem 0; font-size: 1.08rem;">Entrega</h4>
+				   <input type="text" class="form-control" value="${this.formatDate(order.data_entrega)}" readonly style="width: 100%; margin-bottom: 0.2rem;">
+				   <input type="text" class="form-control" value="${order.horario_entrega || 'Não informado'}" readonly style="width: 100%; margin-bottom: 0.2rem;">
+				   <input type="text" class="form-control" value="${order.endereco_entrega || ''}" readonly style="width: 100%;">
+			   </div>
+			   <div style="background: #28a745; padding: 1rem; border-radius: 8px; text-align: center; color: white; margin-bottom: 0.5rem;">
+				   <h4 style="margin: 0 0 0.3rem 0; font-size: 0.85rem; font-weight: 400; opacity: 0.9;">VALOR TOTAL</h4>
+				   <h2 style="margin: 0; font-size: 1.3rem;">${this.formatCurrency(order.valor_total)}</h2>
+			   </div>
+			   <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.7rem;">
+				   <button type="button" onclick="closeModal('modal-view-order')" class="btn btn-secondary" style="font-size: 0.95rem; padding: 0.4rem 0.8rem;">Fechar</button>
+				   <button type="button" onclick="closeModal('modal-view-order'); window.dashboardApp.editOrder(${order.id});" class="btn btn-primary" style="font-size: 0.95rem; padding: 0.4rem 0.8rem;">
+					   ✏️ Editar
+				   </button>
+				   <button type="button" onclick="window.gerarEEnviarRecibo(window.dashboardApp.orders.find(o => o.id == ${order.id}), '${client?.email || ''}')" class="btn btn-info" style="font-size: 0.95rem; padding: 0.4rem 0.8rem;">
+					   <i class="fas fa-paper-plane"></i> Reenviar Recibo
+				   </button>
+			   </div>
+		   `;
 		
 		document.getElementById('modals-container').appendChild(modal);
 		modal.classList.add('show');
@@ -1103,7 +1732,8 @@ class DashboardApp {
 										try { fotos = JSON.parse(produto.fotos); } catch {}
 									}
 									return `
-									<div class="card-produto" style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.2rem; max-width: 320px; width: 100%; display: flex; flex-direction: column; align-items: center;" data-descricao="${produto.descricao || ''}">
+																	<div class="card-produto" style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.2rem; max-width: 320px; width: 100%; display: flex; flex-direction: column; align-items: center; position: relative;" data-descricao="${produto.descricao || ''}">
+																		<div class="produto-tooltip hidden">${produto.descricao || ''}</div>
 										<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
 											<span style="font-size: 1.15rem; font-weight: 700; color: #333;">${produto.nome}</span>
 										</div>
@@ -1341,7 +1971,9 @@ class DashboardApp {
 		if (!this.cart) this.cart = {};
 		let cartTotal = 0;
 		Object.values(this.cart).forEach(item => {
-			cartTotal += item.quantidade * item.preco;
+			if (item.adicionado) {
+				cartTotal += item.quantidade * item.preco;
+			}
 		});
 
 		// Cria ou remove carrinho centralizado no header conforme o contador
@@ -1404,14 +2036,19 @@ class DashboardApp {
 		const categorias = [...new Set(this.products.map(p => p.categoria).filter(Boolean))];
 		let categoriaSelecionada = this.selectedCategoria || '';
 
-		// Dropdown de categorias
+		// Dropdown de categorias + Total do Carrinho no topo
 		const dropdownHtml = `
-			<div style="width: 100%; text-align: center; margin-bottom: 1.5rem;">
-				<label for="dropdown-categoria" style="font-weight: 600; margin-right: 0.5rem;">Filtrar por categoria:</label>
-				<select id="dropdown-categoria" style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid #eee; font-size: 1rem;">
-					<option value="">Todas</option>
-					${categorias.map(cat => `<option value="${cat}" ${cat === categoriaSelecionada ? 'selected' : ''}>${cat}</option>`).join('')}
-				</select>
+			<div style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 2rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+				<div style="display: flex; align-items: center; gap: 0.5rem;">
+					<label for="dropdown-categoria" style="font-weight: 600; margin-right: 0.5rem;">Filtrar por categoria:</label>
+					<select id="dropdown-categoria" style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid #eee; font-size: 1rem;">
+						<option value="">Todas</option>
+						${categorias.map(cat => `<option value="${cat}" ${cat === categoriaSelecionada ? 'selected' : ''}>${cat}</option>`).join('')}
+					</select>
+				</div>
+				<div style="font-size: 1.15rem; font-weight: 700; color: #28a745; background: #f8f9fa; border-radius: 8px; padding: 0.5rem 1.2rem;">
+					Total do Carrinho: ${this.formatCurrency(cartTotal)}
+				</div>
 			</div>
 		`;
 
@@ -1432,7 +2069,8 @@ class DashboardApp {
 										try { fotos = JSON.parse(produto.fotos); } catch {}
 									}
 									return `
-									<div class="card-produto" style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.2rem; max-width: 320px; width: 100%; display: flex; flex-direction: column; align-items: center;" data-descricao="${produto.descricao || ''}">
+																	<div class="card-produto" style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.2rem; max-width: 320px; width: 100%; display: flex; flex-direction: column; align-items: center; position: relative;" data-descricao="${produto.descricao || ''}">
+																		<div class="produto-tooltip hidden">${produto.descricao || ''}</div>
 										<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
 											<span style="font-size: 1.15rem; font-weight: 700; color: #333;">${produto.nome}</span>
 										</div>
@@ -1506,10 +2144,39 @@ class DashboardApp {
 			${dropdownHtml}
 			${produtosHtml}
 			${cartMessageHtml}
-			<div style="width: 100%; text-align: center; margin: 2rem 0 0 0;">
-				<span style="font-size: 1.3rem; font-weight: 700; color: #28a745;">Total do Carrinho: ${this.formatCurrency(cartTotal)}</span>
-			</div>
 		`;
+
+		// Tooltip flutuante que segue o cursor
+		let tooltip = document.getElementById('produto-tooltip-global');
+		if (!tooltip) {
+			tooltip = document.createElement('div');
+			tooltip.id = 'produto-tooltip-global';
+			tooltip.className = 'produto-tooltip-global hidden';
+			document.body.appendChild(tooltip);
+		}
+
+		container.querySelectorAll('.card-produto').forEach(card => {
+			card.addEventListener('mouseenter', function(e) {
+				const descricao = card.getAttribute('data-descricao');
+				if (descricao && descricao.trim()) {
+					tooltip.textContent = descricao;
+					tooltip.classList.remove('hidden');
+					// Remove qualquer font-size inline para garantir o CSS
+					tooltip.style.fontSize = '';
+				}
+			});
+			card.addEventListener('mousemove', function(e) {
+				if (!tooltip.classList.contains('hidden')) {
+					const offset = 18;
+					tooltip.style.left = (e.clientX + offset) + 'px';
+					tooltip.style.top = (e.clientY + offset) + 'px';
+				}
+			});
+			card.addEventListener('mouseleave', function() {
+				tooltip.classList.add('hidden');
+				tooltip.textContent = '';
+			});
+		});
 
 		// Evento do dropdown de categoria
 		const dropdown = container.querySelector('#dropdown-categoria');
@@ -1577,11 +2244,12 @@ class DashboardApp {
 			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado)
 			.map(([id, item]) => {
 				const produto = this.products.find(p => p.id == id);
-				return produto ? `<li style="margin-bottom: 0.5rem; font-size: 1rem; color: #333; background: #f8f9fa; border-radius: 8px; padding: 0.5rem 1rem; display: flex; justify-content: space-between; align-items: center;">
-					<span>${produto.nome}</span>
-					<span style="font-weight: bold; color: #dc3545;">x${item.quantidade}</span>
-					<span style="color: #28a745; font-weight: 600;">${this.formatCurrency(item.preco * item.quantidade)}</span>
-				</li>` : '';
+				return produto ? `<tr style="border-bottom:1px solid #eee;">
+					<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#222; font-weight:600;">${produto.nome}</td>
+					<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#764ba2; text-align:right;">${this.formatCurrency(item.preco)}</td>
+					<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#dc3545; text-align:center;">${item.quantidade}</td>
+					<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#28a745; text-align:right; font-weight:600;">${this.formatCurrency(item.preco * item.quantidade)}</td>
+				</tr>` : '';
 			}).join('');
 		// Modal HTML
 		modal.innerHTML = `
@@ -1593,21 +2261,33 @@ class DashboardApp {
 				</div>
 				<div style="border-bottom:1px solid #eee; margin-bottom:1rem;"></div>
 				<form id="form-finalizar-pedido" style="display: flex; flex-direction: column; gap: 1.3rem; width: 100%;">
-					<div style="padding: 1.25rem 1rem; border-radius: 10px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
-						<h4 style="margin: 0 0 1rem 0; font-size: 1.08rem; color: #764ba2;">Produtos no Carrinho</h4>
-						<ul style="list-style: none; padding: 0; margin: 0;">
-							${produtosCarrinho}
-						</ul>
+					<div style="padding: 0.35rem 0.5rem; border-radius: 10px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+						<h4 style="margin: 0 0 0.08rem 0; font-size: 1.03rem; color: #764ba2;">Produtos no Carrinho</h4>
+						<div class="carrinho-lista" style="width:100%; overflow-x:auto;">
+							<table style="width:100%; border-collapse:collapse; background:#f8f9fa; border-radius:8px;">
+								<thead>
+									<tr style="background:#f5f5f5;">
+										<th style="padding:0.25rem 0.4rem; font-size:0.93rem; color:#333; text-align:left; font-weight:700;">Produto</th>
+										<th style="padding:0.25rem 0.4rem; font-size:0.93rem; color:#333; text-align:right; font-weight:700;">Preço</th>
+										<th style="padding:0.25rem 0.4rem; font-size:0.93rem; color:#333; text-align:center; font-weight:700;">Qtd.</th>
+										<th style="padding:0.25rem 0.4rem; font-size:0.93rem; color:#333; text-align:right; font-weight:700;">Total</th>
+									</tr>
+								</thead>
+								<tbody>
+									${produtosCarrinho}
+								</tbody>
+							</table>
+						</div>
 					</div>
-					<div style="padding: 1.25rem 1rem; border-radius: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-						<h4 style="margin: 0 0 1rem 0; font-size: 1.08rem;">Selecione o Cliente</h4>
+					<div style="padding: 0.35rem 0.5rem; border-radius: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+						<h4 style="margin: 0 0 0.08rem 0; font-size: 1.03rem;">Selecione o Cliente</h4>
 						<select id="finalizar-cliente" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1.02rem;">
 							<option value="">-- Escolha um cliente --</option>
 							${this.clients.map(c => `<option value="${c.id}">${c.nome} - ${c.telefone}</option>`).join('')}
 						</select>
 					</div>
-					<div style="padding: 1.25rem 1rem; border-radius: 10px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
-						<h4 style="margin: 0 0 1rem 0; font-size: 1.08rem;">Forma de Pagamento</h4>
+					<div style="padding: 0.35rem 0.5rem; border-radius: 10px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
+						<h4 style="margin: 0 0 0.08rem 0; font-size: 1.03rem;">Forma de Pagamento</h4>
 						<select id="finalizar-pagamento" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1.02rem;">
 							<option value="">-- Escolha o pagamento --</option>
 							<option value="dinheiro">Dinheiro</option>
@@ -1627,8 +2307,8 @@ class DashboardApp {
 							</div>
 						</div>
 					</div>
-					<div style="padding: 1.25rem 1rem; border-radius: 10px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white;">
-						<h4 style="margin: 0 0 1rem 0; font-size: 1.08rem;">Tipo de Entrega</h4>
+					<div style="padding: 0.35rem 0.5rem; border-radius: 10px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white;">
+						<h4 style="margin: 0 0 0.08rem 0; font-size: 1.03rem;">Tipo de Entrega</h4>
 						<select id="finalizar-entrega" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1.02rem;">
 							<option value="">-- Escolha a entrega --</option>
 							<option value="retirada">Retirada</option>
@@ -1679,13 +2359,80 @@ class DashboardApp {
 				const restante = total - sinal;
 				restanteLabel.textContent = restante > 0 ? `Valor restante na entrega: ${window.dashboardApp.formatCurrency(restante)}` : '';
 			}
-			finalizarForm.addEventListener('submit', (e) => {
+			finalizarForm.addEventListener('submit', async (e) => {
 				e.preventDefault();
-				// Aqui você pode implementar a lógica de salvar o pedido no banco
+				const clienteId = document.getElementById('finalizar-cliente').value;
+				const pagamento = document.getElementById('finalizar-pagamento').value;
+				const entrega = document.getElementById('finalizar-entrega').value;
+				const fullPayment = document.getElementById('finalizar-full-payment').checked;
+				const sinal = fullPayment ? null : (parseFloat(document.getElementById('finalizar-sinal').value.replace(',', '.')) || 0);
+				const produtos = Object.entries(this.cart)
+					.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado)
+					.map(([id, item]) => ({ produto_id: id, quantidade: item.quantidade, preco_unitario: item.preco }));
+				const valor_total = produtos.reduce((acc, p) => acc + p.preco_unitario * p.quantidade, 0);
+				const valor_pago = fullPayment ? valor_total : sinal || 0;
+				const valor_pendente = valor_total - valor_pago;
+				const cliente = this.clients.find(c => c.id == clienteId);
+				// Gerar número de pedido único
+				const hoje = new Date();
+				const dataStr = hoje.toISOString().slice(0,10).replace(/-/g, '');
+				const randomNum = Math.floor(Math.random() * 9000) + 1000;
+				const numeroPedido = `PED-${dataStr}-${randomNum}`;
+
+				const pedidoData = {
+					numero_pedido: numeroPedido,
+					cliente_id: clienteId,
+					data_pedido: hoje.toISOString(),
+					data_entrega: hoje.toISOString().slice(0,10), // Ajuste conforme campo do formulário
+					valor_total,
+					valor_pago,
+					status: 'pendente',
+					forma_pagamento: pagamento,
+					observacoes: '',
+					idioma: cliente ? cliente.idioma : 'pt',
+				};
+				// Salvar pedido no Supabase
+				const pedidoSalvo = await this.saveToSupabase('pedidos', pedidoData);
+				if (pedidoSalvo && pedidoSalvo.id) {
+					// Salvar itens do pedido
+					for (const item of produtos) {
+						const itemData = {
+							pedido_id: pedidoSalvo.id,
+							produto_id: item.produto_id,
+							quantidade: item.quantidade,
+							preco_unitario: item.preco_unitario,
+							created_at: new Date().toISOString(),
+						};
+						await this.saveToSupabase('pedido_itens', itemData);
+					}
+					// Só criar entrega se selecionado
+					if (entrega === 'entrega') {
+						const entregaData = {
+							pedido_id: pedidoSalvo.id,
+							data_entrega: pedidoData.data_entrega,
+							hora_entrega: null,
+							endereco_entrega: cliente ? cliente.endereco : '',
+							status: 'agendada',
+							created_at: new Date().toISOString(),
+						};
+						await this.saveToSupabase('entregas', entregaData);
+					}
+				}
+				// Atualizar pedidos pendentes
+				await this.loadPedidos();
+				this.renderPedidosPage();
+				// Atualizar entregas só se foi criada
+				if (entrega === 'entrega') {
+					await this.loadEntregas();
+					this.renderEntregasPage();
+				}
+				// Gerar recibo e enviar por e-mail
+				if (cliente && cliente.email) {
+					this.gerarEEnviarRecibo({ ...pedidoData, produtos }, cliente.email);
+				}
 				closeModal('modal-finalizar-pedido');
 				if (document.getElementById('cart-message')) document.getElementById('cart-message').remove();
 				this.cart = {};
-				this.renderPedidosPage();
 			});
 		}
 	}
@@ -1800,7 +2547,12 @@ class DashboardApp {
 		if (!container) return;
 
 		const today = new Date().toISOString().split('T')[0];
-		const entregas = this.orders.filter(o => o.data_entrega && o.status !== 'cancelado');
+		// Só pedidos do tipo 'entrega' e status 'pendente'
+		const entregas = this.orders.filter(o =>
+			o.data_entrega &&
+			o.tipo_entrega === 'entrega' &&
+			o.status === 'pendente'
+		);
 
 		if (entregas.length === 0) {
 			container.innerHTML = `<p style="text-align: center; padding: 3rem; color: #888;">Nenhuma entrega agendada</p>`;
@@ -1823,7 +2575,7 @@ class DashboardApp {
 							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>👤</strong> ${o.cliente_nome}</p>
 							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>📦</strong> ${o.produto_nome}</p>
 							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>📅</strong> ${this.formatDate(o.data_entrega)}</p>
-							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>🕐</strong> ${order.horario_entrega || 'Não informado'}</p>
+												<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>🕐</strong> ${o.horario_entrega || 'Não informado'}</p>
 							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>📍</strong> ${o.endereco_entrega}</p>
 							<span style="display: inline-block; margin-top: 0.5rem; background: ${this.getStatusColor(o.status)}; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem;">${o.status.toUpperCase()}</span>
 						</div>
@@ -1846,7 +2598,8 @@ class DashboardApp {
 	}
 }
 
-// ========== INICIALIZAÇÃO ==========
+// ========== INICIALIZAÇÃO ========== 
+
 
 document.addEventListener('DOMContentLoaded', async () => {
 	try {

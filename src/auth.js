@@ -44,9 +44,36 @@ class AuthSystem {
 
 	async login(email, senha) {
 		try {
-			// Primeiro, tentar login via Supabase
+			// Primeiro, tentar login via Supabase Auth
 			if (this.supabaseClient) {
-				return await this.loginWithSupabase(email, senha);
+				const result = await this.loginWithSupabase(email, senha);
+				if (result.success) return result;
+				// Se falhar, tentar login manual na tabela 'usuarios'
+				const { data: usuario, error } = await this.supabaseClient
+					.from('usuarios')
+					.select('*')
+					.eq('email', email)
+					.single();
+				const hashDigitado = btoa(senha);
+				console.log('[LOGIN LOCAL] Email:', email, '| Senha digitada:', senha, '| Hash digitado:', hashDigitado, '| Hash salvo:', usuario?.password_hash);
+				const comparacao = usuario?.password_hash === hashDigitado;
+				console.log('[LOGIN LOCAL] Comparação:', comparacao);
+				if (!error && usuario && usuario.password_hash && comparacao) {
+					const user = {
+						id: usuario.id,
+						nome: usuario.nome,
+						email: usuario.email,
+						role: usuario.role || usuario.tipo || 'user',
+						foto_url: usuario.foto_url || null,
+						ativo: usuario.ativo !== false
+					};
+					this.currentUser = user;
+					sessionStorage.setItem('currentUser', JSON.stringify(user));
+					return { success: true, user };
+				} else {
+					console.warn('Login local falhou: email ou senha incorretos');
+					return { success: false, message: 'Email ou senha incorretos' };
+				}
 			} else {
 				console.warn('⚠️ Supabase não disponível');
 				return { success: false, message: 'Erro de conexão com o servidor' };
@@ -59,38 +86,46 @@ class AuthSystem {
 
 	async loginWithSupabase(email, senha) {
 		try {
-			// Verificar se o usuário existe na tabela 'usuarios'
-			const { data: usuarios, error: queryError } = await this.supabaseClient
+			// 1. Autenticar pelo Supabase Auth
+			const { data: authUser, error: authError } = await this.supabaseClient.auth.signInWithPassword({ email, password: senha });
+			if (authError || !authUser?.user) {
+				console.error('Erro de autenticação Supabase:', authError);
+				return { success: false, message: 'Email ou senha incorretos' };
+			}
+			const userEmail = authUser.user.email;
+
+			// 2. Buscar dados completos na tabela 'usuarios'
+			let { data: usuario, error: queryError } = await this.supabaseClient
 				.from('usuarios')
 				.select('*')
-				.eq('email', email)
+				.eq('email', userEmail)
 				.single();
 
-			if (queryError) {
-				console.error('Erro ao buscar usuário:', queryError);
-				return { success: false, message: 'Email ou senha incorretos' };
+			// 3. Se não existir, criar registro básico
+			if (!usuario) {
+				const basicUser = {
+					nome: authUser.user.user_metadata?.full_name || userEmail.split('@')[0],
+					email: userEmail,
+					tipo: 'user',
+					foto_url: null,
+					ativo: true
+				};
+				const { data: created, error: createError } = await this.supabaseClient
+					.from('usuarios')
+					.insert([basicUser])
+					.select('*')
+					.single();
+				usuario = created;
 			}
 
-			if (!usuarios) {
-				console.log('Usuário não encontrado');
-				return { success: false, message: 'Email ou senha incorretos' };
-			}
-
-			// Verificar senha (em produção, usar hash)
-			// Por enquanto, comparar diretamente (melhorar depois)
-			if (usuarios.senha !== senha && usuarios.password_hash !== senha) {
-				console.log('Senha incorreta');
-				return { success: false, message: 'Email ou senha incorretos' };
-			}
-
-			// Login bem-sucedido
+			// 4. Login bem-sucedido, usar dados da tabela 'usuarios'
 			const user = {
-				id: usuarios.id,
-				nome: usuarios.nome,
-				email: usuarios.email,
-				tipo: usuarios.tipo || 'user',
-				foto_url: usuarios.foto_url || null,
-				ativo: usuarios.ativo !== false
+				id: usuario.id,
+				nome: usuario.nome,
+				email: usuario.email,
+				role: usuario.role || usuario.tipo || 'user',
+				foto_url: usuario.foto_url || null,
+				ativo: usuario.ativo !== false
 			};
 
 			this.currentUser = user;
@@ -115,7 +150,30 @@ class AuthSystem {
 		return this.currentUser !== null;
 	}
 
-	getCurrentUser() {
+	async getCurrentUser() {
+		// Busca o usuário atualizado da tabela 'usuarios' pelo id
+		if (!this.currentUser || !this.currentUser.id || !this.supabaseClient) return this.currentUser;
+		try {
+			const { data: usuario, error } = await this.supabaseClient
+				.from('usuarios')
+				.select('*')
+				.eq('id', this.currentUser.id)
+				.single();
+			if (!error && usuario) {
+				// Atualiza os dados locais
+				this.currentUser = {
+					...this.currentUser,
+					role: usuario.role || usuario.tipo || 'user',
+					nome: usuario.nome,
+					email: usuario.email,
+					foto_url: usuario.foto_url || null,
+					ativo: usuario.ativo !== false
+				};
+				sessionStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+			}
+		} catch (e) {
+			console.warn('Erro ao atualizar usuário:', e);
+		}
 		return this.currentUser;
 	}
 
@@ -131,6 +189,8 @@ class AuthSystem {
 				if (profileData.nome) updateData.nome = profileData.nome;
 				if (profileData.foto_url) updateData.foto_url = profileData.foto_url;
 				if (profileData.password_hash) updateData.password_hash = profileData.password_hash;
+				if (profileData.telefone) updateData.telefone = profileData.telefone;
+				if (profileData.endereco) updateData.endereco = profileData.endereco;
 
 				const { error } = await this.supabaseClient
 					.from('usuarios')

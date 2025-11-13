@@ -2,9 +2,15 @@
 
 const translations = {
 	'pt-BR': {
-		'dashboard.produtos': 'Produtos',
-		'dashboard.clientes': 'Clientes',
-		'dashboard.pedidos': 'Pedidos Pendentes',
+	'dashboard.confirmados': 'Confirmados',
+	'dashboard.pagos': 'Pagos',
+	'dashboard.entregues': 'Entregues',
+	'dashboard.cancelados': 'Cancelados',
+	'dashboard.total_pago': 'Total Pago',
+	'dashboard.produtos': 'Produtos',
+	'dashboard.clientes': 'Clientes',
+	'dashboard.pedidos': 'Pedidos Pendentes',
+	'dashboard.pendentes': 'Pendentes',
 		'dashboard.estoque': 'Estoque',
 		'dashboard.entregas': 'Entregas Hoje',
 		'dashboard.bem_vindo': 'Bem-vindo(a)',
@@ -106,9 +112,15 @@ const translations = {
 		'currency.name': 'Dólar Canadense'
 	},
 	'en-US': {
-		'dashboard.produtos': 'Products',
-		'dashboard.clientes': 'Clients',
-		'dashboard.pedidos': 'Pending Orders',
+	'dashboard.confirmados': 'Confirmed',
+	'dashboard.pagos': 'Paid',
+	'dashboard.entregues': 'Delivered',
+	'dashboard.cancelados': 'Canceled',
+	'dashboard.total_pago': 'Total Paid',
+	'dashboard.produtos': 'Products',
+	'dashboard.clientes': 'Clients',
+	'dashboard.pedidos': 'Pending Orders',
+	'dashboard.pendentes': 'Pending',
 		'dashboard.estoque': 'Stock',
 		'dashboard.entregas': 'Deliveries Today',
 		'dashboard.bem_vindo': 'Welcome',
