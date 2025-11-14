@@ -784,19 +784,66 @@ class DashboardApp {
 			   { icon: 'fa-money-check-alt', label: 'A Receber (parcial)', id: 'total-a-receber', labelId: 'label-total-a-receber', value: this.formatCurrency(totalAReceber) }
 		];
 
-		statsGrid.innerHTML = stats.map(stat => `
-			<div class="stat-card-container">
-				<div style="background: white; padding: 1.25rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 1rem; transition: transform 0.2s; cursor: pointer;">
-					<div style="width: 50px; height: 50px; background: linear-gradient(135deg, #ff6b9d, #ffa726); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem;">
-						<i class="fas ${stat.icon}"></i>
+		// Adiciona cards monetários customizados
+		const monetaryStats = [
+			{ icon: 'fa-hand-holding-usd', label: this.t('dashboard.total_pago'), id: 'total-pago', labelId: 'label-total-pago', value: this.formatCurrency(totalPago) },
+			{ icon: 'fa-money-check-alt', label: 'A Receber', id: 'total-a-receber', labelId: 'label-total-a-receber', value: this.formatCurrency(totalAReceber) },
+			{ icon: 'fa-file-invoice-dollar', label: 'Despesas', id: 'total-despesas', labelId: 'label-despesas', value: this.formatCurrency(this.despesas || 0) },
+			{ icon: 'fa-chart-line', label: 'Receitas', id: 'total-receitas', labelId: 'label-receitas', value: this.formatCurrency(this.receitas || 0) }
+		];
+		// Os demais cards
+		const otherStats = stats.filter(stat => !['total-pago','total-a-receber','total-despesas','total-receitas'].includes(stat.id));
+
+		statsGrid.innerHTML = `
+			<div id="stats-monetary-row" style="display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 1rem; max-width: 500px; margin-bottom: 0.2rem;">
+				<div class="stat-card stat-card-monetary">
+					<div class="stat-icon"><i class="fas ${monetaryStats[0].icon}"></i></div>
+					<div style="display:flex;align-items:center;justify-content:flex-start;gap:0.7rem;">
+						<div class="stat-value" id="${monetaryStats[0].id}" style="margin:0;font-weight:700;">${monetaryStats[0].value}</div>
+						<span style="font-weight:500;">-</span>
+						<div class="stat-label" id="${monetaryStats[0].labelId}" style="margin:0;white-space:nowrap;font-weight:500;">${monetaryStats[0].label}</div>
 					</div>
-					<div>
-						<h3 style="margin: 0; font-size: 1.75rem; font-weight: 700; color: #333;" id="${stat.id}">${stat.value}</h3>
-						<p style="margin: 0.25rem 0 0 0; color: #666; font-size: 0.85rem;" id="${stat.labelId}">${stat.label}</p>
+				</div>
+				<div class="stat-card stat-card-monetary">
+					<div class="stat-icon"><i class="fas ${monetaryStats[1].icon}"></i></div>
+					<div style="display:flex;align-items:center;justify-content:flex-start;gap:0.7rem;">
+						<div class="stat-value" id="${monetaryStats[1].id}" style="margin:0;font-weight:700;">${monetaryStats[1].value}</div>
+						<span style="font-weight:500;">-</span>
+						<div class="stat-label" id="${monetaryStats[1].labelId}" style="margin:0;white-space:nowrap;font-weight:500;">${monetaryStats[1].label}</div>
+					</div>
+				</div>
+				<div class="stat-card stat-card-monetary">
+					<div class="stat-icon"><i class="fas ${monetaryStats[2].icon}"></i></div>
+					<div style="display:flex;align-items:center;justify-content:flex-start;gap:0.7rem;">
+						<div class="stat-value" id="${monetaryStats[2].id}" style="margin:0;font-weight:700;">${monetaryStats[2].value}</div>
+						<span style="font-weight:500;">-</span>
+						<div class="stat-label" id="${monetaryStats[2].labelId}" style="margin:0;white-space:nowrap;font-weight:500;">${monetaryStats[2].label}</div>
+					</div>
+				</div>
+				<div class="stat-card stat-card-monetary">
+					<div class="stat-icon"><i class="fas ${monetaryStats[3].icon}"></i></div>
+					<div style="display:flex;align-items:center;justify-content:flex-start;gap:0.7rem;">
+						<div class="stat-value" id="${monetaryStats[3].id}" style="margin:0;font-weight:700;">${monetaryStats[3].value}</div>
+						<span style="font-weight:500;">-</span>
+						<div class="stat-label" id="${monetaryStats[3].labelId}" style="margin:0;white-space:nowrap;font-weight:500;">${monetaryStats[3].label}</div>
 					</div>
 				</div>
 			</div>
-		`).join('');
+			<div class="stats-grid">
+				${otherStats.map(stat => `
+					<div class="stat-card-container">
+						<div class="stat-card">
+							<div class="stat-icon"><i class="fas ${stat.icon}"></i></div>
+							<div style="display:flex;align-items:center;justify-content:center;gap:0.7rem;">
+								<div class="stat-value" id="${stat.id}" style="margin:0;font-weight:700;">${stat.value}</div>
+								<span style="font-weight:500;">-</span>
+								<div class="stat-label" id="${stat.labelId}" style="margin:0;white-space:nowrap;font-weight:500;">${stat.label}</div>
+							</div>
+						</div>
+					</div>
+				`).join('')}
+			</div>
+		`;
 
 		// Lista de pedidos e status para gerenciamento
 		let pedidosListContainer = document.getElementById('pedidos-list-container');

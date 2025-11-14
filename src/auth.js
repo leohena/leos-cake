@@ -167,6 +167,8 @@ class AuthSystem {
 					nome: usuario.nome,
 					email: usuario.email,
 					foto_url: usuario.foto_url || null,
+					telefone: usuario.telefone || '',
+					endereco: usuario.endereco || '',
 					ativo: usuario.ativo !== false
 				};
 				sessionStorage.setItem('currentUser', JSON.stringify(this.currentUser));
