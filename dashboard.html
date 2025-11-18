@@ -10,7 +10,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <!-- CSS -->
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=1.8">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="images/logo-png.png">
     <link rel="apple-touch-icon" href="images/logo-png.png">
@@ -186,6 +186,12 @@
             color: #666;
             margin-top: 0.25rem;
         }
+        #usuarios-btn {
+            display: none;
+        }
+        #usuarios-btn.show {
+            display: flex !important;
+        }
         .user-dropdown-item {
             width: 100%;
             padding: 0.75rem 1rem;
@@ -213,8 +219,8 @@
     <div id="splash-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); display: flex; align-items: center; justify-content: center; z-index: 9999; flex-direction: column;">
         <img src="images/logo-png.png" alt="Leo's Cake" style="width: 100px; height: 100px; margin-bottom: 20px; border-radius: 10px;">
         <h1 style="color: white; margin: 0; font-size: 2rem;">Leo's Cake</h1>
-    <p style="color: rgba(255,255,255,0.8); margin: 10px 0; font-size: 1rem;">Sistema de Vendas</p>
-    <div id="splash-spinner" style="width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px;"></div>
+        <p style="color: rgba(255,255,255,0.8); margin: 10px 0; font-size: 1rem;">Sistema de Vendas</p>
+        <div id="splash-spinner" style="width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px;"></div>
     </div>
 
     <style>
@@ -261,7 +267,7 @@
                         <i class="fas fa-cog"></i>
                         <span>Configurações</span>
                     </button>
-                    <button id="usuarios-btn" class="user-dropdown-item" style="display:none;border:none;background:none;width:100%;">
+                    <button id="usuarios-btn" class="user-dropdown-item" style="display:none;border:none;background:none;width:100%;padding-left:2rem;">
                         <i class="fas fa-users-cog"></i>
                         <span>Usuários</span>
                     </button>
@@ -282,13 +288,8 @@
             <div style="text-align: center; margin-bottom: 2rem;">
                 <p class="welcome-text" style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;">Bem-vindo(a), <strong id="welcome-name">Usuário</strong>!</p>
             </div>
-            <div id="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.7rem; margin-bottom: 1.2rem;">
+            <div id="stats-grid" style="display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.2rem;">
                 <!-- Stats serão carregados aqui -->
-            </div>
-            <div style="background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                <div id="entregas-hoje" style="text-align: center; color: #888; padding: 2rem;">
-                    Nenhuma entrega agendada para hoje
-                </div>
             </div>
         </section>
 
@@ -357,19 +358,77 @@
                 });
             });
         }
-            // Exibir botão Usuários apenas para admin
-            document.addEventListener('DOMContentLoaded', function() {
-                const currentUser = window.authSystem?.getCurrentUser?.();
-                const usuariosBtn = document.getElementById('usuarios-btn');
-                if (usuariosBtn && currentUser && currentUser.tipo === 'admin') {
-                    usuariosBtn.style.display = 'flex';
-                    usuariosBtn.onclick = function() {
-                        // Abrir modal/cadastro de usuários
-                        window.showUsuariosModal?.();
-                    };
+
+        // Configurar botões do dropdown após o DOM carregar
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Aguardar o authSystem estar pronto
+            while (!window.authSystem?.isInitialized) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
+            const currentUser = await window.authSystem.getCurrentUser();
+            const userMenuButton = document.getElementById('user-menu-button');
+            const userDropdown = document.getElementById('user-dropdown');
+            const usuariosBtn = document.getElementById('usuarios-btn');
+            const configBtn = document.getElementById('config-btn');
+            const profileBtn = document.getElementById('profile-btn');
+            
+            // Toggle do dropdown ao clicar no avatar/menu
+            if (userMenuButton && userDropdown) {
+                userMenuButton.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    userDropdown.classList.toggle('show');
+                });
+            }
+            
+            // Fechar dropdown ao clicar fora
+            document.addEventListener('click', function(e) {
+                if (userDropdown && !userMenuButton.contains(e.target) && !userDropdown.contains(e.target)) {
+                    userDropdown.classList.remove('show');
+                    // Esconder botão usuários quando fechar
+                    if (usuariosBtn) usuariosBtn.style.display = 'none';
                 }
             });
-
+            
+            // Mostrar botão Usuários apenas para admin e quando clicar em Configurações
+            if (configBtn) {
+                configBtn.onclick = function(e) {
+                    e.stopPropagation();
+                    // Toggle do botão usuários
+                    if (usuariosBtn && currentUser && currentUser.tipo === 'admin') {
+                        if (usuariosBtn.style.display === 'flex') {
+                            usuariosBtn.style.display = 'none';
+                        } else {
+                            usuariosBtn.style.display = 'flex';
+                        }
+                    }
+                };
+            }
+            
+            // Botão Usuários
+            if (usuariosBtn) {
+                usuariosBtn.onclick = function() {
+                    if (window.dashboardApp && window.dashboardApp.showUsuariosModal) {
+                        window.dashboardApp.showUsuariosModal();
+                    }
+                    // Fechar dropdown após clicar
+                    document.getElementById('user-dropdown')?.classList.remove('show');
+                    // Esconder o botão usuários
+                    usuariosBtn.style.display = 'none';
+                };
+            }
+            
+            // Botão Perfil
+            if (profileBtn) {
+                profileBtn.onclick = function() {
+                    if (window.dashboardApp && window.dashboardApp.showEditUserModal) {
+                        window.dashboardApp.showEditUserModal();
+                    }
+                    // Fechar dropdown após clicar
+                    document.getElementById('user-dropdown')?.classList.remove('show');
+                };
+            }
+        });
 
         // Funções globais para fechar modais
         function closeModal(modalId) {
@@ -386,6 +445,70 @@
                 closeModal(modalId);
             }
         }
+
+        // Event listener para o dropdown do usuário (fora do DOMContentLoaded para garantir)
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Aguardar o authSystem estar pronto
+            while (!window.authSystem?.isInitialized) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
+            const currentUser = await window.authSystem.getCurrentUser();
+            const userMenuButton = document.getElementById('user-menu-button');
+            const userDropdown = document.getElementById('user-dropdown');
+            const configBtn = document.getElementById('config-btn');
+            const usuariosBtn = document.getElementById('usuarios-btn');
+            const profileBtn = document.getElementById('profile-btn');
+            
+            // Toggle do dropdown ao clicar no avatar/menu
+            if (userMenuButton && userDropdown) {
+                userMenuButton.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    userDropdown.classList.toggle('show');
+                });
+            }
+            
+            // Fechar dropdown ao clicar fora
+            document.addEventListener('click', function(e) {
+                if (userMenuButton && userDropdown && !userMenuButton.contains(e.target) && !userDropdown.contains(e.target)) {
+                    userDropdown.classList.remove('show');
+                    if (usuariosBtn) usuariosBtn.classList.remove('show');
+                }
+            });
+            
+            // Botão Configurações - mostrar/esconder Usuários
+            if (configBtn) {
+                configBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    console.log('Config clicked, currentUser:', currentUser);
+                    if (usuariosBtn) {
+                        console.log('Toggling usuariosBtn');
+                        usuariosBtn.classList.toggle('show');
+                    }
+                });
+            }
+            
+            // Botão Usuários
+            if (usuariosBtn) {
+                usuariosBtn.addEventListener('click', function() {
+                    if (window.dashboardApp && window.dashboardApp.showUsuariosModal) {
+                        window.dashboardApp.showUsuariosModal();
+                    }
+                    userDropdown.classList.remove('show');
+                    usuariosBtn.classList.remove('show');
+                });
+            }
+            
+            // Botão Perfil
+            if (profileBtn) {
+                profileBtn.addEventListener('click', function() {
+                    if (window.dashboardApp && window.dashboardApp.showEditUserModal) {
+                        window.dashboardApp.showEditUserModal();
+                    }
+                    userDropdown.classList.remove('show');
+                });
+            }
+        });
     </script>
 
     <script src="src/supabase.js"></script>

@@ -280,6 +280,24 @@ textarea.form-control {
   border-top: 1px solid #eee;
 }
 
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.4);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.modal-overlay.show {
+  display: flex;
+}
+
 /* Toast Notifications */
 .toast {
   position: fixed;
@@ -303,17 +321,12 @@ textarea.form-control {
   pointer-events: auto;
 }
 
-/* Stats Grid - CORRIGIDO COM 2 LINHAS */
+/* Stats Grid - 4 CARDS PRINCIPAIS RESPONSIVOS */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  grid-template-rows: repeat(2, 1fr);
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-.stat-card-container {
-  min-height: 100px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .stat-card {
@@ -523,9 +536,6 @@ textarea.form-control {
 
 /* Responsividade */
 @media (max-width: 1200px) {
-  .stats-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
   
   .stat-card-monetary .stat-value {
     font-size: clamp(0.8rem, 2.3vw, 1.1rem);
@@ -537,9 +547,6 @@ textarea.form-control {
 }
 
 @media (max-width: 900px) {
-  .stats-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
   
   #stats-monetary-row {
     grid-template-columns: repeat(2, 1fr);
@@ -640,8 +647,11 @@ textarea.form-control {
   }
   
   .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-    grid-template-rows: auto;
+    gap: 0.6rem;
+  }
+  
+  .stat-card-container {
+    max-width: calc(50% - 0.3rem);
   }
   
   .stat-card {
@@ -659,8 +669,7 @@ textarea.form-control {
   }
 
   .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.6rem;
+    gap: 0.5rem;
   }
   
   .stat-card {
@@ -785,3 +794,370 @@ textarea.form-control {
 .gap-1 { gap: 0.5rem; }
 .gap-2 { gap: 1rem; }
 .gap-3 { gap: 1.5rem; }
+
+/* Dashboard Cards Structure */
+.main-dashboard-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  overflow: hidden;
+  width: 100%;
+  min-height: 200px;
+}
+
+.card-header {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 1rem;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.card-content {
+  padding: 1rem;
+}
+
+.sub-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.sub-card {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 0.75rem;
+  text-align: center;
+  border: 2px solid #e9ecef;
+  transition: transform 0.2s, box-shadow 0.2s;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Cards Financeiros */
+.sub-card-financial {
+  background: linear-gradient(135deg, #fffbe6, #fff8e1);
+  border-color: #ffe082;
+  box-shadow: 0 2px 8px rgba(255, 193, 7, 0.1);
+}
+
+.sub-card-financial:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 193, 7, 0.2);
+}
+
+.sub-card-financial .sub-card-icon {
+  color: #f57c00;
+}
+
+.clickable-card {
+  transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+}
+
+.clickable-card:hover {
+  transform: translateY(-3px) scale(1.05);
+  opacity: 0.95;
+}
+
+.clickable-card:active {
+  transform: translateY(-1px) scale(1.02);
+}
+
+/* Cards Operacionais */
+.sub-card-operational {
+  background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+  border-color: #90caf9;
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.1);
+}
+
+.sub-card-operational:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(33, 150, 243, 0.2);
+}
+
+.sub-card-operational .sub-card-icon {
+  color: #1976d2;
+}
+
+.sub-card-icon {
+  font-size: 1.5rem;
+  color: #667eea;
+  margin-bottom: 0.5rem;
+}
+
+.sub-card-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 0.25rem;
+  line-height: 1.2;
+}
+
+.sub-card-label {
+  font-size: 0.8rem;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.1;
+}
+
+/* Responsividade dos Sub-cards */
+@media (max-width: 768px) {
+  .sub-cards-grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.5rem;
+  }
+  
+  .sub-card {
+    min-height: 70px;
+    padding: 0.5rem;
+    border-width: 1.5px;
+  }
+  
+  .sub-card-financial {
+    box-shadow: 0 1px 6px rgba(255, 193, 7, 0.08);
+  }
+  
+  .sub-card-operational {
+    box-shadow: 0 1px 6px rgba(33, 150, 243, 0.08);
+  }
+  
+  .sub-card-icon {
+    font-size: 1.3rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  .sub-card-value {
+    font-size: 1rem;
+  }
+  
+  .sub-card-label {
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .sub-cards-grid {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 0.4rem;
+  }
+  
+  .sub-card {
+    min-height: 60px;
+    padding: 0.4rem;
+    border-width: 1px;
+  }
+  
+  .sub-card-financial {
+    box-shadow: 0 1px 4px rgba(255, 193, 7, 0.06);
+  }
+  
+  .sub-card-operational {
+    box-shadow: 0 1px 4px rgba(33, 150, 243, 0.06);
+  }
+  
+  .sub-card-icon {
+    font-size: 1.1rem;
+    margin-bottom: 0.2rem;
+  }
+  
+  .sub-card-value {
+    font-size: 0.9rem;
+  }
+  
+  .sub-card-label {
+    font-size: 0.65rem;
+  }
+}
+
+/* Produtos Status List */
+.produto-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.produto-item:last-child {
+  border-bottom: none;
+}
+
+.produto-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.produto-preco {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.estoque-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.estoque-ok {
+  background: #d4edda;
+  color: #155724;
+}
+
+.estoque-baixo {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* Pedidos Status List */
+.pedido-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e9ecef;
+  transition: background-color 0.2s;
+}
+
+.pedido-item:hover {
+  background-color: #f8f9fa;
+}
+
+.pedido-item:last-child {
+  border-bottom: none;
+}
+
+.pedido-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 2;
+  min-width: 200px;
+}
+
+.pedido-valor {
+  color: #28a745;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.pedido-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 2;
+  text-align: center;
+  margin: 0 25rem;
+}
+
+.pedido-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1.5;
+  min-width: 140px;
+}
+
+.status-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.status-pendente { background: #fff3cd; color: #856404; }
+.status-confirmado { background: #d1ecf1; color: #0c5460; }
+.status-pago { background: #d4edda; color: #155724; }
+.status-producao { background: #fff3cd; color: #856404; }
+.status-entregue { background: #d1ecf1; color: #0c5460; }
+.status-cancelado { background: #f8d7da; color: #721c24; }
+
+.status-dropdown {
+  padding: 0.4rem 0.6rem;
+  border: 2px solid #e9ecef;
+  border-radius: 6px;
+  background: white;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 120px;
+  text-align: center;
+}
+
+.status-dropdown:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.status-dropdown:hover {
+  border-color: #007bff;
+}
+
+/* Cores dos status no dropdown */
+.status-dropdown option[value="pendente"] { background-color: #fff3cd; color: #856404; }
+.status-dropdown option[value="confirmado"] { background-color: #d1ecf1; color: #0c5460; }
+.status-dropdown option[value="pago"] { background-color: #d4edda; color: #155724; }
+.status-dropdown option[value="producao"] { background-color: #fff3cd; color: #856404; }
+.status-dropdown option[value="entregue"] { background-color: #d1ecf1; color: #0c5460; }
+.status-dropdown option[value="cancelado"] { background-color: #f8d7da; color: #721c24; }
+
+/* Entregas Hoje */
+.entrega-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e9ecef;
+  transition: background-color 0.2s;
+}
+
+.entrega-item:hover {
+  background-color: #f8f9fa;
+}
+
+.entrega-item:last-child {
+  border-bottom: none;
+}
+
+.entrega-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 2;
+  min-width: 200px;
+}
+
+.entrega-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 2;
+  text-align: center;
+  margin: 0 0.5rem;
+}
+
+.status-pendente { background: #fff3cd; color: #856404; }
+.status-confirmado { background: #d1ecf1; color: #0c5460; }
+.status-pago { background: #d4edda; color: #155724; }
+.status-producao { background: #fff3cd; color: #856404; }
+.status-entregue { background: #d1ecf1; color: #0c5460; }
+.status-cancelado { background: #f8d7da; color: #721c24; }
