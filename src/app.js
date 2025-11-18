@@ -342,23 +342,25 @@ class DashboardApp {
 					
 					if (basicosError) {
 						console.error('❌ Erro ao carregar produtos básicos:', basicosError);
+						console.error('❌ Detalhes do erro:', JSON.stringify(basicosError, null, 2));
 						this.products = [];
 					} else {
 						console.log('📦 Produtos básicos carregados:', produtosBasicos?.length || 0);
+						console.log('📦 Primeiro produto:', produtosBasicos?.[0]);
 						this.products = produtosBasicos || [];
 						
 						// Carregar fotos separadamente apenas se houver produtos
 						if (this.products.length > 0) {
+							// Para vendas online, carregar fotos imediatamente sem atraso
+							const delay = this.isVendasOnline ? 0 : 1000;
 							setTimeout(async () => {
 								try {
-									// Carregar fotos em lotes menores para evitar timeout
-									const loteSize = 5;
-									for (let i = 0; i < this.products.length; i += loteSize) {
-										const lote = this.products.slice(i, i + loteSize);
+									// Para vendas online, carregar todas as fotos de uma vez
+									if (this.isVendasOnline) {
 										const { data: fotosData, error: fotosError } = await this.supabase
 											.from('produtos')
 											.select('id, fotos')
-											.in('id', lote.map(p => p.id));
+											.in('id', this.products.map(p => p.id));
 										
 										if (!fotosError && fotosData) {
 											fotosData.forEach(item => {
@@ -367,22 +369,48 @@ class DashboardApp {
 													produto.fotos = item.fotos;
 												}
 											});
+											console.log('📦 Fotos carregadas instantaneamente para vendas online');
 										}
-										
-										// Pequena pausa entre lotes
-										await new Promise(resolve => setTimeout(resolve, 100));
+									} else {
+										// Carregar fotos em lotes menores para evitar timeout (modo dashboard)
+										const loteSize = 5;
+										for (let i = 0; i < this.products.length; i += loteSize) {
+											const lote = this.products.slice(i, i + loteSize);
+											const { data: fotosData, error: fotosError } = await this.supabase
+												.from('produtos')
+												.select('id, fotos')
+												.in('id', lote.map(p => p.id));
+											
+											if (!fotosError && fotosData) {
+												fotosData.forEach(item => {
+													const produto = this.products.find(p => p.id === item.id);
+													if (produto) {
+														produto.fotos = item.fotos;
+													}
+												});
+											}
+											
+											// Pequena pausa entre lotes
+											await new Promise(resolve => setTimeout(resolve, 100));
+										}
+										console.log('📦 Fotos carregadas em lotes');
 									}
-									console.log('📦 Fotos carregadas em lotes');
 									
 									// Atualizar apenas a seção ativa se ela mostrar produtos
-									if (this.activeSection === 'produtos' || this.activeSection === 'pedidos') {
+									if (this.activeSection === 'produtos' || this.activeSection === 'pedidos' || this.isVendasOnline) {
 										// Em vez de re-renderizar completamente, apenas atualizar as imagens
 										this.updateProductImages();
+										
+										// Para vendas online, também re-renderizar a página para garantir que tudo apareça
+										if (this.isVendasOnline) {
+											console.log('🔄 Re-renderizando página de vendas online após carregamento de fotos');
+											this.renderVendasOnlinePage();
+										}
 									}
 								} catch (error) {
 									console.warn('⚠️ Erro ao carregar fotos:', error);
 								}
-							}, 1000); // Atraso maior para garantir que produtos básicos já carregaram
+							}, delay); // Atraso maior para garantir que produtos básicos já carregaram
 						}
 					}
 				}
@@ -395,15 +423,17 @@ class DashboardApp {
 			// Todos os pedidos são carregados e a filtragem é feita nas entregas
 			let pedidosQuery = this.supabase
 				.from('pedidos')
-				.select('*')
+				.select('id, numero_pedido, cliente_id, vendedor_id, data_pedido, data_entrega, hora_entrega, valor_total, valor_pago, valor_pendente, status, forma_pagamento, observacoes, idioma, created_at')
 				.order('created_at', { ascending: false })
 				.limit(100); // Limitar para performance
 			
-			// NOTA: Filtragem por vendedor será implementada quando o schema for atualizado
-			// if (isVendedor && this.currentUser?.id) {
-			//     pedidosQuery = pedidosQuery.eq('vendedor_id', this.currentUser.id);
-			//     console.log('👤 Filtrando pedidos para vendedor:', this.currentUser.id);
-			// }
+			// Filtragem por vendedor logado
+			if (isVendedor && this.currentUser?.id) {
+				pedidosQuery = pedidosQuery.eq('vendedor_id', this.currentUser.id);
+				console.log('👤 Filtrando pedidos para vendedor:', this.currentUser.id);
+			} else {
+				console.log('🔎 Carregando pedidos sem filtro de vendedor.');
+			}
 
 			// Executar query dos pedidos
 			const { data: pedidos, error: pedidosError } = await pedidosQuery;
@@ -412,15 +442,43 @@ class DashboardApp {
 				this.orders = [];
 			} else {
 				console.log('📋 Pedidos carregados:', pedidos?.length || 0);
-				// Processar pedidos para incluir cliente_nome
+				if (pedidos && pedidos.length) {
+					pedidos.forEach(p => {
+						console.log(`Pedido: id=${p.id}, vendedor_id=${p.vendedor_id}, cliente_id=${p.cliente_id}`);
+					});
+					console.log('Usuário logado:', this.currentUser?.id);
+				}
+				// Processar pedidos para incluir cliente_nome e vendedor_nome
 				this.orders = await Promise.all((pedidos || []).map(async (pedido) => {
+					let vendedorNome = 'Vendedor';
+					if (pedido.vendedor_id) {
+						const vendedor = this.users?.find(u => u.id == pedido.vendedor_id);
+						if (vendedor) {
+							vendedorNome = vendedor.nome;
+						} else {
+							// Buscar nome do vendedor no banco se não estiver em cache
+							try {
+								const { data: vendedorData, error: vendedorError } = await this.supabase
+									.from('usuarios')
+									.select('nome')
+									.eq('id', pedido.vendedor_id)
+									.single();
+								if (!vendedorError && vendedorData) {
+									vendedorNome = vendedorData.nome;
+								}
+							} catch (e) {
+								console.warn('Erro ao buscar nome do vendedor:', e);
+							}
+						}
+					}
+
 					let clienteNome = 'Cliente';
 					if (pedido.cliente_id) {
-						const cliente = this.clients.find(c => c.id == pedido.cliente_id);
+						const cliente = this.clients?.find(c => c.id == pedido.cliente_id);
 						if (cliente) {
 							clienteNome = cliente.nome;
 						} else {
-							// Tentar buscar cliente do banco se não estiver em cache
+							// Buscar nome do cliente no banco se não estiver em cache
 							try {
 								const { data: clienteData, error: clienteError } = await this.supabase
 									.from('clientes')
@@ -435,8 +493,10 @@ class DashboardApp {
 							}
 						}
 					}
+
 					return {
 						...pedido,
+						vendedor_nome: vendedorNome,
 						cliente_nome: clienteNome
 					};
 				}));
@@ -531,21 +591,26 @@ class DashboardApp {
 
 	updateProductImages() {
 		// Atualizar apenas as imagens dos produtos já renderizados
+		console.log('🖼️ Iniciando updateProductImages() com', this.products?.length || 0, 'produtos');
+		
 		this.products.forEach(produto => {
 			if (produto.fotos) {
 				let fotos = [];
 				try { fotos = JSON.parse(produto.fotos); } catch {}
+				console.log(`📸 Produto ${produto.id} (${produto.nome}): ${fotos.length} fotos`);
 				
 				// Atualizar carrossel na página de produtos
 				const carouselProdutos = document.getElementById(`carousel-${produto.id}`);
 				if (carouselProdutos && fotos.length > 0) {
-					carouselProdutos.innerHTML = fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: cover;">`).join('');
+					carouselProdutos.innerHTML = fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;">`).join('');
+					console.log(`✅ Atualizado carousel-produtos-${produto.id}`);
 				}
 				
 				// Atualizar carrossel na página de pedidos
 				const carouselPedidos = document.getElementById(`market-carousel-${produto.id}`);
 				if (carouselPedidos && fotos.length > 0) {
-					carouselPedidos.innerHTML = fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: cover;">`).join('');
+					carouselPedidos.innerHTML = fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;">`).join('');
+					console.log(`✅ Atualizado market-carousel-${produto.id}`);
 					
 					// Adicionar controles de navegação se houver múltiplas fotos
 					if (fotos.length > 1) {
@@ -558,6 +623,28 @@ class DashboardApp {
 						}
 					}
 				}
+				
+				// Atualizar carrossel na página de vendas online
+				const carouselOnline = document.getElementById(`online-carousel-${produto.id}`);
+				console.log(`🔍 Procurando online-carousel-${produto.id}:`, !!carouselOnline);
+				if (carouselOnline && fotos.length > 0) {
+					carouselOnline.style.width = `${fotos.length * 100}%`;
+					carouselOnline.innerHTML = fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;">`).join('');
+					console.log(`✅ Atualizado online-carousel-${produto.id}`);
+					
+					// Adicionar controles de navegação se houver múltiplas fotos
+					if (fotos.length > 1) {
+						const container = carouselOnline.parentElement;
+						if (!container.querySelector('button[data-action="prev-online-photo"]')) {
+							container.insertAdjacentHTML('beforeend', `
+								<button data-action="prev-online-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
+								<button data-action="next-online-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">›</button>
+							`);
+						}
+					}
+				}
+			} else {
+				console.log(`⚠️ Produto ${produto.id} (${produto.nome}) não tem fotos`);
 			}
 		});
 		console.log('🖼️ Imagens dos produtos atualizadas');
@@ -566,7 +653,7 @@ class DashboardApp {
 	setupUI() {
 		// Modo vendas online: mostrar apenas produtos
 		if (this.isVendasOnline) {
-			this.showProdutosPage();
+			// Não precisamos chamar setupUI para vendas online, pois a página já renderiza diretamente
 			return;
 		}
 
@@ -675,33 +762,36 @@ class DashboardApp {
 
 	setupEventListeners() {
 		console.log('🎧 Configurando event listeners...');
-		
-		const userMenuBtn = document.getElementById('user-menu-button');
-		const userDropdown = document.getElementById('user-dropdown');
 
-		if (userMenuBtn) {
-			userMenuBtn.addEventListener('click', (e) => {
-				e.stopPropagation();
-				userDropdown?.classList.toggle('show');
+		// Pular configuração de elementos que não existem no modo vendas online
+		if (!this.isVendasOnline) {
+			const userMenuBtn = document.getElementById('user-menu-button');
+			const userDropdown = document.getElementById('user-dropdown');
+
+			if (userMenuBtn) {
+				userMenuBtn.addEventListener('click', (e) => {
+					e.stopPropagation();
+					userDropdown?.classList.toggle('show');
+				});
+			}
+
+			document.addEventListener('click', (e) => {
+				if (userDropdown && !userMenuBtn?.contains(e.target) && !userDropdown.contains(e.target)) {
+					userDropdown.classList.remove('show');
+				}
+			});
+
+			// Event listeners para botões de navegação
+			console.log('🔘 Configurando botões de navegação...');
+			document.querySelectorAll('.nav-btn').forEach(btn => {
+				const section = btn.getAttribute('data-section');
+				console.log('🔘 Botão encontrado:', section);
+				btn.addEventListener('click', (e) => {
+					const sectionName = e.currentTarget.getAttribute('data-section');
+					this.switchSection(sectionName);
+				});
 			});
 		}
-
-		document.addEventListener('click', (e) => {
-			if (userDropdown && !userMenuBtn?.contains(e.target) && !userDropdown.contains(e.target)) {
-				userDropdown.classList.remove('show');
-			}
-		});
-
-		// Event listeners para botões de navegação
-		console.log('🔘 Configurando botões de navegação...');
-		document.querySelectorAll('.nav-btn').forEach(btn => {
-			const section = btn.getAttribute('data-section');
-			console.log('🔘 Botão encontrado:', section);
-			btn.addEventListener('click', (e) => {
-				const sectionName = e.currentTarget.getAttribute('data-section');
-				this.switchSection(sectionName);
-			});
-		});
 	}
 
 	setupLanguageSwitcher() {
@@ -802,9 +892,9 @@ class DashboardApp {
 		// Filtrar dados baseado no role do usuário
 		let ordersToUse = this.orders;
 		if (isVendedor && this.currentUser?.id) {
-			// Filtrar apenas pedidos criados pelo usuário logado
+			// Filtrar apenas pedidos do vendedor logado
 			ordersToUse = this.orders.filter(order =>
-				order.user_id && order.user_id == this.currentUser.id
+				order.vendedor_id && order.vendedor_id == this.currentUser.id
 			);
 			console.log(`👤 Vendedor logado - calculando estatísticas com ${ordersToUse.length} pedidos próprios`);
 		} else if (isAdmin) {
@@ -1377,13 +1467,16 @@ class DashboardApp {
 				<div style="margin-bottom:2rem;">
 					<label style="display:block;margin-bottom:0.5rem;font-weight:600;">Categoria</label>
 					<select id="despesa-categoria" style="width:100%;padding:0.75rem;border:2px solid #e9ecef;border-radius:8px;font-size:1rem;">
-						<option value="produtos">Produtos/Ingredientes</option>
+						<option value="produtos-ingredientes">Produtos/Ingredientes</option>
 						<option value="aluguel">Aluguel</option>
-						<option value="energia">Energia/Luz</option>
+						<option value="energia-luz">Energia/Luz</option>
 						<option value="agua">Água</option>
-						<option value="telefone">Telefone/Internet</option>
+						<option value="telefone-internet">Telefone/Internet</option>
 						<option value="marketing">Marketing</option>
 						<option value="equipamentos">Equipamentos</option>
+						<option value="comissao">Comissão</option>
+						<option value="imposto">Imposto</option>
+						<option value="produtos">Produtos</option>
 						<option value="outros">Outros</option>
 					</select>
 				</div>
@@ -1492,12 +1585,11 @@ class DashboardApp {
 		// Filtrar pedidos baseado no role do usuário
 		let pedidosFiltrados = this.orders;
 		if (isVendedor && this.currentUser?.id) {
-			// Filtrar apenas pedidos criados pelo usuário logado
-			// Pedidos sem user_id (criados antes desta implementação) NÃO são mostrados para vendedores
+			// Filtrar apenas pedidos do vendedor logado
 			pedidosFiltrados = this.orders.filter(order =>
-				order.user_id && order.user_id == this.currentUser.id
+				order.vendedor_id && order.vendedor_id == this.currentUser.id
 			);
-			console.log(`👤 Vendedor logado - mostrando ${pedidosFiltrados.length} pedidos próprios (apenas com user_id)`);
+			console.log(`👤 Vendedor logado - mostrando ${pedidosFiltrados.length} pedidos próprios (apenas com vendedor_id)`);
 		} else if (isAdmin) {
 			console.log('👑 Admin logado - mostrando todos os pedidos');
 			pedidosFiltrados = this.orders;
@@ -1540,7 +1632,11 @@ class DashboardApp {
 		
 		// Adicionar event listeners para os pedidos
 		container.querySelectorAll('.pedido-item').forEach(item => {
-			item.addEventListener('click', () => {
+			item.addEventListener('click', (e) => {
+				// Não abrir modal se clicar no select de status
+				if (e.target.closest('.status-dropdown')) {
+					return;
+				}
 				const orderId = item.getAttribute('data-order-id');
 				if (orderId) {
 					this.showOrderDetails(orderId);
@@ -1577,13 +1673,13 @@ class DashboardApp {
 		const isVendedor = role === 'sale' || role === 'vendedor';
 
 		// Vendedores só podem ver pedidos próprios
-		if (isVendedor && order.user_id && order.user_id != this.currentUser.id) {
+		if (isVendedor && order.vendedor_id && order.vendedor_id != this.currentUser.id) {
 			alert('Você só pode visualizar detalhes dos seus próprios pedidos.');
 			return;
 		}
 
-		// Pedidos sem user_id (antigos) só podem ser vistos por admins
-		if (!isAdmin && !order.user_id) {
+		// Pedidos sem vendedor_id (antigos) só podem ser vistos por admins
+		if (!isAdmin && !order.vendedor_id) {
 			alert('Este pedido não pode ser visualizado. Contate o administrador.');
 			return;
 		}
@@ -1603,7 +1699,7 @@ class DashboardApp {
 		const modal = document.createElement('div');
 		modal.id = modalId;
 		modal.className = 'modal-overlay show';
-		modal.style.zIndex = '1000'; // Garantir z-index alto
+		modal.style.zIndex = '2000'; // Garantir z-index alto
 		
 		// Event listener para fechar modal
 		modal.addEventListener('click', (e) => {
@@ -1877,9 +1973,9 @@ class DashboardApp {
 		// Filtrar pedidos baseado no role do usuário
 		let pedidosFiltrados = this.orders;
 		if (isVendedor && this.currentUser?.id) {
-			// Filtrar apenas pedidos criados pelo usuário logado
+			// Filtrar apenas pedidos do vendedor logado
 			pedidosFiltrados = this.orders.filter(order =>
-				order.user_id && order.user_id == this.currentUser.id
+				order.vendedor_id && order.vendedor_id == this.currentUser.id
 			);
 			console.log(`👤 Vendedor logado - mostrando ${pedidosFiltrados.length} entregas de hoje de pedidos próprios`);
 		} else if (isAdmin) {
@@ -1951,12 +2047,11 @@ class DashboardApp {
 		// Filtrar entregas baseado no role do usuário
 		let entregasFiltradas = this.entregas;
 		if (isVendedor && this.currentUser?.id) {
-			// Filtrar apenas entregas de pedidos criados pelo usuário logado
-			// Pedidos sem user_id não são considerados
+			// Filtrar apenas entregas de pedidos do vendedor logado
 			entregasFiltradas = this.entregas.filter(entrega => {
-				// Encontrar o pedido relacionado e verificar se é do usuário
+				// Encontrar o pedido relacionado e verificar se é do vendedor
 				const pedido = this.orders.find(o => o.id == entrega.pedido_id);
-				return pedido && pedido.user_id && pedido.user_id == this.currentUser.id;
+				return pedido && pedido.vendedor_id && pedido.vendedor_id == this.currentUser.id;
 			});
 			console.log(`👤 Vendedor logado - mostrando ${entregasFiltradas.length} entregas de pedidos próprios`);
 		} else if (isAdmin) {
@@ -2169,7 +2264,7 @@ class DashboardApp {
 								</div>
 								<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
 									<div id="market-carousel-${produto.id}" data-current="0" style="display: flex; transition: transform 0.3s ease;">
-										${fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: cover;">`).join('')}
+										${fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;">`).join('')}
 									</div>
 									${fotos.length > 1 ? `
 										<button data-action="prev-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
@@ -2211,6 +2306,218 @@ class DashboardApp {
 		// Atualizar valor total do carrinho no topo
 		this.updatePedidosCartTotal();
 	}
+
+	// PÁGINA DE VENDAS ONLINE
+	renderVendasOnlinePage() {
+		console.log('🎨 Iniciando renderVendasOnlinePage()');
+		console.log('📊 Produtos disponíveis:', this.products?.length || 0);
+		console.log('📊 Primeiro produto:', this.products?.[0]);
+		
+		const container = document.getElementById('vendas-online-container');
+		console.log('📦 Container encontrado:', !!container);
+
+		if (!container) {
+			console.error('❌ Container vendas-online-container não encontrado!');
+			return;
+		}
+
+		if (!this.cart) this.cart = {};
+
+		// Calcular total do carrinho
+		let cartTotal = 0;
+		Object.values(this.cart).forEach(item => {
+			if (item.adicionado) {
+				cartTotal += item.quantidade * item.preco;
+			}
+		});
+
+		// Dropdown de categorias + Total Carrinho (mesmo layout da página de pedidos)
+		const categorias = [...new Set(this.products.map(p => p.categoria).filter(Boolean))];
+		let categoriaSelecionada = this.selectedCategoria || '';
+
+		const topBar = `
+			<div style="width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+				<div style="display: flex; align-items: center; gap: 0.5rem;">
+					<label for="dropdown-categoria-online" style="font-weight: 600;">Filtrar:</label>
+					<select id="dropdown-categoria-online" style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid #eee; font-size: 1rem;">
+						<option value="">Todas Categorias</option>
+						${categorias.map(cat => `<option value="${cat}" ${cat === categoriaSelecionada ? 'selected' : ''}>${cat}</option>`).join('')}
+					</select>
+				</div>
+
+				<div style="font-size: 1.15rem; font-weight: 700; color: #28a745; background: #f8f9fa; border-radius: 8px; padding: 0.5rem 1.2rem;">
+					Total: <span class="vendas-online-cart-total">${this.formatCurrency(cartTotal)}</span>
+				</div>
+			</div>
+		`;
+
+		// Produtos (mesmo layout da página de pedidos)
+		let produtosHtml = '';
+		const produtosFiltrados = categoriaSelecionada
+			? this.products.filter(p => p.categoria === categoriaSelecionada)
+			: this.products;
+
+		console.log('🔍 Produtos filtrados:', produtosFiltrados.length, 'de', this.products.length);
+		console.log('🔍 Categoria selecionada:', categoriaSelecionada);
+
+		if (produtosFiltrados.length === 0) {
+			produtosHtml = `<div style="text-align: center; padding: 3rem; color: #888;"><i class="fas fa-box-open" style="font-size: 3rem; margin-bottom: 1rem;"></i><p>Nenhum produto disponível para venda</p></div>`;
+		} else {
+			produtosHtml = `
+				<div style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center;">
+					${produtosFiltrados.map(produto => {
+						let fotos = [];
+						if (produto.fotos) {
+							try { fotos = JSON.parse(produto.fotos); } catch {}
+						}
+						return `
+							<div class="card-produto" style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.2rem; max-width: 320px; width: 100%; display: flex; flex-direction: column; align-items: center;" data-descricao="${produto.descricao || ''}">
+								<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
+									<span style="font-size: 1.0rem; font-weight: 700; color: #333;">${produto.nome}</span>
+									<div style="margin-top: 0.5rem;">
+										<span style="background: ${produto.status_produto === 'pronta_entrega' ? '#28a745' : '#ff6b9d'}; color: white; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.7rem; font-weight: 600;">${produto.status_produto === 'pronta_entrega' ? 'Pronta Entrega' : 'Sob Encomenda'}</span>
+									</div>
+								</div>
+								<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
+									<div id="online-carousel-${produto.id}" data-current="0" style="display: flex; width: 100%; height: 100%; transition: transform 0.3s ease;">
+										${fotos.length > 0 ? 
+											fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;" onerror="console.error('Erro ao carregar imagem:', '${foto}')">`).join('') :
+											`<div style="width: 100%; height: 100%; background: #f8f9fa; display: flex; align-items: center; justify-content: center; color: #666;">Sem imagem</div>`
+										}
+									</div>
+									${fotos.length > 1 ? `
+										<button data-action="prev-online-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
+										<button data-action="next-online-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">›</button>
+									` : ''}
+								</div>
+								<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
+									<span style="font-size: 1.1rem; font-weight: 700; color: #ff6b9d;">${this.formatCurrency(produto.preco)}</span>
+								</div>
+								<div style="display: flex; align-items: center; justify-content: center; gap: 1rem; width: 100%; margin-bottom: 0.5rem;">
+									<button data-action="decrement-produto" data-id="${produto.id}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.1rem; cursor: pointer;">-</button>
+									<span id="contador-produto-${produto.id}" style="font-size: 1.1rem; font-weight: 600; min-width: 32px; text-align: center;">${this.cart[produto.id]?.quantidade || 0}</span>
+									<button data-action="increment-produto" data-id="${produto.id}" data-preco="${produto.preco}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.1rem; cursor: pointer;">+</button>
+								</div>
+								<button data-action="adicionar-carrinho" data-id="${produto.id}" data-preco="${produto.preco}" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 0; font-size: 1.1rem; font-weight: 700; cursor: pointer;">Adicionar ao Carrinho</button>
+							</div>
+						`;
+					}).join('')}
+				</div>
+			`;
+		}
+
+		container.innerHTML = topBar + produtosHtml;
+
+		// Tooltip (mesmo da página de pedidos)
+		this.setupProductTooltip();
+
+		// Eventos do dropdown de categoria
+		const dropdown = document.getElementById('dropdown-categoria-online');
+		if (dropdown) {
+			dropdown.onchange = (e) => {
+				this.selectedCategoria = e.target.value;
+				this.renderVendasOnlinePage();
+			};
+		}
+
+		// Eventos dos produtos
+		this.setupVendasOnlineEventDelegation();
+		// Atualizar valor total do carrinho no topo
+		this.updatePedidosCartTotal();
+
+		console.log('✅ renderVendasOnlinePage() concluído');
+	}
+
+	setupVendasOnlineEventDelegation() {
+		const container = document.getElementById('vendas-online-container');
+		if (!container) return;
+
+		if (container._delegationAttached) {
+			container.removeEventListener('click', container._delegationHandler);
+		}
+
+		const handler = (e) => {
+			// Não processar eventos que vêm de dentro de modais
+			if (e.target.closest('.modal-overlay') || e.target.closest('.modal-content-wrapper')) {
+				return;
+			}
+
+			// Só processar se o target for um botão ou estiver dentro de um botão
+			if (!e.target.matches('button[data-action]') && !e.target.closest('button[data-action]')) {
+				return;
+			}
+
+			const btn = e.target.closest('button[data-action]');
+
+			const action = btn.getAttribute('data-action');
+			console.log('🎬 Ação executada (Vendas Online):', action);
+			const produtoId = btn.getAttribute('data-id');
+			const preco = parseFloat(btn.getAttribute('data-preco'));
+			const total = parseInt(btn.getAttribute('data-total'));
+
+			switch (action) {
+				case 'prev-produto-photo':
+				case 'prev-online-photo':
+					this.prevProdutoPhoto(produtoId, total);
+					break;
+				case 'next-produto-photo':
+				case 'next-online-photo':
+					this.nextProdutoPhoto(produtoId, total);
+					break;
+				case 'increment-produto':
+					console.log('➕ INCREMENTANDO produto (Vendas Online):', produtoId);
+					this.incrementProdutoCarrinho(produtoId, preco);
+					break;
+				case 'decrement-produto':
+					console.log('➖ DECREMENTANDO produto (Vendas Online):', produtoId);
+					this.decrementProdutoCarrinho(produtoId);
+					break;
+				case 'adicionar-carrinho':
+					console.log('🛒 ADICIONANDO AO CARRINHO (Vendas Online):', produtoId, preco);
+					this.adicionarAoCarrinho(produtoId, preco);
+					break;
+			}
+		};
+
+		container.addEventListener('click', handler);
+		container._delegationAttached = true;
+		container._delegationHandler = handler;
+	}
+
+	incrementVendasProdutoCarrinho(produtoId, preco) {
+		this.incrementProdutoCarrinho(produtoId, preco);
+		this.updateVendasContadores();
+	}
+
+	decrementVendasProdutoCarrinho(produtoId) {
+		this.decrementProdutoCarrinho(produtoId);
+		this.updateVendasContadores();
+	}
+
+	adicionarVendasAoCarrinho(produtoId, preco) {
+		this.adicionarAoCarrinho(produtoId, preco);
+		this.updateVendasContadores();
+	}
+
+	updateVendasContadores() {
+		// Atualizar contadores visuais na página de vendas online
+		Object.keys(this.cart).forEach(produtoId => {
+			const contadorEl = document.getElementById(`vendas-contador-produto-${produtoId}`);
+			if (contadorEl) {
+				contadorEl.textContent = this.cart[produtoId].quantidade || 0;
+			}
+		});
+	}
+
+	prevVendasProdutoPhoto(produtoId, totalPhotos) {
+		this.prevProdutoPhoto(produtoId, totalPhotos);
+	}
+
+	nextVendasProdutoPhoto(produtoId, totalPhotos) {
+		this.nextProdutoPhoto(produtoId, totalPhotos);
+	}
+
+
 
 	setupProductTooltip() {
 		let tooltip = document.getElementById('produto-tooltip-global');
@@ -2280,9 +2587,11 @@ class DashboardApp {
 
 			switch (action) {
 				case 'prev-produto-photo':
+				case 'prev-online-photo':
 					this.prevProdutoPhoto(produtoId, total);
 					break;
 				case 'next-produto-photo':
+				case 'next-online-photo':
 					this.nextProdutoPhoto(produtoId, total);
 					break;
 				case 'increment-produto':
@@ -2317,7 +2626,7 @@ class DashboardApp {
 			// Se já está no carrinho, editar quantidade diretamente
 			this.cart[produtoId].quantidade++;
 			this.updateCartHeader();
-			if (this.activeSection === 'pedidos') {
+			if (this.activeSection === 'pedidos' || this.isVendasOnline) {
 				this.updatePedidosCartTotal();
 			}
 		} else {
@@ -2342,7 +2651,7 @@ class DashboardApp {
 			if (this.cart[produtoId].quantidade > 0) {
 				// Ainda há quantidade, apenas atualizar
 				this.updateCartHeader();
-				if (this.activeSection === 'pedidos') {
+				if (this.activeSection === 'pedidos' || this.isVendasOnline) {
 					this.updatePedidosCartTotal();
 				}
 			} else {
@@ -2354,7 +2663,7 @@ class DashboardApp {
 					contadorEl.textContent = '0';
 				}
 				this.updateCartHeader();
-				if (this.activeSection === 'pedidos') {
+				if (this.activeSection === 'pedidos' || this.isVendasOnline) {
 					this.updatePedidosCartTotal();
 				}
 			}
@@ -2386,23 +2695,28 @@ class DashboardApp {
 		// Atualizar carrinho no topo
 		this.updateCartHeader();
 		// Atualizar total do carrinho na página de pedidos
-		if (this.activeSection === 'pedidos') {
+		if (this.activeSection === 'pedidos' || this.isVendasOnline) {
 			this.updatePedidosCartTotal();
 		}
 		this.updateCartBadge();
 	}
 
 	updatePedidosCartTotal() {
-		// Atualiza apenas o valor total do carrinho no topo da página de pedidos
+		// Atualiza apenas o valor total do carrinho no topo da página de pedidos ou vendas online
 		let cartTotal = 0;
 		Object.values(this.cart).forEach(item => {
 			if (item.adicionado) {
 				cartTotal += item.quantidade * item.preco;
 			}
 		});
-		const el = document.querySelector('.pedidos-cart-total');
-		if (el) {
-			el.textContent = this.formatCurrency(cartTotal);
+		// Atualizar tanto pedidos quanto vendas online
+		const pedidosEl = document.querySelector('.pedidos-cart-total');
+		const vendasOnlineEl = document.querySelector('.vendas-online-cart-total');
+		if (pedidosEl) {
+			pedidosEl.textContent = this.formatCurrency(cartTotal);
+		}
+		if (vendasOnlineEl) {
+			vendasOnlineEl.textContent = this.formatCurrency(cartTotal);
 		}
 	}
 
@@ -2453,7 +2767,11 @@ class DashboardApp {
 			headCart.onclick = (e) => {
 				e.preventDefault();
 				e.stopPropagation();
-				this.abrirFinalizarPedidoModal();
+				if (this.isVendasOnline) {
+					this.abrirCadastroClienteModal();
+				} else {
+					this.abrirFinalizarPedidoModal();
+				}
 			};
 		}
 	}
@@ -2468,7 +2786,7 @@ class DashboardApp {
 			}
 		}
 		this.updateCartHeader();
-		if (this.activeSection === 'pedidos') {
+		if (this.activeSection === 'pedidos' || this.isVendasOnline) {
 			this.updatePedidosCartTotal();
 		}
 		// Em vez de recriar o modal, apenas atualizar o conteúdo
@@ -2485,7 +2803,7 @@ class DashboardApp {
 				contadorEl.textContent = this.cart[produtoId].quantidade;
 			}
 			this.updateCartHeader();
-			if (this.activeSection === 'pedidos') {
+			if (this.activeSection === 'pedidos' || this.isVendasOnline) {
 				this.updatePedidosCartTotal();
 			}
 			// Atualizar apenas o conteúdo do modal sem recriá-lo
@@ -2506,7 +2824,7 @@ class DashboardApp {
 					contadorEl.textContent = this.cart[produtoId].quantidade;
 				}
 				this.updateCartHeader();
-				if (this.activeSection === 'pedidos') {
+				if (this.activeSection === 'pedidos' || this.isVendasOnline) {
 					this.updatePedidosCartTotal();
 				}
 				// Atualizar apenas o conteúdo do modal sem recriá-lo
@@ -2520,7 +2838,7 @@ class DashboardApp {
 					contadorEl.textContent = '0';
 				}
 				this.updateCartHeader();
-				if (this.activeSection === 'pedidos') {
+				if (this.activeSection === 'pedidos' || this.isVendasOnline) {
 					this.updatePedidosCartTotal();
 				}
 				// Atualizar apenas o conteúdo do modal sem recriá-lo
@@ -2609,7 +2927,7 @@ class DashboardApp {
 		this.cart = {};
 		this.updateCartHeader();
 		this.updateCartBadge(); // Atualizar badge flutuante também
-		if (this.activeSection === 'pedidos') {
+		if (this.activeSection === 'pedidos' || this.isVendasOnline) {
 			this.updatePedidosCartTotal();
 		}
 		// Atualizar o modal atual se estiver aberto, em vez de abrir um novo
@@ -2682,21 +3000,29 @@ class DashboardApp {
 	}
 
 	prevProdutoPhoto(produtoId, totalPhotos) {
-		const carousel = document.getElementById(`market-carousel-${produtoId}`);
-		if (!carousel) return;
+		const carousel = document.getElementById(`market-carousel-${produtoId}`) || document.getElementById(`online-carousel-${produtoId}`);
+		if (!carousel) {
+			console.error('Carousel não encontrado para produto:', produtoId);
+			return;
+		}
 		const current = parseInt(carousel.dataset.current || 0);
 		const prev = current === 0 ? totalPhotos - 1 : current - 1;
 		carousel.style.transform = `translateX(-${prev * 100}%)`;
 		carousel.dataset.current = prev;
+		console.log('Navegando para foto anterior:', prev, 'de', totalPhotos);
 	}
 
 	nextProdutoPhoto(produtoId, totalPhotos) {
-		const carousel = document.getElementById(`market-carousel-${produtoId}`);
-		if (!carousel) return;
+		const carousel = document.getElementById(`market-carousel-${produtoId}`) || document.getElementById(`online-carousel-${produtoId}`);
+		if (!carousel) {
+			console.error('Carousel não encontrado para produto:', produtoId);
+			return;
+		}
 		const current = parseInt(carousel.dataset.current || 0);
 		const next = (current + 1) % totalPhotos;
 		carousel.style.transform = `translateX(-${next * 100}%)`;
 		carousel.dataset.current = next;
+		console.log('Navegando para próxima foto:', next, 'de', totalPhotos);
 	}
 
 	// MODAL RÁPIDO ADICIONAR CLIENTE
@@ -2755,7 +3081,7 @@ class DashboardApp {
 	}
 
 	// MODAL FINALIZAR PEDIDO - VENDA PRESENCIAL
-	abrirFinalizarPedidoModal() {
+	abrirFinalizarPedidoModal(clienteIdPreSelecionado = null) {
 		// Verificar se já existe um modal aberto e removê-lo
 		const existingModal = document.getElementById('modal-finalizar-pedido');
 		if (existingModal) {
@@ -2820,10 +3146,55 @@ class DashboardApp {
 			pedidosCartTotalEl.textContent = this.formatCurrency(totalCarrinho);
 		}
 
+		// Determinar se é vendas online
+		const isVendasOnline = this.isVendasOnline;
+		let clienteHTML = '';
+		let clienteSelecionado = null;
+
+		if (isVendasOnline) {
+			// Para vendas online, usar o cliente recém-cadastrado ou logado
+			if (typeof clienteIdPreSelecionado === 'object' && clienteIdPreSelecionado?.id) {
+				// Cliente passado como objeto
+				clienteSelecionado = clienteIdPreSelecionado;
+			} else if (clienteIdPreSelecionado) {
+				// Cliente passado como ID
+				clienteSelecionado = this.clients.find(c => c.id == clienteIdPreSelecionado);
+			}
+			if (clienteSelecionado) {
+				clienteHTML = `
+					<div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 1rem; border-radius: 10px; color: white;">
+						<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">Cliente</h4>
+						<div style="background: rgba(255,255,255,0.1); padding: 0.75rem; border-radius: 6px;">
+							<p style="margin: 0 0 0.25rem 0; font-weight: 600;">${clienteSelecionado.nome}</p>
+							<p style="margin: 0 0 0.25rem 0; font-size: 0.9rem;">${clienteSelecionado.telefone}</p>
+							${clienteSelecionado.email ? `<p style="margin: 0; font-size: 0.9rem;">${clienteSelecionado.email}</p>` : ''}
+						</div>
+					</div>
+				`;
+			}
+		} else {
+			// Para vendas presenciais, mostrar select de clientes
+			let clienteIdParaSelecionar = null;
+			if (typeof clienteIdPreSelecionado === 'object' && clienteIdPreSelecionado?.id) {
+				clienteIdParaSelecionar = clienteIdPreSelecionado.id;
+			} else {
+				clienteIdParaSelecionar = clienteIdPreSelecionado;
+			}
+			clienteHTML = `
+				<div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 1rem; border-radius: 10px; color: white;">
+					<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">Cliente</h4>
+					<select id="finalizar-cliente" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem;">
+						<option value="">-- Selecione o cliente --</option>
+						${this.clients.map(c => `<option value="${c.id}" ${clienteIdParaSelecionar == c.id ? 'selected' : ''}>${c.nome} - ${c.telefone}</option>`).join('')}
+					</select>
+				</div>
+			`;
+		}
+
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 500px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 1.3rem; max-height: 90vh; overflow-y: auto;">
 				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-					<h3 style="margin: 0; font-size: 1.5rem; color: #333;">🛒 Finalizar Venda</h3>
+					<h3 style="margin: 0; font-size: 1.5rem; color: #333;">🛒 ${isVendasOnline ? 'Finalizar Venda' : 'Finalizar Pedido'}</h3>
 					<button id="close-finalizar-pedido" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
 				</div>
 
@@ -2851,13 +3222,7 @@ class DashboardApp {
 					</div>
 
 					<!-- Cliente -->
-					<div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 1rem; border-radius: 10px; color: white;">
-						<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">Cliente</h4>
-						<select id="finalizar-cliente" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem;">
-							<option value="">-- Selecione o cliente --</option>
-							${this.clients.map(c => `<option value="${c.id}">${c.nome} - ${c.telefone}</option>`).join('')}
-						</select>
-					</div>
+					${clienteHTML}
 
 					<!-- Pagamento -->
 					<div style="background: linear-gradient(135deg, #f093fb, #f5576c); padding: 1rem; border-radius: 10px; color: white;">
@@ -2893,7 +3258,31 @@ class DashboardApp {
 							<input type="date" id="finalizar-data-entrega" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none; margin-bottom: 0.5rem;">
 							
 							<label style="display: block; margin-bottom: 0.25rem;">Horário:</label>
-							<input type="time" id="finalizar-horario-entrega" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none;">
+							<input type="time" id="finalizar-horario-entrega" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none; margin-bottom: 0.5rem;">
+							
+							<!-- Opções de endereço -->
+							<div id="endereco-options" style="margin-top: 0.75rem;">
+								<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Endereço de Entrega:</label>
+								<div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+									<label style="display: flex; align-items: center; gap: 0.25rem; flex: 1;">
+										<input type="radio" name="endereco-opcao" value="cadastro" checked style="width: 16px; height: 16px;">
+										<span style="font-size: 0.9rem;">Usar endereço do cadastro</span>
+									</label>
+									<label style="display: flex; align-items: center; gap: 0.25rem; flex: 1;">
+										<input type="radio" name="endereco-opcao" value="novo" style="width: 16px; height: 16px;">
+										<span style="font-size: 0.9rem;">Novo endereço</span>
+									</label>
+								</div>
+								
+								<div id="endereco-cadastro-display" style="background: rgba(255,255,255,0.1); padding: 0.5rem; border-radius: 4px; margin-bottom: 0.5rem; font-size: 0.85rem;">
+									<!-- Endereço do cadastro será inserido aqui -->
+								</div>
+								
+								<div id="endereco-novo-input" style="display: none;">
+									<label style="display: block; margin-bottom: 0.25rem; font-size: 0.9rem;">Novo Endereço:</label>
+									<textarea id="finalizar-endereco-novo" placeholder="Digite o novo endereço..." style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none; resize: vertical; min-height: 60px;" rows="3"></textarea>
+								</div>
+							</div>
 						</div>
 					</div>
 
@@ -2934,6 +3323,48 @@ class DashboardApp {
 		const restanteLabel = modal.querySelector('#finalizar-restante');
 		const entregaSelect = modal.querySelector('#finalizar-entrega');
 		const entregaDetalhes = modal.querySelector('#entrega-detalhes');
+		const clienteSelect = modal.querySelector('#finalizar-cliente');
+		const enderecoCadastroDisplay = modal.querySelector('#endereco-cadastro-display');
+		const enderecoNovoInput = modal.querySelector('#endereco-novo-input');
+		const enderecoOptions = modal.querySelector('#endereco-options');
+
+		// Função para atualizar endereço do cliente selecionado
+		function atualizarEnderecoCliente() {
+			let clienteId;
+			if (isVendasOnline) {
+				clienteId = clienteSelecionado ? clienteSelecionado.id : null;
+			} else {
+				clienteId = clienteSelect ? clienteSelect.value : null;
+			}
+			if (clienteId) {
+				let cliente;
+				if (isVendasOnline && clienteSelecionado) {
+					cliente = clienteSelecionado;
+				} else {
+					cliente = window.dashboardApp.clients.find(c => c.id == clienteId);
+				}
+				if (cliente && cliente.endereco) {
+					enderecoCadastroDisplay.innerHTML = `<strong>Endereço cadastrado:</strong><br>${cliente.endereco}`;
+					enderecoCadastroDisplay.style.display = 'block';
+				} else {
+					enderecoCadastroDisplay.innerHTML = '<em>Cliente sem endereço cadastrado</em>';
+					enderecoCadastroDisplay.style.display = 'block';
+				}
+			} else {
+				enderecoCadastroDisplay.innerHTML = '';
+				enderecoCadastroDisplay.style.display = 'none';
+			}
+		}
+
+		// Event listener para mudança de cliente (apenas para vendas presenciais)
+		if (!isVendasOnline && clienteSelect) {
+			clienteSelect.addEventListener('change', atualizarEnderecoCliente);
+		}
+
+		// Inicializar endereço
+		if ((clienteIdPreSelecionado && (typeof clienteIdPreSelecionado === 'object' || clienteSelecionado)) || (isVendasOnline && clienteSelecionado)) {
+			atualizarEnderecoCliente();
+		}
 
 		fullPaymentCheckbox.addEventListener('change', () => {
 			sinalGroup.style.display = fullPaymentCheckbox.checked ? 'none' : 'block';
@@ -2949,13 +3380,43 @@ class DashboardApp {
 		}
 
 		entregaSelect.addEventListener('change', () => {
-			entregaDetalhes.style.display = entregaSelect.value === 'entrega' ? 'block' : 'none';
+			const isEntrega = entregaSelect.value === 'entrega';
+			entregaDetalhes.style.display = isEntrega ? 'block' : 'none';
+			enderecoOptions.style.display = isEntrega ? 'block' : 'none';
+		});
+
+		// Event listeners para opções de endereço
+		modal.querySelectorAll('input[name="endereco-opcao"]').forEach(radio => {
+			radio.addEventListener('change', (e) => {
+				const isNovoEndereco = e.target.value === 'novo';
+				enderecoNovoInput.style.display = isNovoEndereco ? 'block' : 'none';
+			});
 		});
 
 		// Submit
 		modal.querySelector('#form-finalizar-pedido').addEventListener('submit', async (e) => {
 			e.preventDefault();
-			await this.finalizarVendaPresencial();
+			if (isVendasOnline) {
+				// Coletar dados do formulário para vendas online
+				const formaPagamento = document.getElementById('finalizar-pagamento').value;
+				const tipoEntrega = entregaSelect.value;
+				let enderecoEntrega = null;
+				let dataEntrega = null;
+
+				if (tipoEntrega === 'entrega') {
+					const enderecoOpcao = document.querySelector('input[name="endereco-opcao"]:checked').value;
+					if (enderecoOpcao === 'cadastro') {
+						enderecoEntrega = clienteSelecionado?.endereco || null;
+					} else {
+						enderecoEntrega = document.getElementById('finalizar-endereco-novo').value.trim() || null;
+					}
+					dataEntrega = document.getElementById('finalizar-data-entrega').value;
+				}
+
+				await this.finalizarPedidoOnline(clienteSelecionado, tipoEntrega, dataEntrega, enderecoEntrega, formaPagamento);
+			} else {
+				await this.finalizarVendaPresencial();
+			}
 		});
 	}
 
@@ -2969,6 +3430,23 @@ class DashboardApp {
 		if (!clienteId) {
 			alert('Selecione um cliente!');
 			return;
+		}
+
+		// Determinar endereço de entrega
+		let enderecoEntrega = null;
+		if (tipoEntrega === 'entrega') {
+			const enderecoOpcao = document.querySelector('input[name="endereco-opcao"]:checked').value;
+			if (enderecoOpcao === 'cadastro') {
+				const cliente = this.clients.find(c => c.id == clienteId);
+				enderecoEntrega = cliente?.endereco || null;
+			} else {
+				enderecoEntrega = document.getElementById('finalizar-endereco-novo').value.trim() || null;
+			}
+			
+			if (!enderecoEntrega) {
+				alert('Por favor, informe o endereço de entrega!');
+				return;
+			}
 		}
 
 		const produtos = Object.entries(this.cart)
@@ -3036,7 +3514,7 @@ class DashboardApp {
 					pedido_id: pedidoSalvo.id,
 					data_entrega: dataEntrega,
 					hora_entrega: horarioEntrega,
-					endereco_entrega: cliente.endereco,
+					endereco_entrega: enderecoEntrega,
 					status: 'agendada',
 					created_at: new Date().toISOString()
 				};
@@ -3074,6 +3552,190 @@ class DashboardApp {
 			closeModal('modal-finalizar-pedido');
 			alert('Venda finalizada com sucesso!');
 		}
+	}
+
+	abrirCadastroClienteModal() {
+		// Verificar se há produtos no carrinho
+		const produtosNoCarrinho = Object.entries(this.cart)
+			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado);
+
+		if (produtosNoCarrinho.length === 0) {
+			alert('Seu carrinho está vazio!');
+			return;
+		}
+
+		// Criar modal
+		const modalId = 'modal-cadastro-cliente';
+		
+		// Remover TODOS os modais existentes para evitar sobreposição
+		document.querySelectorAll('.modal-overlay').forEach(modal => modal.remove());
+		
+		// Remover modal específico se ainda existir
+		const existingModal = document.getElementById(modalId);
+		if (existingModal) {
+			existingModal.remove();
+		}
+
+		const modal = document.createElement('div');
+		modal.id = modalId;
+		modal.className = 'modal-overlay show';
+		modal.style.zIndex = '2000';
+
+		// Contador de 5 minutos (300 segundos)
+		let tempoRestante = 300;
+		let countdownInterval;
+
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="max-width: 500px;">
+				<div class="modal-content">
+					<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+						<h3 style="margin: 0; color: #333;">📝 Cadastro para Finalizar Compra</h3>
+						<button onclick="closeModal('${modalId}')" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #888; line-height: 1;">&times;</button>
+					</div>
+
+					<div id="countdown-warning" style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; text-align: center;">
+						<div style="color: #856404; font-weight: 600; margin-bottom: 0.5rem;">⏰ Tempo para finalizar cadastro</div>
+						<div id="countdown-timer" style="font-size: 1.5rem; font-weight: bold; color: #dc3545;">05:00</div>
+						<div style="color: #856404; font-size: 0.9rem; margin-top: 0.5rem;">
+							Caso não complete o cadastro, seu carrinho será esvaziado automaticamente
+						</div>
+					</div>
+
+					<form id="cadastro-cliente-form" style="display: flex; flex-direction: column; gap: 1rem;">
+						<div>
+							<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Nome Completo *</label>
+							<input type="text" id="cliente-nome" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+						</div>
+
+						<div>
+							<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Telefone *</label>
+							<input type="tel" id="cliente-telefone" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+						</div>
+
+						<div>
+							<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Email</label>
+							<input type="email" id="cliente-email" style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+						</div>
+
+						<div>
+							<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Endereço Completo *</label>
+							<textarea id="cliente-endereco" required rows="3" style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box; resize: vertical;"></textarea>
+						</div>
+
+						<div style="display: flex; gap: 1rem; margin-top: 1rem;">
+							<button type="button" onclick="closeModal('${modalId}')" style="flex: 1; padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
+								Cancelar
+							</button>
+							<button type="submit" style="flex: 1; padding: 0.75rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
+								Cadastrar e Continuar
+							</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		`;
+
+		// Adicionar modal ao DOM
+		let modalsContainer = document.getElementById('modals-container');
+		if (!modalsContainer) {
+			modalsContainer = document.createElement('div');
+			modalsContainer.id = 'modals-container';
+			document.body.appendChild(modalsContainer);
+		}
+		modalsContainer.appendChild(modal);
+
+		// Event listener para fechar modal
+		modal.addEventListener('click', (e) => {
+			if (e.target === modal || e.target.classList.contains('modal-overlay')) {
+				closeModal(modalId);
+			}
+		});
+
+		// Iniciar contador
+		function atualizarContador() {
+			const minutos = Math.floor(tempoRestante / 60);
+			const segundos = tempoRestante % 60;
+			const timerEl = document.getElementById('countdown-timer');
+			if (timerEl) {
+				timerEl.textContent = `${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+			}
+
+			if (tempoRestante <= 0) {
+				clearInterval(countdownInterval);
+				// Esvaziar carrinho
+				window.dashboardApp.cart = {};
+				window.dashboardApp.updateCartHeader();
+				window.dashboardApp.updateCartBadge();
+				if (window.dashboardApp.isVendasOnline) {
+					window.dashboardApp.updatePedidosCartTotal();
+				}
+				closeModal(modalId);
+				alert('Tempo esgotado! Seu carrinho foi esvaziado. Adicione os produtos novamente.');
+				return;
+			}
+			tempoRestante--;
+		}
+
+		atualizarContador();
+		countdownInterval = setInterval(atualizarContador, 1000);
+
+		// Event listener para o formulário
+		const form = document.getElementById('cadastro-cliente-form');
+		if (form) {
+			form.addEventListener('submit', async (e) => {
+				e.preventDefault();
+
+				const nome = document.getElementById('cliente-nome').value.trim();
+				const telefone = document.getElementById('cliente-telefone').value.trim();
+				const email = document.getElementById('cliente-email').value.trim();
+				const endereco = document.getElementById('cliente-endereco').value.trim();
+
+				if (!nome || !telefone || !endereco) {
+					alert('Preencha todos os campos obrigatórios!');
+					return;
+				}
+
+				try {
+					// Salvar cliente
+					const clienteData = {
+						nome: nome,
+						telefone: telefone,
+						email: email || null,
+						endereco: endereco,
+						created_at: new Date().toISOString()
+					};
+
+					const clienteSalvo = await this.saveToSupabase('clientes', clienteData);
+					
+					if (!clienteSalvo || !clienteSalvo.id) {
+						alert('Erro ao salvar cliente. Verifique sua conexão com a internet e tente novamente.');
+						return;
+					}
+					
+					// Parar contador
+					clearInterval(countdownInterval);
+
+					// Fechar modal de cadastro
+					closeModal(modalId);
+
+					// Abrir modal de finalização de pedido com cliente selecionado
+					this.abrirFinalizarPedidoModal(clienteSalvo);
+
+				} catch (error) {
+					console.error('Erro ao cadastrar cliente:', error);
+					alert('Erro ao cadastrar cliente. Tente novamente.');
+				}
+			});
+		}
+
+		// Limpar contador quando modal for fechado
+		const originalCloseModal = window.closeModal;
+		window.closeModal = function(modalIdToClose) {
+			if (modalIdToClose === modalId) {
+				clearInterval(countdownInterval);
+			}
+			originalCloseModal(modalIdToClose);
+		};
 	}
 
 	// ENVIAR RECIBO POR EMAIL
@@ -3147,11 +3809,11 @@ class DashboardApp {
 		if (isVendedor && this.currentUser?.id) {
 			// Filtrar apenas entregas de pedidos criados pelo usuário logado
 			entregas = this.entregas.filter(entrega => {
-				// Encontrar o pedido relacionado e verificar se é do usuário
+				// Encontrar o pedido relacionado e verificar se é do vendedor logado
 				const pedido = this.orders.find(o => o.id == entrega.pedido_id);
-				return pedido && pedido.user_id && pedido.user_id == this.currentUser.id;
+				return pedido && pedido.vendedor_id && pedido.vendedor_id == this.currentUser.id;
 			});
-			console.log(`👤 Vendedor logado - mostrando ${entregas.length} entregas de pedidos próprios`);
+			console.log(`👤 Vendedor logado - mostrando ${entregas.length} entregas de pedidos próprios (apenas com vendedor_id)`);
 		} else if (isAdmin) {
 			console.log('👑 Admin logado - mostrando todas as entregas');
 			entregas = [...this.entregas];
@@ -3474,7 +4136,7 @@ class DashboardApp {
 							</div>
 							<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
 								<div id="carousel-${p.id}" data-current="0" style="display: flex; transition: transform 0.3s ease;">
-									${fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: cover;">`).join('')}
+									${fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;">`).join('')}
 								</div>
 								${fotos.length > 1 ? `
 									<button data-action="prev-photo" data-id="${p.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
@@ -5441,11 +6103,15 @@ openAddDespesaModal() {
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Categoria *</label>
 						<select id="despesa-categoria" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
-							<option value="">Selecione uma categoria</option>
-							<option value="transporte">Transporte</option>
+							<option value="produtos-ingredientes">Produtos/Ingredientes</option>
+							<option value="aluguel">Aluguel</option>
+							<option value="energia-luz">Energia/Luz</option>
+							<option value="agua">Água</option>
+							<option value="telefone-internet">Telefone/Internet</option>
+							<option value="marketing">Marketing</option>
+							<option value="equipamentos">Equipamentos</option>
 							<option value="comissao">Comissão</option>
 							<option value="imposto">Imposto</option>
-							<option value="insumos">Insumos</option>
 							<option value="produtos">Produtos</option>
 							<option value="outros">Outros</option>
 						</select>
@@ -5937,11 +6603,32 @@ openAddDespesaModal() {
 		});
 	}
 
-	async finalizarPedidoOnline(cliente, tipoEntrega, dataEntrega) {
+	async finalizarPedidoOnline(cliente, tipoEntrega, dataEntrega, enderecoEntrega, formaPagamento) {
 		try {
+			if (!cliente) {
+				alert('Erro: Cliente não informado. Tente novamente.');
+				return;
+			}
+			
+			// Se cliente é um objeto mas não tem ID, tentar salvar novamente
+			let clienteId = cliente.id;
+			if (!clienteId && typeof cliente === 'object') {
+				const clienteSalvo = await this.saveToSupabase('clientes', {
+					nome: cliente.nome,
+					telefone: cliente.telefone,
+					email: cliente.email,
+					endereco: cliente.endereco
+				});
+				if (clienteSalvo && clienteSalvo.id) {
+					clienteId = clienteSalvo.id;
+				} else {
+					alert('Erro ao salvar cliente. Tente novamente.');
+					return;
+				}
+			}
 			const itens = Object.entries(this.cart).map(([productId, quantidade]) => ({
 				produto_id: productId,
-				quantidade: quantidade,
+				quantidade: quantidade.quantidade,
 				preco_unitario: this.products.find(p => p.id == productId)?.preco || 0
 			}));
 
@@ -5953,25 +6640,54 @@ openAddDespesaModal() {
 			const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
 			const numeroPedido = `PED-${dataStr}-${randomNum}`;
 
+			let observacoes = `Pedido online - ${tipoEntrega}`;
+			if (enderecoEntrega) {
+				observacoes += ` - Endereço: ${enderecoEntrega}`;
+			}
+
 			const pedidoData = {
 				numero_pedido: numeroPedido,
-				cliente_id: cliente.id,
+				cliente_id: clienteId,
 				user_id: this.currentUser?.id, // Adicionar ID do usuário que criou o pedido
 				valor_total: total,
-				valor_pago: 0,
-				status: 'pendente',
-				data_entrega: tipoEntrega === 'entrega' ? dataEntrega : new Date().toISOString().split('T')[0],
-				observacoes: `Pedido online - ${tipoEntrega}`,
+				valor_pago: formaPagamento === 'dinheiro' ? total : 0, // Assumir pago se dinheiro, senão 0
+				status: formaPagamento === 'dinheiro' ? 'pago' : 'pendente',
+				data_entrega: dataEntrega || new Date().toISOString().split('T')[0],
+				observacoes: observacoes,
 				idioma: cliente?.idioma || 'pt'
 			};
 
-			const pedido = await this.saveToSupabase('pedidos', pedidoData);
-			
 			if (pedido) {
-				alert('Pedido realizado com sucesso! Entraremos em contato em breve.');
-				this.cart = {}; // Limpar carrinho
-				this.updateCartBadge();
-				this.showProdutosPage(); // Voltar para produtos
+				// Salvar itens do pedido
+				let itensSalvos = 0;
+				for (const item of itens) {
+					try {
+						const itemData = {
+							pedido_id: pedido.id,
+							produto_id: item.produto_id,
+							quantidade: item.quantidade,
+							preco_unitario: item.preco_unitario
+						};
+						await this.saveToSupabase('pedido_itens', itemData);
+						itensSalvos++;
+					} catch (itemError) {
+						console.error('Erro ao salvar item do pedido:', itemError);
+					}
+				}
+
+				if (itensSalvos === itens.length) {
+					alert('Pedido realizado com sucesso! Entraremos em contato em breve.');
+					closeModal('modal-finalizar-pedido'); // Fechar modal
+					this.cart = {}; // Limpar carrinho
+					this.updateCartBadge();
+					this.showProdutosPage(); // Voltar para produtos
+				} else {
+					alert('Pedido salvo, mas houve erro ao salvar alguns itens. Entre em contato conosco.');
+					closeModal('modal-finalizar-pedido');
+					this.cart = {};
+					this.updateCartBadge();
+					this.showProdutosPage();
+				}
 			}
 		} catch (error) {
 			console.error('Erro ao finalizar pedido:', error);
@@ -6080,3 +6796,6 @@ function closeModalOverlay(event) {
 		closeModal(modalId);
 	}
 }
+
+// Tornar DashboardApp disponível globalmente
+window.DashboardApp = DashboardApp;
