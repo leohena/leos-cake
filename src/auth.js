@@ -65,7 +65,8 @@ class AuthSystem {
 						email: usuario.email,
 						role: usuario.role || usuario.tipo || 'user',
 						foto_url: usuario.foto_url || null,
-						ativo: usuario.ativo !== false
+						ativo: usuario.ativo !== false,
+						senha_padrao: usuario.password_hash === btoa('123456') // Flag para senha padrão
 					};
 					this.currentUser = user;
 					sessionStorage.setItem('currentUser', JSON.stringify(user));
@@ -125,7 +126,8 @@ class AuthSystem {
 				email: usuario.email,
 				role: usuario.role || usuario.tipo || 'user',
 				foto_url: usuario.foto_url || null,
-				ativo: usuario.ativo !== false
+				ativo: usuario.ativo !== false,
+				senha_padrao: usuario.password_hash === btoa('123456') // Flag para senha padrão
 			};
 
 			this.currentUser = user;

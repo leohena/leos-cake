@@ -1,479 +1,234 @@
-// Modal de cadastro de novo usuário
-window.showUsuariosModal = async function() {
-	let modal = document.getElementById('modal-usuarios');
-	if (!modal) {
-		modal = window.dashboardApp.createModal('modal-usuarios', 'Gerenciar Usuários', true);
-		// Aumenta a largura do modal
-		const wrapper = modal.querySelector('.modal-content-wrapper');
-		if (wrapper) {
-			wrapper.style.maxWidth = '1200px';
-		}
-	}
-	const contentWrapper = modal.querySelector('.modal-content-wrapper');
-	if (contentWrapper) {
-		contentWrapper.innerHTML = `
-			<div id="usuarios-table-container"></div>
-			<div style="display:flex;align-items:center;gap:8px;margin-top:1rem;justify-content:flex-end;">
-				<button id="add-user-btn" class="btn btn-primary">Adicionar Novo Usuário</button>
-				<button id="reset-all-btn" class="btn btn-warning">Senha padrão</button>
-				<button id="edit-all-btn" class="btn btn-secondary">Editar</button>
-				<button id="delete-all-btn" class="btn btn-danger">Excluir</button>
+// Modal de edição do usuário logado
+
+// Modal de edição do usuário logado (dados reais)
+window.showEditUserModal = async function() {
+	const modalsContainer = document.getElementById('modals-container');
+	if (!modalsContainer) return;
+	modalsContainer.innerHTML = '';
+	const modalId = 'edit-user-modal';
+	const currentUser = await window.authSystem.getCurrentUser();
+	const modal = document.createElement('div');
+	modal.id = modalId;
+	modal.className = 'modal-overlay show';
+	modal.onclick = closeModalOverlay;
+	modal.innerHTML = `
+		<div class="modal-content-wrapper" style="padding:2rem;max-width:400px;">
+			<h2 style="margin-bottom:1rem;">Editar Perfil</h2>
+			<label>Nome</label>
+			<input type="text" id="edit-user-nome" value="${currentUser?.nome || ''}" style="width:100%;margin-bottom:1rem;">
+			<label>Email</label>
+			<input type="email" id="edit-user-email" value="${currentUser?.email || ''}" style="width:100%;margin-bottom:1rem;">
+			<div style="display:flex;justify-content:flex-end;gap:1rem;margin-top:2rem;">
+				<button onclick="closeModal('${modalId}')" style="background:#eee;border:none;padding:0.5rem 1.2rem;border-radius:6px;">Cancelar</button>
+				<button onclick="window.saveEditUser('${currentUser.id}')" style="background:#ff6b9d;color:white;border:none;padding:0.5rem 1.2rem;border-radius:6px;">Salvar</button>
 			</div>
-		`;
-	}
-	// Função para atualizar tabela após cada ação
-	async function refreshUsuariosTable() {
-		closeModal('modal-usuarios');
-		await window.showUsuariosModal();
-	}
-	let modalsContainer = document.getElementById('modals-container');
-	if (!modalsContainer) {
-		modalsContainer = document.createElement('div');
-		modalsContainer.id = 'modals-container';
-		document.body.appendChild(modalsContainer);
-	}
+		</div>
+	`;
 	modalsContainer.appendChild(modal);
-	setTimeout(() => modal.classList.add('show'), 10);
+};
 
-	// Carregar usuários da tabela
-	const supabase = window.authSystem?.supabaseClient;
-	if (!supabase) return;
-	const { data: usuarios, error } = await supabase.from('usuarios').select('*');
-	const tableContainer = modal.querySelector('#usuarios-table-container');
-	if (error || !usuarios) {
-		tableContainer.innerHTML = '<p style="color:#dc3545;">Erro ao carregar usuários.</p>';
-		return;
+// Salvar edição do usuário logado no banco
+window.saveEditUser = async function(userId) {
+	const nome = document.getElementById('edit-user-nome').value;
+	const email = document.getElementById('edit-user-email').value;
+	const { error } = await window.supabase
+		.from('usuarios')
+		.update({ nome, email })
+		.eq('id', userId);
+	if (error) {
+		alert('Erro ao salvar: ' + error.message);
+	} else {
+		alert('Dados salvos com sucesso!');
+		closeModal('edit-user-modal');
 	}
-	if (usuarios.length === 0) {
-		tableContainer.innerHTML = '<p>Nenhum usuário cadastrado.</p>';
-		return;
-	}
-	tableContainer.innerHTML = `<table style="width:100%;border-collapse:collapse;">
-		<thead>
-			<tr style="background:#f5f5f5;">
-				<th style="padding:8px;border:1px solid #eee;">Foto</th>
-				<th style="padding:8px;border:1px solid #eee;">Nome</th>
-				<th style="padding:8px;border:1px solid #eee;">Email</th>
-				<th style="padding:8px;border:1px solid #eee;">Tipo</th>
-				<th style="padding:8px;border:1px solid #eee;">Telefone</th>
-				<th style="padding:8px;border:1px solid #eee;">Endereço</th>
+};
+
+// Modal de tabela de usuários (dados reais)
+window.showUsuariosModal = async function() {
+	const modalsContainer = document.getElementById('modals-container');
+	if (!modalsContainer) return;
+	modalsContainer.innerHTML = '';
+	const modalId = 'usuarios-modal';
+	const { data: usuarios, error } = await window.supabase
+		.from('usuarios')
+		.select('*')
+		.order('created_at', { ascending: false });
+	let rows = '';
+	if (usuarios && usuarios.length) {
+		rows = usuarios.map(u => `
+			<tr>
+				<td style="padding:0.5rem;">${u.nome}</td>
+				<td style="padding:0.5rem;">${u.email}</td>
+				<td style="padding:0.5rem;">
+					<button style="background:#eee;border:none;padding:0.3rem 0.7rem;border-radius:4px;margin-right:0.3rem;" onclick="window.editUsuario('${u.id}')">Editar</button>
+					<button style="background:#eee;border:none;padding:0.3rem 0.7rem;border-radius:4px;margin-right:0.3rem;" onclick="window.showResetPasswordModal('${u.id}')">Senha Padrão</button>
+					<button style="background:#ff6b9d;color:white;border:none;padding:0.3rem 0.7rem;border-radius:4px;" onclick="window.excluirUsuario('${u.id}')">Excluir</button>
+				</td>
 			</tr>
-		</thead>
-		<tbody>
-			${usuarios.map(u => `
-				<tr>
-					<td style="padding:8px;border:1px solid #eee;text-align:center;">
-						${u.foto_url ? `<img src="${u.foto_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">` : '<span style="color:#aaa;font-size:1.5rem;"><i class="fas fa-user"></i></span>'}
-					</td>
-					<td style="padding:8px;border:1px solid #eee;">${u.nome}</td>
-					<td style="padding:8px;border:1px solid #eee;">${u.email}</td>
-					<td style="padding:8px;border:1px solid #eee;">${u.role || u.tipo || ''}</td>
-					<td style="padding:8px;border:1px solid #eee;">${u.telefone || ''}</td>
-					<td style="padding:8px;border:1px solid #eee;">${u.endereco || ''}</td>
-				</tr>
-			`).join('')}
-		</tbody>
-	</table>`;
-
-	// Funções de ação em lote (exemplo: senha padrão para todos)
-	modal.querySelector('#reset-all-btn').onclick = async function() {
-		const supabase = window.authSystem?.supabaseClient;
-		if (!supabase) return alert('Supabase não inicializado');
-		const senhaPadrao = '123456';
-		const password_hash = btoa(senhaPadrao);
-		const { error } = await supabase.from('usuarios').update({ password_hash });
-		if (error) {
-			alert('Erro ao redefinir senhas: ' + (error.message || error));
-		} else {
-			alert('Todas as senhas foram redefinidas para padrão: ' + senhaPadrao);
-			await refreshUsuariosTable();
-		}
-	};
-	// Funções de editar e excluir em lote (apenas alertas por enquanto)
-	modal.querySelector('#edit-all-btn').onclick = async function() {
-		alert('Função editar em lote em breve');
-		await refreshUsuariosTable();
-	};
-	modal.querySelector('#delete-all-btn').onclick = async function() {
-		alert('Função excluir em lote em breve');
-		await refreshUsuariosTable();
-	};
-	// Botão adicionar novo usuário
-	modal.querySelector('#add-user-btn').onclick = function() {
-		closeModal('modal-usuarios');
-		window.showAddUserModal?.();
-	};
-
-	// Botão para adicionar novo usuário
-	modal.querySelector('#add-user-btn').onclick = function() {
-		closeModal('modal-usuarios');
-		window.showAddUserModal?.();
-	};
-};
-
-// Modal de cadastro de novo usuário separado
-window.showAddUserModal = function() {
-	let modal = document.getElementById('modal-add-user');
-	if (!modal) {
-		modal = window.dashboardApp.createModal('modal-add-user', 'Cadastrar Novo Usuário', true);
+		`).join('');
+	} else {
+		rows = '<tr><td colspan="3" style="text-align:center;padding:1rem;">Nenhum usuário encontrado</td></tr>';
 	}
-	const contentWrapper = modal.querySelector('.modal-content-wrapper');
-	if (contentWrapper) {
-		contentWrapper.innerHTML = `
-			<form id="form-add-user" class="form-modal">
-				<div class="form-group">
-					<label for="add-nome">Nome *</label>
-					<input type="text" id="add-nome" required class="form-control" value="">
-				</div>
-				<div class="form-group">
-					<label for="add-email">Email *</label>
-					<input type="email" id="add-email" required class="form-control" value="">
-				</div>
-				<div class="form-group">
-					<label for="add-role">Tipo</label>
-					<select id="add-role" class="form-control">
-						<option value="user">Usuário</option>
-						<option value="admin">Administrador</option>
-						<option value="sale">Vendedor</option>
-					</select>
-				</div>
-				<div class="form-group">
-					<label for="add-telefone">Telefone</label>
-					<input type="tel" id="add-telefone" class="form-control" value="">
-				</div>
-				<div class="form-group">
-					<label for="add-endereco">Endereço</label>
-					<textarea id="add-endereco" class="form-control" rows="2"></textarea>
-				</div>
-				<div class="form-group">
-					<label for="add-foto">Foto</label>
-					<input type="file" id="add-foto" accept="image/*" class="form-control">
-					<img src="" id="add-foto-preview" style="max-width:80px;max-height:80px;margin-top:8px;display:none;">
-				</div>
-				<div class="form-group">
-					<label for="add-password">Senha *</label>
-					<input type="password" id="add-password" required class="form-control" autocomplete="new-password">
-				</div>
-				<div class="modal-actions">
-					<button type="button" onclick="closeModal('modal-add-user')" class="btn btn-secondary">Cancelar</button>
-					<button type="submit" class="btn btn-primary">Cadastrar</button>
-				</div>
-			</form>
-		`;
-	}
-	let modalsContainer = document.getElementById('modals-container');
-	if (!modalsContainer) {
-		modalsContainer = document.createElement('div');
-		modalsContainer.id = 'modals-container';
-		document.body.appendChild(modalsContainer);
-	}
+	const modal = document.createElement('div');
+	modal.id = modalId;
+	modal.className = 'modal-overlay show';
+	modal.onclick = closeModalOverlay;
+	modal.innerHTML = `
+		<div class="modal-content-wrapper" style="padding:2rem;max-width:600px;">
+			<h2 style="margin-bottom:1rem;">Usuários</h2>
+			<div id="usuarios-table" style="margin-bottom:2rem;">
+				<table style="width:100%;border-collapse:collapse;">
+					<thead>
+						<tr style="background:#f5f5f5;">
+							<th style="padding:0.5rem;border-bottom:1px solid #eee;">Nome</th>
+							<th style="padding:0.5rem;border-bottom:1px solid #eee;">Email</th>
+							<th style="padding:0.5rem;border-bottom:1px solid #eee;">Ações</th>
+						</tr>
+					</thead>
+					<tbody>
+						${rows}
+					</tbody>
+				</table>
+			</div>
+			<div style="display:flex;justify-content:flex-end;gap:1rem;">
+				<button style="background:#eee;border:none;padding:0.5rem 1.2rem;border-radius:6px;" onclick="closeModal('${modalId}')">Fechar</button>
+				<button style="background:#667eea;color:white;border:none;padding:0.5rem 1.2rem;border-radius:6px;" onclick="window.adicionarUsuario()">Adicionar Usuário</button>
+			</div>
+		</div>
+	`;
 	modalsContainer.appendChild(modal);
-	setTimeout(() => modal.classList.add('show'), 10);
-
-	// Preview da foto
-	const fotoInput = modal.querySelector('#add-foto');
-	const fotoPreview = modal.querySelector('#add-foto-preview');
-	if (fotoInput && fotoPreview) {
-		fotoInput.onchange = function(e) {
-			const file = e.target.files[0];
-			if (file) {
-				const reader = new FileReader();
-				reader.onload = function(ev) {
-					fotoPreview.src = ev.target.result;
-					fotoPreview.style.display = '';
-				};
-				reader.readAsDataURL(file);
-			}
-		};
-	}
-
-	// Submit do formulário
-	modal.querySelector('#form-add-user').addEventListener('submit', async (e) => {
-		e.preventDefault();
-		const nome = modal.querySelector('#add-nome').value.trim();
-		const email = modal.querySelector('#add-email').value.trim();
-		const role = modal.querySelector('#add-role').value;
-		const telefone = modal.querySelector('#add-telefone').value.trim();
-		const endereco = modal.querySelector('#add-endereco').value.trim();
-		let foto_url = '';
-		const fotoFile = fotoInput?.files[0];
-		if (fotoFile) {
-			const reader = new FileReader();
-			foto_url = await new Promise(resolve => {
-				reader.onload = e => resolve(e.target.result);
-				reader.readAsDataURL(fotoFile);
-			});
-		}
-		const password = modal.querySelector('#add-password').value;
-		if (!nome || !email || !password) {
-			alert('Preencha todos os campos obrigatórios!');
-			return;
-		}
-		// Cadastrar usuário na tabela 'usuarios' do Supabase
-		try {
-			const supabase = window.authSystem?.supabaseClient;
-			if (!supabase) throw new Error('Supabase não inicializado');
-			const username = email;
-			const password_hash = btoa(password);
-			const basicUser = {
-				nome, email, username, role, telefone, endereco, foto_url, ativo: true, password_hash
-			};
-			console.log('Cadastro usuário:', basicUser);
-			const { data, error } = await supabase.from('usuarios').insert([basicUser]);
-			if (error) throw error;
-			alert('Usuário cadastrado com sucesso!');
-			closeModal('modal-add-user');
-		} catch (err) {
-			alert('Erro ao cadastrar usuário: ' + (err.message || err));
-		}
-	});
 };
-// Modal de edição/cadastro de usuário completo
-window.showConfigModal = function() {
-	const user = window.authSystem?.currentUser || {};
-	let modal = document.getElementById('modal-config-user');
-	if (!modal) {
-		modal = window.dashboardApp.createModal('modal-config-user', 'Editar Perfil', true);
+
+// Funções de ação dos usuários
+window.editUsuario = function(id) { alert('Editar usuário: ' + id); };
+window.showResetPasswordModal = async function(id) {
+	console.log('resetSenhaUsuario called with id:', id);
+	
+	// Buscar dados do usuário
+	const { data: usuario, error } = await window.supabase
+		.from('usuarios')
+		.select('nome, email')
+		.eq('id', id)
+		.single();
+	
+	console.log('Usuario data:', usuario, 'error:', error);
+	
+	if (error || !usuario) {
+		alert('Erro ao buscar dados do usuário.');
+		return;
 	}
-	const contentWrapper = modal.querySelector('.modal-content-wrapper');
-	if (contentWrapper) {
-		contentWrapper.innerHTML = `
-			<form id="form-config-user" class="form-modal">
-				<div class="form-group">
-					<label for="config-nome">Nome *</label>
-					<input type="text" id="config-nome" required class="form-control" value="${user.nome || ''}">
-				</div>
-				<div class="form-group">
-					<label for="config-email">Email *</label>
-					<input type="email" id="config-email" required class="form-control" value="${user.email || ''}" disabled>
-				</div>
-				<div class="form-group">
-					<label for="config-role">Tipo</label>
-					<select id="config-role" class="form-control">
-						<option value="user" ${user.role === 'user' ? 'selected' : ''}>Usuário</option>
-						<option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Administrador</option>
-						<option value="sale" ${user.role === 'sale' || user.role === 'vendedor' ? 'selected' : ''}>Vendedor</option>
-					</select>
-				</div>
-				<div class="form-group">
-					<label for="config-telefone">Telefone</label>
-					<input type="tel" id="config-telefone" class="form-control" value="${user.telefone || ''}">
-				</div>
-				<div class="form-group">
-					<label for="config-endereco">Endereço</label>
-					<textarea id="config-endereco" class="form-control" rows="2">${user.endereco || ''}</textarea>
-				</div>
-				<div class="form-group">
-					<label for="config-foto">Foto</label>
-					<input type="file" id="config-foto" accept="image/*" class="form-control">
-					<img src="${user.foto_url || ''}" id="config-foto-preview" style="max-width:80px;max-height:80px;margin-top:8px;${user.foto_url ? '' : 'display:none;'}">
-				</div>
-				<div class="form-group">
-					<label for="config-password">Nova Senha</label>
-					<input type="password" id="config-password" class="form-control" autocomplete="new-password">
-				</div>
-				<div class="modal-actions">
-					<button type="button" onclick="closeModal('modal-config-user')" class="btn btn-secondary">Cancelar</button>
-					<button type="submit" class="btn btn-primary">Salvar</button>
-				</div>
-			</form>
-		`;
-	}
-	let modalsContainer = document.getElementById('modals-container');
+
+	// Criar modal de confirmação
+	const modalsContainer = document.getElementById('modals-container');
 	if (!modalsContainer) {
-		modalsContainer = document.createElement('div');
-		modalsContainer.id = 'modals-container';
-		document.body.appendChild(modalsContainer);
+		console.log('modals-container not found');
+		return;
 	}
+	modalsContainer.innerHTML = '';
+
+	const modalId = 'reset-senha-modal';
+	const modal = document.createElement('div');
+	modal.id = modalId;
+	modal.className = 'modal-overlay show';
+	modal.onclick = (e) => {
+		if (e.target === modal) closeModalOverlay(e);
+	};
+
+	modal.innerHTML = `
+		<div class="modal-content-wrapper" style="padding:2rem;max-width:400px;">
+			<h2 style="margin-bottom:1rem;color:#ffc107;"><i class="fas fa-key"></i> Resetar Senha</h2>
+			
+			<div style="background:#fff3cd;border:1px solid #ffeaa7;border-radius:6px;padding:1rem;margin-bottom:1rem;">
+				<p style="margin:0;font-size:0.9rem;color:#856404;">
+					<strong>Usuário:</strong> ${usuario.nome}<br>
+					<strong>Email:</strong> ${usuario.email}
+				</p>
+			</div>
+			
+			<div style="background:#d1ecf1;border:1px solid #bee5eb;border-radius:6px;padding:1rem;margin-bottom:1rem;">
+				<p style="margin:0;font-size:0.9rem;color:#0c5460;">
+					A senha será resetada para <strong>"123456"</strong>.
+				</p>
+			</div>
+			
+			<div style="display:flex;justify-content:flex-end;gap:1rem;">
+				<button onclick="closeModal('${modalId}')" style="background:#6c757d;color:white;border:none;padding:0.5rem 1.2rem;border-radius:6px;">Cancelar</button>
+				<button onclick="window.confirmResetSenha('${id}')" style="background:#ffc107;color:#333;border:none;padding:0.5rem 1.2rem;border-radius:6px;font-weight:600;">
+					<i class="fas fa-key"></i> Resetar Senha
+				</button>
+			</div>
+		</div>
+	`;
+
 	modalsContainer.appendChild(modal);
-	setTimeout(() => modal.classList.add('show'), 10);
-
-	// Preview da foto
-	const fotoInput = modal.querySelector('#config-foto');
-	const fotoPreview = modal.querySelector('#config-foto-preview');
-	if (fotoInput && fotoPreview) {
-		fotoInput.onchange = function(e) {
-			const file = e.target.files[0];
-			if (file) {
-				const reader = new FileReader();
-				reader.onload = function(ev) {
-					fotoPreview.src = ev.target.result;
-					fotoPreview.style.display = '';
-				};
-				reader.readAsDataURL(file);
-			}
-		};
-	}
-
-	// Submit do formulário
-	modal.querySelector('#form-config-user').addEventListener('submit', async (e) => {
-		e.preventDefault();
-		const nome = modal.querySelector('#config-nome').value.trim();
-		const role = modal.querySelector('#config-role').value;
-		const telefone = modal.querySelector('#config-telefone').value.trim();
-		const endereco = modal.querySelector('#config-endereco').value.trim();
-		let foto_url = user.foto_url;
-		const fotoFile = fotoInput?.files[0];
-		if (fotoFile) {
-			const upload = await window.authSystem.uploadUserPhoto(fotoFile);
-			if (upload.success) foto_url = upload.photoUrl;
-		}
-		const password = modal.querySelector('#config-password').value;
-		let password_hash = undefined;
-		if (password) password_hash = btoa(password); // Simples hash base64
-		const profileData = { nome, role, telefone, endereco, foto_url };
-		if (password_hash) profileData.password_hash = password_hash;
-		// Atualizar no banco diretamente
-		const supabase = window.authSystem?.supabaseClient;
-		if (supabase && window.authSystem?.currentUser?.id) {
-			const updateData = { nome, role, telefone, endereco, foto_url };
-			if (password_hash) updateData.password_hash = password_hash;
-			await supabase.from('usuarios').update(updateData).eq('id', window.authSystem.currentUser.id);
-		}
-		const result = await window.authSystem.updateUserProfile(profileData);
-		if (result.success) {
-			alert('Perfil atualizado com sucesso!');
-			closeModal('modal-config-user');
-			window.dashboardApp.setupUI();
-		} else {
-			alert('Erro ao atualizar perfil: ' + (result.message || ''));
-		}
-	});
+	console.log('Modal appended');
 };
-		// ...existing code...
-		// Exibir menus/páginas conforme perfil
-		let role = '';
-		if (this.currentUser && (this.currentUser.role || this.currentUser.tipo)) {
-			role = (this.currentUser.role || this.currentUser.tipo || '').toLowerCase();
+
+window.confirmResetSenha = async function(id) {
+	try {
+		const hashedPassword = btoa('123456');
+		const { error } = await window.supabase
+			.from('usuarios')
+			.update({ password_hash: hashedPassword })
+			.eq('id', id);
+		
+		if (error) throw error;
+		
+		alert('Senha resetada com sucesso para "123456"!');
+		closeModal('reset-senha-modal');
+	} catch (error) {
+		console.error('Erro ao resetar senha:', error);
+		alert('Erro ao resetar senha: ' + error.message);
+	}
+};
+window.excluirUsuario = async function(id) {
+	if (!confirm('Tem certeza que deseja excluir este usuário?')) return;
+	
+	try {
+		const { error } = await window.supabase
+			.from('usuarios')
+			.delete()
+			.eq('id', id);
+		
+		if (error) throw error;
+		
+		alert('Usuário excluído com sucesso!');
+		// Recarregar a lista
+		if (window.dashboardApp && window.dashboardApp.showUsuariosModal) {
+			window.dashboardApp.showUsuariosModal();
 		}
-		const menuDashboard = document.getElementById('menu-dashboard');
-		const menuPedidos = document.getElementById('menu-pedidos');
-		const menuEntregas = document.getElementById('menu-entregas');
-		const menuEstoque = document.getElementById('menu-estoque');
-		const menuClientes = document.getElementById('menu-clientes');
-		const menuProdutos = document.getElementById('menu-produtos');
-		const menuUsuarios = document.getElementById('menu-usuarios');
-		if (role === 'sale' || role === 'vendedor') {
-			if (menuDashboard) menuDashboard.style.display = '';
-			if (menuPedidos) menuPedidos.style.display = '';
-			if (menuEntregas) menuEntregas.style.display = '';
-			if (menuEstoque) menuEstoque.style.display = 'none';
-			if (menuClientes) menuClientes.style.display = 'none';
-			if (menuProdutos) menuProdutos.style.display = 'none';
-			if (menuUsuarios) menuUsuarios.style.display = 'none';
-		} else {
-			// ...para outros perfis, exibe tudo normalmente
-			if (menuDashboard) menuDashboard.style.display = '';
-			if (menuPedidos) menuPedidos.style.display = '';
-			if (menuEntregas) menuEntregas.style.display = '';
-			if (menuEstoque) menuEstoque.style.display = '';
-			if (menuClientes) menuClientes.style.display = '';
-			if (menuProdutos) menuProdutos.style.display = '';
-			if (menuUsuarios) menuUsuarios.style.display = '';
-		}
-		// O código do dropdown e tooltip deve estar dentro do método renderPedidosPage
-		// ...existing code...
-// app.js - Dashboard com Integração Supabase Completa
+	} catch (error) {
+		console.error('Erro ao excluir usuário:', error);
+		alert('Erro ao excluir usuário: ' + error.message);
+	}
+};
+window.adicionarUsuario = function() {
+	if (window.dashboardApp && window.dashboardApp.showAddUserModal) {
+		window.dashboardApp.showAddUserModal();
+	} else {
+		console.error('showAddUserModal não encontrada');
+	}
+};
+// app.js - Dashboard com Fluxo de Vendedor Atualizado
 
 class DashboardApp {
-	async editClient(id) {
-		console.log('editClient chamado para id:', id);
-		const client = this.clients.find(c => c.id === id);
-		if (!client) {
-			console.warn('Cliente não encontrado:', id);
-			return;
-		}
-		let modal = document.getElementById('modal-edit-client');
-		if (!modal) {
-			modal = this.createModal('modal-edit-client', 'Editar Cliente', true);
-			console.log('Modal de edição criado');
-		}
-		const contentWrapper = modal.querySelector('.modal-content-wrapper');
-		if (contentWrapper) {
-			function escapeHtml(text) {
-				if (!text) return '';
-				return text.replace(/&/g, '&amp;')
-						   .replace(/</g, '&lt;')
-						   .replace(/>/g, '&gt;')
-						   .replace(/"/g, '&quot;')
-						   .replace(/'/g, '&#39;');
-			}
-			contentWrapper.innerHTML = `
-			<div style="display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.7rem;">
-				<span style="width: 50px; height: 50px; background: linear-gradient(135deg, #667eea, #6dd5ed); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.7rem;"><i class="fas fa-user"></i></span>
-				<span style="font-size: 1.35rem; font-weight: 700; color: #333;">Editar Cliente</span>
-				<button onclick="closeModal('modal-edit-client')" style="margin-left:auto; background:none; border:none; font-size:1.3rem; color:#888; cursor:pointer;">&times;</button>
-			</div>
-			<div style="border-bottom:1px solid #eee; margin-bottom:1rem;"></div>
-			<form id="form-edit-client" class="form-modal">
-				<div class="form-group">
-					<label for="edit-client-nome">Nome *</label>
-					<input type="text" id="edit-client-nome" required class="form-control" value="${escapeHtml(client.nome)}">
-				</div>
-				<div class="form-group">
-					<label for="edit-client-telefone">Telefone *</label>
-					<input type="tel" id="edit-client-telefone" required class="form-control" value="${escapeHtml(client.telefone)}">
-				</div>
-				<div class="form-group">
-					<label for="edit-client-email">Email</label>
-					<input type="email" id="edit-client-email" class="form-control" value="${escapeHtml(client.email || '')}">
-				</div>
-				<div class="form-group">
-					<label for="edit-client-endereco">Endereço *</label>
-					<textarea id="edit-client-endereco" required class="form-control" rows="3">${escapeHtml(client.endereco)}</textarea>
-				</div>
-				<div class="modal-actions">
-					<button type="button" onclick="closeModal('modal-edit-client')" class="btn btn-secondary">Cancelar</button>
-					<button type="submit" class="btn btn-primary">Salvar</button>
-				</div>
-			</form>
-		`;
-		}
-		let modalsContainer = document.getElementById('modals-container');
-		if (!modalsContainer) {
-			modalsContainer = document.createElement('div');
-			modalsContainer.id = 'modals-container';
-			document.body.appendChild(modalsContainer);
-		}
-		modalsContainer.appendChild(modal);
-		setTimeout(() => modal.classList.add('show'), 10);
-		modal.querySelector('#form-edit-client').addEventListener('submit', async (e) => {
-			e.preventDefault();
-			const nome = modal.querySelector('#edit-client-nome').value.trim();
-			const telefone = modal.querySelector('#edit-client-telefone').value.trim();
-			const email = modal.querySelector('#edit-client-email').value.trim();
-			const endereco = modal.querySelector('#edit-client-endereco').value.trim();
-			if (!nome || !telefone || !endereco) {
-				alert('Preencha todos os campos obrigatórios');
-				return;
-			}
-			const clientData = { nome, telefone, email, endereco };
-			await this.saveToSupabase('clientes', clientData, id);
-			Object.assign(client, clientData);
-			closeModal('modal-edit-client');
-			this.renderClientesPage();
-	});
-	}
-
-	async deleteClient(id) {
-		if (!confirm('Tem certeza que deseja excluir este cliente?')) return;
-		await this.deleteFromSupabase('clientes', id);
-		this.clients = this.clients.filter(c => c.id !== id);
-		this.renderClientesPage();
-	}
 	constructor() {
 		this.currentUser = null;
 		this.products = [];
 		this.clients = [];
 		this.orders = [];
+		this.despesas = [];
+		this.receitas = [];
 		this.initialized = false;
 		this.currentLang = localStorage.getItem('lang') || 'pt-BR';
 		this.supabase = null;
+		this.cart = {};
+		this.isVendasOnline = window.location.pathname.includes('vendas-online.html') || document.body.classList.contains('vendas-online');
 	}
 
 	async initialize() {
 		try {
-			console.log('🚀 Inicializando Dashboard...');
+			console.log('🚀 Inicializando Dashboard...', this.isVendasOnline ? '(Modo Vendas Online)' : '(Modo Dashboard)');
 
 			// Aguardar authSystem
 			let attempts = 0;
@@ -482,40 +237,36 @@ class DashboardApp {
 				attempts++;
 			}
 
-			if (!window.authSystem?.isLoggedIn()) {
+			// No modo vendas online, não requer login
+			if (!this.isVendasOnline && !window.authSystem?.isLoggedIn()) {
 				window.location.href = 'index.html';
 				return false;
 			}
 
-			this.currentUser = await window.authSystem.getCurrentUser();
+			// No modo vendas online, não carrega dados do usuário logado
+			if (!this.isVendasOnline) {
+				this.currentUser = await window.authSystem.getCurrentUser();
+			}
 			this.supabase = window.supabaseClient;
 
-			// Controle de acesso: vendedor vê apenas seus pedidos e dashboard
-			if (this.currentUser.tipo === 'vendedor') {
-				await this.loadData();
-				// Filtrar pedidos do vendedor
-				this.orders = this.orders.filter(o => o.vendedor_id === this.currentUser.id);
-				this.setupUI();
-				this.setupEventListeners();
-				this.setupLanguageSwitcher();
+			// Carregar dados
+			await this.loadData();
+
+			// Configurar UI baseado no tipo de usuário e modo
+			this.setupUI();
+			this.setupEventListeners();
+			this.setupLanguageSwitcher();
+			
+			if (!this.isVendasOnline) {
 				this.createStatsCards();
 				this.createDataCards();
-				this.updateEntregasHoje();
-			} else {
-				// Admin vê tudo
-				await this.loadData();
-				this.setupUI();
-				this.setupEventListeners();
-				this.setupLanguageSwitcher();
-				this.createStatsCards();
-				this.createDataCards();
-				this.updateEntregasHoje();
+				this.updateFollowUpEntregas();
 			}
 
 			window.addEventListener('languageChanged', () => this.updateAllTranslations());
 
 			this.initialized = true;
-			console.log('✅ Dashboard inicializado');
+			
 			// Remover splash screen
 			const splashScreen = document.getElementById('splash-screen');
 			if (splashScreen) {
@@ -532,86 +283,327 @@ class DashboardApp {
 		}
 	}
 
-	t(key) {
-		return typeof window.t === 'function' ? window.t(key) : key;
+	async loadData() {
+		if (!this.supabase) {
+			console.warn('⚠️ Supabase não disponível');
+			return;
+		}
+
+		try {
+			const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
+			const isVendedor = role === 'sale' || role === 'vendedor';
+			const isAdmin = role === 'admin';
+			
+			// Carregar clientes
+			const { data: clientes, error: clientesError } = await this.supabase
+				.from('clientes')
+				.select('id, nome, telefone, email, endereco, created_at')
+				.order('created_at', { ascending: false })
+				.limit(200); // Limitar para performance
+			if (clientesError) {
+				console.error('❌ Erro ao carregar clientes:', clientesError);
+				this.clients = [];
+			} else {
+				this.clients = Array.isArray(clientes) ? clientes.filter(c => c && c.id) : [];
+			}
+
+			// Carregar produtos
+			try {
+				// Primeiro verificar se conseguimos listar as tabelas disponíveis
+				const { data: tables, error: tablesError } = await this.supabase
+					.from('produtos')
+					.select('id, nome, preco, status_produto')
+					.limit(1);
+				
+				if (tablesError) {
+					console.error('❌ Erro na tabela produtos:', tablesError);
+					console.log('❌ Código do erro:', tablesError.code);
+					console.log('❌ Mensagem do erro:', tablesError.message);
+					console.log('❌ Detalhes do erro:', tablesError.details);
+					
+					// Tentar uma query ainda mais simples
+					const { data: simpleData, error: simpleError } = await this.supabase
+						.from('produtos')
+						.select('count')
+						.limit(1);
+					
+					if (simpleError) {
+						console.error('❌ Mesmo query simples falhou:', simpleError);
+					}
+					
+					this.products = [];
+				} else {
+					// Carregar apenas campos essenciais primeiro para evitar timeout
+					const { data: produtosBasicos, error: basicosError } = await this.supabase
+						.from('produtos')
+						.select('id, nome, preco, status_produto, categoria, descricao, estoque, custo, created_at')
+						.order('created_at', { ascending: false })
+						.limit(50); // Reduzir limite para evitar timeout
+					
+					if (basicosError) {
+						console.error('❌ Erro ao carregar produtos básicos:', basicosError);
+						this.products = [];
+					} else {
+						console.log('📦 Produtos básicos carregados:', produtosBasicos?.length || 0);
+						this.products = produtosBasicos || [];
+						
+						// Carregar fotos separadamente apenas se houver produtos
+						if (this.products.length > 0) {
+							setTimeout(async () => {
+								try {
+									// Carregar fotos em lotes menores para evitar timeout
+									const loteSize = 5;
+									for (let i = 0; i < this.products.length; i += loteSize) {
+										const lote = this.products.slice(i, i + loteSize);
+										const { data: fotosData, error: fotosError } = await this.supabase
+											.from('produtos')
+											.select('id, fotos')
+											.in('id', lote.map(p => p.id));
+										
+										if (!fotosError && fotosData) {
+											fotosData.forEach(item => {
+												const produto = this.products.find(p => p.id === item.id);
+												if (produto) {
+													produto.fotos = item.fotos;
+												}
+											});
+										}
+										
+										// Pequena pausa entre lotes
+										await new Promise(resolve => setTimeout(resolve, 100));
+									}
+									console.log('📦 Fotos carregadas em lotes');
+									
+									// Atualizar apenas a seção ativa se ela mostrar produtos
+									if (this.activeSection === 'produtos' || this.activeSection === 'pedidos') {
+										// Em vez de re-renderizar completamente, apenas atualizar as imagens
+										this.updateProductImages();
+									}
+								} catch (error) {
+									console.warn('⚠️ Erro ao carregar fotos:', error);
+								}
+							}, 1000); // Atraso maior para garantir que produtos básicos já carregaram
+						}
+					}
+				}
+			} catch (prodError) {
+				console.error('❌ Exceção ao carregar produtos:', prodError);
+				this.products = [];
+			}
+
+			// Carregar pedidos - NOTA: Campo vendedor_id não existe no schema atual
+			// Todos os pedidos são carregados e a filtragem é feita nas entregas
+			let pedidosQuery = this.supabase
+				.from('pedidos')
+				.select('*')
+				.order('created_at', { ascending: false })
+				.limit(100); // Limitar para performance
+			
+			// NOTA: Filtragem por vendedor será implementada quando o schema for atualizado
+			// if (isVendedor && this.currentUser?.id) {
+			//     pedidosQuery = pedidosQuery.eq('vendedor_id', this.currentUser.id);
+			//     console.log('👤 Filtrando pedidos para vendedor:', this.currentUser.id);
+			// }
+
+			// Executar query dos pedidos
+			const { data: pedidos, error: pedidosError } = await pedidosQuery;
+			if (pedidosError) {
+				console.error('❌ Erro ao carregar pedidos:', pedidosError);
+				this.orders = [];
+			} else {
+				console.log('📋 Pedidos carregados:', pedidos?.length || 0);
+				// Processar pedidos para incluir cliente_nome
+				this.orders = await Promise.all((pedidos || []).map(async (pedido) => {
+					let clienteNome = 'Cliente';
+					if (pedido.cliente_id) {
+						const cliente = this.clients.find(c => c.id == pedido.cliente_id);
+						if (cliente) {
+							clienteNome = cliente.nome;
+						} else {
+							// Tentar buscar cliente do banco se não estiver em cache
+							try {
+								const { data: clienteData, error: clienteError } = await this.supabase
+									.from('clientes')
+									.select('nome')
+									.eq('id', pedido.cliente_id)
+									.single();
+								if (!clienteError && clienteData) {
+									clienteNome = clienteData.nome;
+								}
+							} catch (e) {
+								console.warn('Erro ao buscar nome do cliente:', e);
+							}
+						}
+					}
+					return {
+						...pedido,
+						cliente_nome: clienteNome
+					};
+				}));
+			}
+
+			// Carregar entregas - filtrar apenas entregas dos pedidos do usuário
+			let entregasQuery = this.supabase
+				.from('entregas')
+				.select(`
+					*,
+					pedidos (
+						id,
+						numero_pedido,
+						cliente_id,
+						valor_total,
+						status,
+						data_entrega,
+						hora_entrega,
+						clientes (
+							nome,
+							telefone,
+							endereco
+						)
+					)
+				`)
+				.order('data_entrega', { ascending: true })
+				.limit(200);
+
+			// Se for vendedor, filtrar apenas entregas dos seus pedidos
+			// NOTA: Filtragem por vendedor será implementada quando o schema for atualizado
+			// if (isVendedor && this.currentUser?.id) {
+			//     const vendedorPedidosIds = this.orders.map(o => o.id);
+			//     console.log('👤 Vendedor logado:', this.currentUser.id, '- Pedidos encontrados:', vendedorPedidosIds.length);
+			//     if (vendedorPedidosIds.length > 0) {
+			//         entregasQuery = entregasQuery.in('pedido_id', vendedorPedidosIds);
+			//         console.log('🚚 Filtrando entregas para pedidos do vendedor:', vendedorPedidosIds);
+			//     } else {
+			//         // Se não há pedidos, não carregar entregas
+			//         console.log('🚚 Vendedor sem pedidos, pulando carregamento de entregas');
+			//         this.entregas = [];
+			//     }
+			// } else {
+			//     console.log('👑 Admin logado - carregando todas as entregas');
+			// }
+			
+			console.log('🚚 Carregando todas as entregas (filtragem por vendedor desabilitada temporariamente)');
+
+			const { data: entregas, error: entregasError } = await entregasQuery;
+			if (entregasError) {
+				console.error('❌ Erro ao carregar entregas:', entregasError);
+				this.entregas = [];
+			} else {
+				this.entregas = Array.isArray(entregas) ? entregas : [];
+				console.log('🚚 Entregas carregadas:', this.entregas.length);
+				console.log('📋 Primeira entrega (exemplo):', this.entregas[0]);
+			}
+
+			// Carregar despesas
+			const { data: despesas, error: despesasError } = await this.supabase
+				.from('despesas')
+				.select('id, descricao, valor, data_despesa, categoria, created_at')
+				.order('data_despesa', { ascending: false })
+				.limit(100); // Limitar para performance
+			if (despesasError) {
+				console.error('❌ Erro ao carregar despesas:', despesasError);
+				this.despesas = [];
+			} else {
+				this.despesas = despesas || [];
+			}
+
+			// Carregar receitas
+
+			// Carregar receitas
+			const { data: receitas, error: receitasError } = await this.supabase
+				.from('receitas')
+				.select('id, descricao, valor, data_recebimento, created_at')
+				.order('data_recebimento', { ascending: false })
+				.limit(100); // Limitar para performance
+			if (receitasError) {
+				console.error('❌ Erro ao carregar receitas:', receitasError);
+				this.receitas = [];
+			} else {
+				this.receitas = receitas || [];
+			}
+
+			// Atualizar entregas após carregamento dos dados
+			this.updateFollowUpEntregas();
+		} catch (error) {
+			console.error('Erro ao carregar dados:', error);
+		}
 	}
 
-	formatCurrency(value) {
-		return `CAD$ ${parseFloat(value || 0).toFixed(2)}`;
-	}
-
-	formatDate(dateString) {
-		if (!dateString) return '';
-		const date = new Date(dateString + 'T00:00:00');
-		const lang = this.currentLang === 'pt-BR' ? 'pt-BR' : 'en-US';
-		return date.toLocaleDateString(lang, { day: '2-digit', month: 'long', year: 'numeric' });
-	}
-
-	getStatusColor(status) {
-		const colors = {
-			'pendente': '#FFC107',
-			'confirmado': '#007bff',
-			'pago': '#28a745',
-			'entregue': '#17a2b8',
-			'cancelado': '#dc3545'
-		};
-		return colors[status] || '#6c757d';
+	updateProductImages() {
+		// Atualizar apenas as imagens dos produtos já renderizados
+		this.products.forEach(produto => {
+			if (produto.fotos) {
+				let fotos = [];
+				try { fotos = JSON.parse(produto.fotos); } catch {}
+				
+				// Atualizar carrossel na página de produtos
+				const carouselProdutos = document.getElementById(`carousel-${produto.id}`);
+				if (carouselProdutos && fotos.length > 0) {
+					carouselProdutos.innerHTML = fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: cover;">`).join('');
+				}
+				
+				// Atualizar carrossel na página de pedidos
+				const carouselPedidos = document.getElementById(`market-carousel-${produto.id}`);
+				if (carouselPedidos && fotos.length > 0) {
+					carouselPedidos.innerHTML = fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: cover;">`).join('');
+					
+					// Adicionar controles de navegação se houver múltiplas fotos
+					if (fotos.length > 1) {
+						const container = carouselPedidos.parentElement;
+						if (!container.querySelector('button[data-action="prev-produto-photo"]')) {
+							container.insertAdjacentHTML('beforeend', `
+								<button data-action="prev-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
+								<button data-action="next-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">›</button>
+							`);
+						}
+					}
+				}
+			}
+		});
+		console.log('🖼️ Imagens dos produtos atualizadas');
 	}
 
 	setupUI() {
-		// Always get role from currentUser
+		// Modo vendas online: mostrar apenas produtos
+		if (this.isVendasOnline) {
+			this.showProdutosPage();
+			return;
+		}
+
 		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
+		const isVendedor = role === 'sale' || role === 'vendedor';
 
-		// Hide/show menu items
-		const menuDashboard = document.getElementById('menu-dashboard');
-		const menuPedidos = document.getElementById('menu-pedidos');
-		const menuEntregas = document.getElementById('menu-entregas');
-		const menuEstoque = document.getElementById('menu-estoque');
-		const menuClientes = document.getElementById('menu-clientes');
-		const menuProdutos = document.getElementById('menu-produtos');
-		const menuUsuarios = document.getElementById('menu-usuarios');
-		if (role === 'sale' || role === 'vendedor') {
-			if (menuDashboard) menuDashboard.style.display = '';
-			if (menuPedidos) menuPedidos.style.display = '';
-			if (menuEntregas) menuEntregas.style.display = '';
-			if (menuEstoque) menuEstoque.style.display = 'none';
-			if (menuClientes) menuClientes.style.display = 'none';
-			if (menuProdutos) menuProdutos.style.display = 'none';
-			if (menuUsuarios) menuUsuarios.style.display = 'none';
+		// Controlar visibilidade dos menus na navbar
+		const navBtns = {
+			dashboard: document.querySelector('[data-section="dashboard"]'),
+			clientes: document.querySelector('[data-section="clientes"]'),
+			produtos: document.querySelector('[data-section="produtos"]'),
+			pedidos: document.querySelector('[data-section="pedidos"]'),
+			estoque: document.querySelector('[data-section="estoque"]'),
+			entregas: document.querySelector('[data-section="entregas"]')
+		};
+
+		if (isVendedor) {
+			// Vendedor: Dashboard, Pedidos e Entregas
+			if (navBtns.dashboard) navBtns.dashboard.style.display = 'flex';
+			if (navBtns.pedidos) navBtns.pedidos.style.display = 'flex';
+			if (navBtns.entregas) navBtns.entregas.style.display = 'flex';
+			if (navBtns.clientes) navBtns.clientes.style.display = 'none';
+			if (navBtns.produtos) navBtns.produtos.style.display = 'none';
+			if (navBtns.estoque) navBtns.estoque.style.display = 'none';
 		} else {
-			if (menuDashboard) menuDashboard.style.display = '';
-			if (menuPedidos) menuPedidos.style.display = '';
-			if (menuEntregas) menuEntregas.style.display = '';
-			if (menuEstoque) menuEstoque.style.display = '';
-			if (menuClientes) menuClientes.style.display = '';
-			if (menuProdutos) menuProdutos.style.display = '';
-			if (menuUsuarios) menuUsuarios.style.display = '';
+			// Admin: Todos os menus
+			Object.values(navBtns).forEach(btn => {
+				if (btn) btn.style.display = 'flex';
+			});
 		}
 
-		// Sempre inicia mostrando apenas o dashboard
-		const dashboardSection = document.getElementById('dashboard-section');
-		const clientesSection = document.getElementById('clientes-section');
-		const produtosSection = document.getElementById('produtos-section');
-		const estoqueSection = document.getElementById('estoque-section');
-		const usuariosSection = document.getElementById('usuarios-section');
-		if (dashboardSection) dashboardSection.style.display = 'block';
-		if (clientesSection) clientesSection.style.display = 'none';
-		if (produtosSection) produtosSection.style.display = 'none';
-		if (estoqueSection) estoqueSection.style.display = 'none';
-		if (usuariosSection) usuariosSection.style.display = 'none';
-
-		// Filter dashboard data for vendor
-		if (role === 'sale' || role === 'vendedor') {
-			if (Array.isArray(this.orders) && this.currentUser?.id) {
-				this.orders = this.orders.filter(o => o.vendedor_id === this.currentUser.id);
-			}
-		}
-
-		// User info and dropdown
+		// Configurar dropdown de usuário
 		const userNameEl = document.getElementById('dropdown-user-name');
 		const userAvatarEl = document.getElementById('user-avatar');
 		const welcomeName = document.getElementById('welcome-name');
 		const userType = document.getElementById('dropdown-user-type');
+		const configBtn = document.getElementById('config-btn');
 		const usuariosBtn = document.getElementById('usuarios-btn');
 
 		if (userNameEl) userNameEl.textContent = this.currentUser.nome;
@@ -620,25 +612,44 @@ class DashboardApp {
 				`https://ui-avatars.com/api/?name=${encodeURIComponent(this.currentUser.nome)}&background=ff6b9d&color=fff&size=32`;
 		}
 		if (welcomeName) welcomeName.textContent = this.currentUser.nome;
+		
 		if (userType) {
 			if (role === 'admin') {
 				userType.textContent = this.currentLang === 'pt-BR' ? 'Administrador' : 'Administrator';
-				if (usuariosBtn) usuariosBtn.style.display = 'flex';
-			} else if (role === 'sale' || role === 'vendedor') {
+				// Removido: usuariosBtn.classList.add('show') - será controlado pelo botão configurações
+			} else if (isVendedor) {
 				userType.textContent = this.currentLang === 'pt-BR' ? 'Vendedor' : 'Salesperson';
-				if (usuariosBtn) usuariosBtn.style.display = 'none';
 			} else {
 				userType.textContent = this.currentLang === 'pt-BR' ? 'Usuário' : 'User';
-				if (usuariosBtn) usuariosBtn.style.display = 'none';
 			}
 		}
 
-		// Dropdown events
+		// Ocultar botão de configurações para vendedores
+		if (configBtn) {
+			if (isVendedor) {
+				configBtn.style.display = 'none';
+			} else {
+				configBtn.style.display = 'flex';
+			}
+		}
+
+		// Configurar eventos do dropdown
 		const profileBtn = document.getElementById('profile-btn');
-		if (profileBtn) profileBtn.onclick = () => window.showConfigModal?.();
-		const configBtn = document.getElementById('config-btn');
-		if (configBtn) configBtn.onclick = null;
-		if (usuariosBtn) usuariosBtn.onclick = () => window.showUsuariosModal?.();
+		if (profileBtn) {
+			profileBtn.onclick = () => {
+				window.dashboardApp.showEditUserModal();
+			};
+		}
+
+		// Configurações só são visíveis para admins (já controlado no display acima)
+		if (configBtn && !isVendedor) {
+			// Event listener movido para dashboard.html para evitar conflitos
+		}
+
+		if (usuariosBtn) {
+			// Event listener movido para dashboard.html para evitar conflitos
+		}
+		
 		const logoutBtn = document.getElementById('logout-btn');
 		if (logoutBtn) logoutBtn.onclick = () => {
 			window.authSystem.logout();
@@ -648,6 +659,11 @@ class DashboardApp {
 		this.updateWelcomeMessage();
 		const pageTitle = document.getElementById('page-title');
 		if (pageTitle) pageTitle.textContent = this.t('section.dashboard');
+
+		// Verificar se o usuário tem senha padrão e mostrar aviso
+		if (this.currentUser?.senha_padrao) {
+			this.showPasswordChangeWarning();
+		}
 	}
 
 	updateWelcomeMessage() {
@@ -658,23 +674,15 @@ class DashboardApp {
 	}
 
 	setupEventListeners() {
+		console.log('🎧 Configurando event listeners...');
+		
 		const userMenuBtn = document.getElementById('user-menu-button');
 		const userDropdown = document.getElementById('user-dropdown');
-		const logoutBtn = document.getElementById('logout-btn');
 
 		if (userMenuBtn) {
 			userMenuBtn.addEventListener('click', (e) => {
 				e.stopPropagation();
 				userDropdown?.classList.toggle('show');
-			});
-		}
-
-		if (logoutBtn) {
-			logoutBtn.addEventListener('click', () => {
-				if (confirm(this.t('btn.logout') + '?')) {
-					window.authSystem.logout();
-					window.location.href = 'index.html';
-				}
 			});
 		}
 
@@ -684,10 +692,14 @@ class DashboardApp {
 			}
 		});
 
+		// Event listeners para botões de navegação
+		console.log('🔘 Configurando botões de navegação...');
 		document.querySelectorAll('.nav-btn').forEach(btn => {
+			const section = btn.getAttribute('data-section');
+			console.log('🔘 Botão encontrado:', section);
 			btn.addEventListener('click', (e) => {
-				const section = e.currentTarget.getAttribute('data-section');
-				this.switchSection(section);
+				const sectionName = e.currentTarget.getAttribute('data-section');
+				this.switchSection(sectionName);
 			});
 		});
 	}
@@ -719,238 +731,1201 @@ class DashboardApp {
 		document.querySelectorAll('.nav-btn').forEach(b => b.style.color = '#888');
 
 		const targetSection = document.getElementById(`${section}-section`);
-		if (targetSection) targetSection.style.display = 'block';
+		if (targetSection) {
+			targetSection.style.display = 'block';
+		}
 
 		const activeBtn = document.querySelector(`[data-section="${section}"]`);
 		if (activeBtn) activeBtn.style.color = '#ff6b9d';
 
 		const pageTitle = document.getElementById('page-title');
 		if (pageTitle) pageTitle.textContent = this.t(`section.${section}`);
+		
+		// Definir seção ativa
+		this.activeSection = section;
+		
+		// Renderizar página específica
+		setTimeout(() => {
+			if (section === 'produtos') {
+				this.renderProdutosPage();
+			}
+			if (section === 'clientes') {
+				this.renderClientesPage();
+			}
+			if (section === 'pedidos') {
+				this.renderPedidosPage();
+			}
+			if (section === 'estoque') {
+				this.renderEstoquePage();
+			}
+			if (section === 'entregas') {
+				this.renderEntregasPage();
+			}
+		}, 0);
+	}
+
+	t(key) {
+		return typeof window.t === 'function' ? window.t(key) : key;
+	}
+
+	formatCurrency(value) {
+		return `CAD$ ${parseFloat(value || 0).toFixed(2)}`;
+	}
+
+	formatDate(dateString) {
+		if (!dateString) return '';
+		const date = new Date(dateString + 'T00:00:00');
+		const lang = this.currentLang === 'pt-BR' ? 'pt-BR' : 'en-US';
+		return date.toLocaleDateString(lang, { day: '2-digit', month: 'long', year: 'numeric' });
+	}
+
+	getStatusColor(status) {
+		const colors = {
+			'pendente': '#FFC107',
+			'confirmado': '#007bff',
+			'pago': '#28a745',
+			'producao': '#FF9800',
+			'entregue': '#17a2b8',
+			'cancelado': '#dc3545'
+		};
+		return colors[status] || '#6c757d';
 	}
 
 	createStatsCards() {
 		const statsGrid = document.getElementById('stats-grid');
 		if (!statsGrid) return;
 
+		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
+		const isVendedor = role === 'sale' || role === 'vendedor';
+		const isAdmin = role === 'admin';
+
+		// Filtrar dados baseado no role do usuário
+		let ordersToUse = this.orders;
+		if (isVendedor && this.currentUser?.id) {
+			// Filtrar apenas pedidos criados pelo usuário logado
+			ordersToUse = this.orders.filter(order =>
+				order.user_id && order.user_id == this.currentUser.id
+			);
+			console.log(`👤 Vendedor logado - calculando estatísticas com ${ordersToUse.length} pedidos próprios`);
+		} else if (isAdmin) {
+			console.log('👑 Admin logado - mostrando todas as estatísticas');
+			ordersToUse = this.orders;
+		}
+
+		const despesasToUse = isVendedor ? [] : this.despesas; // Vendedores não veem despesas gerais
+		const receitasToUse = isVendedor ? [] : this.receitas; // Vendedores não veem receitas gerais
+
 		// Contagem por status
 		const statusCounts = {
-			pendente: this.orders.filter(o => o.status === 'pendente').length,
-			confirmado: this.orders.filter(o => o.status === 'confirmado').length,
-			pago: this.orders.filter(o => o.status === 'pago').length,
-			entregue: this.orders.filter(o => o.status === 'entregue').length,
-			cancelado: this.orders.filter(o => o.status === 'cancelado').length
+			pendente: ordersToUse.filter(o => o.status === 'pendente').length,
+			confirmado: ordersToUse.filter(o => o.status === 'confirmado').length,
+			producao: ordersToUse.filter(o => o.status === 'producao').length,
+			pago: ordersToUse.filter(o => o.status === 'pago').length,
+			entregue: ordersToUse.filter(o => o.status === 'entregue').length,
+			cancelado: ordersToUse.filter(o => o.status === 'cancelado').length
 		};
 
-
-		// Novo cálculo dos valores pagos e a receber
+		// Cálculo valores
 		let totalPago = 0;
 		let totalAReceber = 0;
-		this.orders.forEach(o => {
+		let totalCustos = 0;
+		let totalDespesas = 0;
+		let totalReceitas = 0;
+
+		const currentMonth = new Date().toISOString().slice(0, 7);
+
+		// Calcular receitas dos pedidos
+		ordersToUse.forEach(o => {
 			const valorTotal = parseFloat(o.valor_total || 0);
-			const sinal = parseFloat(o.valor_pago || 0); // valor_pago representa o sinal ou valor já pago
-			// Se pedido está pendente e tem sinal, soma o sinal ao totalPago e o restante ao totalAReceber
-			if (o.status === 'pendente' && sinal > 0 && sinal < valorTotal) {
-				totalPago += sinal;
-				totalAReceber += (valorTotal - sinal);
+			const valorPago = parseFloat(o.valor_pago || 0);
+
+			// Lógica baseada no status do pedido
+			if (o.status === 'cancelado' || o.status === 'pendente') {
+				// Pedidos cancelados ou pendentes não geram receita nem custos
+				return;
 			}
-			// Se pedido está pago
-			else if (o.status === 'pago') {
-				// Se tem pagamento parcial, soma o valor pago ao totalPago e o restante ao totalAReceber
-				if (sinal > 0 && sinal < valorTotal) {
-					totalPago += sinal;
-					totalAReceber += (valorTotal - sinal);
-				} else {
-					// Pagamento total
-					totalPago += valorTotal;
+
+			// Para pedidos totalmente pagos, receita é o valor total
+			if (o.status === 'pago') {
+				totalPago += valorTotal;
+				totalReceitas += valorTotal;
+			}
+			// Para pedidos entregues, receita é o valor total (mesmo com pagamentos parciais)
+			else if (o.status === 'entregue') {
+				totalPago += valorPago;
+				totalReceitas += valorTotal;
+				if (valorPago < valorTotal) {
+					totalAReceber += (valorTotal - valorPago);
 				}
 			}
-			// Se pedido está entregue, considera como totalmente pago
-			else if (o.status === 'entregue') {
-				totalPago += valorTotal;
+			// Para pedidos em produção ou confirmados com pagamentos parciais
+			else if ((o.status === 'producao' || o.status === 'confirmado') && valorPago > 0) {
+				totalPago += valorPago;
+				totalAReceber += (valorTotal - valorPago);
+			}
+			// Para pedidos em produção ou confirmados sem pagamento ainda
+			else if (o.status === 'producao' || o.status === 'confirmado') {
+				totalAReceber += valorTotal;
 			}
 		});
 
-		const stats = [
-				{ icon: 'fa-cookie-bite', label: this.t('dashboard.produtos'), id: 'total-produtos', labelId: 'label-produtos', value: this.products.length },
-				{ icon: 'fa-users', label: this.t('dashboard.clientes'), id: 'total-clientes', labelId: 'label-clientes', value: this.clients.length },
-				{ icon: 'fa-clock', label: this.t('dashboard.pendentes'), id: 'pedidos-pendentes', labelId: 'label-pendentes', value: statusCounts.pendente },
-				   { icon: 'fa-user-check', label: this.t('dashboard.confirmados'), id: 'pedidos-confirmados', labelId: 'label-confirmados', value: statusCounts.confirmado },
-				   { icon: 'fa-money-bill-wave', label: this.t('dashboard.pagos'), id: 'pedidos-pagos', labelId: 'label-pagos', value: statusCounts.pago },
-				   { icon: 'fa-check-circle', label: this.t('dashboard.entregues'), id: 'pedidos-entregues', labelId: 'label-entregues', value: statusCounts.entregue },
-				   { icon: 'fa-ban', label: this.t('dashboard.cancelados'), id: 'pedidos-cancelados', labelId: 'label-cancelados', value: statusCounts.cancelado },
-				   { icon: 'fa-warehouse', label: this.t('dashboard.estoque'), id: 'total-estoque', labelId: 'label-estoque', value: this.products.reduce((sum, p) => sum + (p.estoque || 0), 0) },
-				   { icon: 'fa-shipping-fast', label: this.t('dashboard.entregas'), id: 'total-entregas', labelId: 'label-entregas', value: this.countDeliveriesToday() },
-				  { icon: 'fa-hand-holding-usd', label: this.t('dashboard.total_pago'), id: 'total-pago', labelId: 'label-total-pago', value: this.formatCurrency(totalPago) },
-			   { icon: 'fa-money-check-alt', label: 'A Receber (parcial)', id: 'total-a-receber', labelId: 'label-total-a-receber', value: this.formatCurrency(totalAReceber) }
-		];
+		// Calcular custos dos produtos vendidos baseado nos custos dos produtos
+		// Para cada pedido pago/entregue/producao, calcular o custo dos produtos
+		ordersToUse.forEach(order => {
+			if (order.status === 'pago' || order.status === 'entregue' || order.status === 'producao') {
+				// Aqui precisaríamos dos itens do pedido para calcular custos
+				// Por enquanto, vamos estimar baseado nos produtos
+				const produtosDoPedido = order.produtos || [];
+				produtosDoPedido.forEach(item => {
+					const produto = this.products.find(p => p.id === item.produto_id);
+					if (produto && produto.custo) {
+						totalCustos += parseFloat(produto.custo) * (item.quantidade || 1);
+					}
+				});
+			}
+		});
 
-		// Adiciona cards monetários customizados
-		const monetaryStats = [
-			{ icon: 'fa-hand-holding-usd', label: this.t('dashboard.total_pago'), id: 'total-pago', labelId: 'label-total-pago', value: this.formatCurrency(totalPago) },
-			{ icon: 'fa-money-check-alt', label: 'A Receber', id: 'total-a-receber', labelId: 'label-total-a-receber', value: this.formatCurrency(totalAReceber) },
-			{ icon: 'fa-file-invoice-dollar', label: 'Despesas', id: 'total-despesas', labelId: 'label-despesas', value: this.formatCurrency(this.despesas || 0) },
-			{ icon: 'fa-chart-line', label: 'Receitas', id: 'total-receitas', labelId: 'label-receitas', value: this.formatCurrency(this.receitas || 0) }
-		];
-		// Os demais cards
-		const otherStats = stats.filter(stat => !['total-pago','total-a-receber','total-despesas','total-receitas'].includes(stat.id));
+		// Se não conseguiu calcular custos dos produtos, usar despesas com categoria 'produtos' como fallback
+		if (totalCustos === 0) {
+			despesasToUse.forEach(despesa => {
+				const despesaMonth = despesa.data_despesa.slice(0, 7);
+				if (despesaMonth === currentMonth && despesa.categoria === 'produtos') {
+					totalCustos += parseFloat(despesa.valor || 0);
+				}
+			});
+		}
 
+		// Somar despesas do mês atual
+		despesasToUse.forEach(despesa => {
+			const despesaMonth = despesa.data_despesa.slice(0, 7);
+			if (despesaMonth === currentMonth && despesa.categoria !== 'produtos') {
+				totalDespesas += parseFloat(despesa.valor || 0);
+			}
+		});
+
+		// Somar receitas adicionais
+		receitasToUse.forEach(receita => {
+			const receitaMonth = receita.data_recebimento.slice(0, 7);
+			if (receitaMonth === currentMonth) {
+				totalReceitas += parseFloat(receita.valor || 0);
+			}
+		});
+
+		// Cards Monetários - filtrar baseado no role
+		let monetaryCards = [];
+		if (isVendedor) {
+			// Vendedores veem apenas: Total Pago, A Receber
+			monetaryCards = [
+				{ icon: 'fa-hand-holding-usd', label: 'Total Pago', value: this.formatCurrency(totalPago) },
+				{ icon: 'fa-money-check-alt', label: 'A Receber', value: this.formatCurrency(totalAReceber) }
+			];
+		} else {
+			// Admins veem todos os cards monetários
+			monetaryCards = [
+				{ icon: 'fa-hand-holding-usd', label: 'Total Pago', value: this.formatCurrency(totalPago) },
+				{ icon: 'fa-money-check-alt', label: 'A Receber', value: this.formatCurrency(totalAReceber) },
+				{ icon: 'fa-money-bill-wave', label: 'Custos', value: this.formatCurrency(totalCustos) },
+				{ icon: 'fa-chart-line', label: 'Receitas', value: this.formatCurrency(totalReceitas), id: 'card-receitas' },
+				{ icon: 'fa-file-invoice-dollar', label: 'Despesas', value: this.formatCurrency(totalDespesas), id: 'card-despesas' },
+				{ icon: 'fa-coins', label: 'Lucro', value: this.formatCurrency(totalReceitas - totalCustos - totalDespesas) }
+			];
+		}
+
+		// Cards Operacionais - filtrar baseado no role
+		let operationalCards = [];
+		if (isVendedor) {
+			// Vendedores veem apenas cards relacionados aos seus pedidos
+			operationalCards = [
+				{ icon: 'fa-truck', label: 'Entregas Hoje', value: this.getDeliveriesToday() },
+				{ icon: 'fa-clock', label: 'Pendentes', value: statusCounts.pendente },
+				{ icon: 'fa-user-check', label: 'Confirmados', value: statusCounts.confirmado },
+				{ icon: 'fa-cog', label: 'Em Produção', value: this.getOrdersInProduction() },
+				{ icon: 'fa-money-bill-wave', label: 'Pago', value: statusCounts.pago },
+				{ icon: 'fa-check-circle', label: 'Entregue', value: statusCounts.entregue },
+				{ icon: 'fa-times-circle', label: 'Cancelados', value: statusCounts.cancelado }
+			];
+		} else {
+			// Admins veem todos os cards operacionais
+			operationalCards = [
+				{ icon: 'fa-users', label: 'Clientes', value: this.clients.length },
+				{ icon: 'fa-cookie-bite', label: 'Produtos', value: this.products.length },
+				{ icon: 'fa-truck', label: 'Entregas Hoje', value: this.getDeliveriesToday() },
+				{ icon: 'fa-clock', label: 'Pendentes', value: statusCounts.pendente },
+				{ icon: 'fa-user-check', label: 'Confirmados', value: statusCounts.confirmado },
+				{ icon: 'fa-cog', label: 'Em Produção', value: this.getOrdersInProduction() },
+				{ icon: 'fa-money-bill-wave', label: 'Pago', value: statusCounts.pago },
+				{ icon: 'fa-check-circle', label: 'Entregue', value: statusCounts.entregue },
+				{ icon: 'fa-times-circle', label: 'Cancelados', value: statusCounts.cancelado }
+			];
+		}
+
+		// Renderizar os 4 cards principais
 		statsGrid.innerHTML = `
-			<div id="stats-monetary-row" style="display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 1rem; max-width: 500px; margin-bottom: 0.2rem;">
-				<div class="stat-card stat-card-monetary">
-					<div class="stat-icon"><i class="fas ${monetaryStats[0].icon}"></i></div>
-					<div style="display:flex;align-items:center;justify-content:flex-start;gap:0.7rem;">
-						<div class="stat-value" id="${monetaryStats[0].id}" style="margin:0;font-weight:700;">${monetaryStats[0].value}</div>
-						<span style="font-weight:500;">-</span>
-						<div class="stat-label" id="${monetaryStats[0].labelId}" style="margin:0;white-space:nowrap;font-weight:500;">${monetaryStats[0].label}</div>
-					</div>
+			<!-- Card 1: Indicadores Financeiros -->
+			<div class="main-dashboard-card">
+				<div class="card-header">
+					<h3><i class="fas fa-chart-line"></i> Indicadores Financeiros</h3>
 				</div>
-				<div class="stat-card stat-card-monetary">
-					<div class="stat-icon"><i class="fas ${monetaryStats[1].icon}"></i></div>
-					<div style="display:flex;align-items:center;justify-content:flex-start;gap:0.7rem;">
-						<div class="stat-value" id="${monetaryStats[1].id}" style="margin:0;font-weight:700;">${monetaryStats[1].value}</div>
-						<span style="font-weight:500;">-</span>
-						<div class="stat-label" id="${monetaryStats[1].labelId}" style="margin:0;white-space:nowrap;font-weight:500;">${monetaryStats[1].label}</div>
-					</div>
-				</div>
-				<div class="stat-card stat-card-monetary">
-					<div class="stat-icon"><i class="fas ${monetaryStats[2].icon}"></i></div>
-					<div style="display:flex;align-items:center;justify-content:flex-start;gap:0.7rem;">
-						<div class="stat-value" id="${monetaryStats[2].id}" style="margin:0;font-weight:700;">${monetaryStats[2].value}</div>
-						<span style="font-weight:500;">-</span>
-						<div class="stat-label" id="${monetaryStats[2].labelId}" style="margin:0;white-space:nowrap;font-weight:500;">${monetaryStats[2].label}</div>
-					</div>
-				</div>
-				<div class="stat-card stat-card-monetary">
-					<div class="stat-icon"><i class="fas ${monetaryStats[3].icon}"></i></div>
-					<div style="display:flex;align-items:center;justify-content:flex-start;gap:0.7rem;">
-						<div class="stat-value" id="${monetaryStats[3].id}" style="margin:0;font-weight:700;">${monetaryStats[3].value}</div>
-						<span style="font-weight:500;">-</span>
-						<div class="stat-label" id="${monetaryStats[3].labelId}" style="margin:0;white-space:nowrap;font-weight:500;">${monetaryStats[3].label}</div>
+				<div class="card-content">
+					<div class="sub-cards-grid">
+						${monetaryCards.map(card => `
+							<div class="sub-card sub-card-financial ${card.id ? 'clickable-card' : ''}" ${card.id ? `data-card-id="${card.id}"` : ''}>
+								<div class="sub-card-icon">
+									<i class="fas ${card.icon}"></i>
+								</div>
+								<div class="sub-card-value">${card.value}</div>
+								<div class="sub-card-label">${card.label}</div>
+							</div>
+						`).join('')}
 					</div>
 				</div>
 			</div>
-			<div class="stats-grid">
-				${otherStats.map(stat => `
-					<div class="stat-card-container">
-						<div class="stat-card">
-							<div class="stat-icon"><i class="fas ${stat.icon}"></i></div>
-							<div style="display:flex;align-items:center;justify-content:center;gap:0.7rem;">
-								<div class="stat-value" id="${stat.id}" style="margin:0;font-weight:700;">${stat.value}</div>
-								<span style="font-weight:500;">-</span>
-								<div class="stat-label" id="${stat.labelId}" style="margin:0;white-space:nowrap;font-weight:500;">${stat.label}</div>
+
+			<!-- Card 2: Indicadores Operacionais -->
+			<div class="main-dashboard-card">
+				<div class="card-header">
+					<h3><i class="fas fa-cogs"></i> Indicadores Operacionais</h3>
+				</div>
+				<div class="card-content">
+					<div class="sub-cards-grid">
+						${operationalCards.map(card => `
+							<div class="sub-card sub-card-operational">
+								<div class="sub-card-icon">
+									<i class="fas ${card.icon}"></i>
+								</div>
+								<div class="sub-card-value">${card.value}</div>
+								<div class="sub-card-label">${card.label}</div>
 							</div>
-						</div>
+						`).join('')}
 					</div>
-				`).join('')}
+				</div>
+			</div>
+
+			<!-- Card 3: Lista Pedidos e Status -->
+			<div class="main-dashboard-card">
+				<div class="card-header">
+					<h3><i class="fas fa-list"></i> Lista Pedidos e Status</h3>
+				</div>
+				<div class="card-content">
+					<div id="pedidos-status-list">
+						<!-- Lista de pedidos será carregada aqui -->
+					</div>
+				</div>
+			</div>
+
+			<!-- Card 4: Follow-up de Entregas -->
+			<div class="main-dashboard-card">
+				<div class="card-header">
+					<h3><i class="fas fa-truck"></i> Follow-up de Entregas</h3>
+				</div>
+				<div class="card-content">
+					<div id="entregas-hoje">
+						<!-- Conteúdo será carregado pela updateFollowUpEntregas() -->
+					</div>
+				</div>
 			</div>
 		`;
 
-		// Lista de pedidos e status para gerenciamento
-		let pedidosListContainer = document.getElementById('pedidos-list-container');
-		if (!pedidosListContainer) {
-			pedidosListContainer = document.createElement('div');
-			pedidosListContainer.id = 'pedidos-list-container';
-			pedidosListContainer.style.marginTop = '2rem';
-			pedidosListContainer.innerHTML = `<h2 style="font-size:1.3rem; color:#333; margin-bottom:1rem;">Pedidos e Status</h2>`;
-			// Insere acima da lista de entregas do dia
-			const entregasHoje = document.getElementById('entregas-hoje');
-			if (entregasHoje && entregasHoje.parentElement) {
-				entregasHoje.parentElement.insertBefore(pedidosListContainer, entregasHoje);
-			} else {
-				document.getElementById('stats-grid').parentElement.appendChild(pedidosListContainer);
-			}
-		} else {
-			pedidosListContainer.innerHTML = `<h2 style="font-size:1.3rem; color:#333; margin-bottom:1rem;">Pedidos e Status</h2>`;
+		// Carregar conteúdo dos cards
+		this.loadPedidosStatusList();
+		
+		// Adicionar event listeners para cards clicáveis
+		this.setupCardClickListeners();
+	}
+
+	setupCardClickListeners() {
+		// Remover listeners anteriores
+		document.querySelectorAll('.clickable-card').forEach(card => {
+			const newCard = card.cloneNode(true);
+			card.parentNode.replaceChild(newCard, card);
+		});
+
+		// Adicionar novos listeners
+		const self = this; // Referência à instância
+		document.querySelectorAll('.clickable-card').forEach(card => {
+			card.addEventListener('click', (e) => {
+				const cardId = card.getAttribute('data-card-id');
+				if (cardId === 'card-receitas') {
+					self.showReceitasModal();
+				} else if (cardId === 'card-despesas') {
+					self.showDespesasModal();
+				}
+			});
+			// Cursor pointer para indicar que é clicável
+			card.style.cursor = 'pointer';
+		});
+	}
+
+	showReceitasModal() {
+		// Verificar se o usuário é admin
+		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
+		const isAdmin = role === 'admin';
+		
+		if (!isAdmin) {
+			alert('Acesso negado. Apenas administradores podem gerenciar receitas.');
+			return;
 		}
 
-		const pedidosList = this.orders.map(order => {
-			   return `<div style="background:#fff; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.07); margin-bottom:0.5rem; padding:0.75rem 1rem; display:flex; align-items:center; justify-content:space-between;">
-				   <div>
-					   <strong>#${order.numero_pedido || order.id}</strong> - ${order.cliente_nome || 'Cliente'}<br>
-					   <span style="color:#888; font-size:0.95rem;">${order.data_entrega ? 'Entrega: ' + order.data_entrega : ''}</span>
-				   </div>
-				   <div style="display: flex; align-items: center; gap: 0.5rem;">
-					   <select data-order-id="${order.id}" style="padding:0.3rem 0.7rem; border-radius:6px; border:1px solid #ccc;">
-						   <option value="pendente" ${order.status==='pendente'?'selected':''}>Pendente</option>
-						   <option value="pago" ${order.status==='pago'?'selected':''}>Pago</option>
-						   <option value="entregue" ${order.status==='entregue'?'selected':''}>Entregue</option>
-						   <option value="cancelado" ${order.status==='cancelado'?'selected':''}>Cancelado</option>
-					   </select>
-					   <button class="btn-visualizar-recibo" data-order-id="${order.id}" style="background: none; border: none; cursor: pointer; color: #667eea; font-size: 1.3rem;" aria-label="Visualizar Pedido">
-						   <i class="fas fa-file-invoice"></i>
-					   </button>
-				   </div>
-			   </div>`;
+		const modalsContainer = document.getElementById('modals-container');
+		if (!modalsContainer) return;
+		modalsContainer.innerHTML = '';
+
+		const modalId = 'receitas-modal';
+		const modal = document.createElement('div');
+		modal.id = modalId;
+		modal.className = 'modal-overlay show';
+		modal.onclick = (e) => {
+			if (e.target === modal) closeModalOverlay(e);
+		};
+
+		// Obter meses disponíveis
+		const mesesDisponiveis = [...new Set(this.receitas.map(r => r.data_recebimento.slice(0, 7)))].sort().reverse();
+		const currentMonth = new Date().toISOString().slice(0, 7);
+		if (!mesesDisponiveis.includes(currentMonth)) mesesDisponiveis.unshift(currentMonth);
+
+		const mesOptions = mesesDisponiveis.map(mes => {
+			const [ano, mesNum] = mes.split('-');
+			const data = new Date(ano, mesNum - 1);
+			const label = data.toLocaleDateString('pt-BR', { year: 'numeric', month: 'long' });
+			return `<option value="${mes}" ${mes === currentMonth ? 'selected' : ''}>${label}</option>`;
 		}).join('');
 
-		const pedidosListContainerFinal = document.getElementById('pedidos-list-container');
-		if (pedidosListContainerFinal) {
-			   pedidosListContainerFinal.innerHTML += pedidosList;
-			   // Adiciona evento para atualizar status
-			   pedidosListContainerFinal.querySelectorAll('select[data-order-id]').forEach(select => {
-				   select.onchange = async (e) => {
-					   const orderId = e.target.getAttribute('data-order-id');
-					   const newStatus = e.target.value;
-					   await this.supabase.from('pedidos').update({ status: newStatus }).eq('id', orderId);
-					   const order = this.orders.find(o => o.id == orderId);
-					   if (order) order.status = newStatus;
-					   this.createStatsCards();
-				   };
-			   });
-			   // Adiciona evento para visualizar recibo
-			   pedidosListContainerFinal.querySelectorAll('.btn-visualizar-recibo').forEach(btn => {
-				   btn.addEventListener('click', (e) => {
-					   const orderId = btn.getAttribute('data-order-id');
-					   window.dashboardApp.viewOrder(orderId);
-				   });
-			   });
+		// Função para renderizar tabela
+		const renderTable = (mesSelecionado) => {
+			const receitasFiltradas = mesSelecionado === 'todos' ? this.receitas : this.receitas.filter(r => r.data_recebimento.slice(0, 7) === mesSelecionado);
+			const total = receitasFiltradas.reduce((sum, r) => sum + parseFloat(r.valor || 0), 0);
+
+			let rows = '';
+			if (receitasFiltradas.length) {
+				rows = receitasFiltradas.map(r => `
+					<tr>
+						<td style="padding:0.5rem;">${r.descricao}</td>
+						<td style="padding:0.5rem;">${this.formatCurrency(r.valor)}</td>
+						<td style="padding:0.5rem;">${new Date(r.data_recebimento).toLocaleDateString('pt-BR')}</td>
+						<td style="padding:0.5rem;">${r.categoria || 'N/A'}</td>
+					</tr>
+				`).join('');
+			} else {
+				rows = '<tr><td colspan="4" style="text-align:center;padding:1rem;">Nenhuma receita encontrada</td></tr>';
+			}
+
+			return { rows, total };
+		};
+
+		const { rows, total } = renderTable(currentMonth);
+
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="padding:2rem;max-width:700px;">
+				<h2 style="margin-bottom:1rem;color:#28a745;"><i class="fas fa-chart-line"></i> Receitas</h2>
+				
+				<div style="margin-bottom:1rem;display:flex;gap:1rem;align-items:center;">
+					<label style="font-weight:600;">Filtrar por mês:</label>
+					<select id="receitas-mes-filter" style="padding:0.5rem;border:2px solid #e9ecef;border-radius:8px;">
+						<option value="todos">Todos os meses</option>
+						${mesOptions}
+					</select>
+				</div>
+				
+				<div style="margin-bottom:1rem;font-size:1.2rem;font-weight:600;">
+					Total: <span id="receitas-total">${this.formatCurrency(total)}</span>
+				</div>
+				
+				<div style="margin-bottom:2rem;max-height:400px;overflow-y:auto;">
+					<table style="width:100%;border-collapse:collapse;">
+						<thead>
+							<tr style="background:#f5f5f5;">
+								<th style="padding:0.5rem;border-bottom:1px solid #eee;">Descrição</th>
+								<th style="padding:0.5rem;border-bottom:1px solid #eee;">Valor</th>
+								<th style="padding:0.5rem;border-bottom:1px solid #eee;">Data</th>
+								<th style="padding:0.5rem;border-bottom:1px solid #eee;">Categoria</th>
+							</tr>
+						</thead>
+						<tbody id="receitas-table-body">
+							${rows}
+						</tbody>
+					</table>
+				</div>
+
+				<div style="display:flex;justify-content:flex-end;gap:1rem;">
+					<button onclick="window.dashboardApp.showAddReceitaModal()" 
+							style="background:#28a745;color:white;border:none;padding:0.75rem 1.5rem;border-radius:8px;font-weight:600;">
+						<i class="fas fa-plus"></i> Adicionar Receita
+					</button>
+					<button onclick="closeModal('${modalId}')" 
+							style="background:#6c757d;color:white;border:none;padding:0.75rem 1.5rem;border-radius:8px;font-weight:600;">Fechar</button>
+				</div>
+			</div>
+		`;
+
+		modalsContainer.appendChild(modal);
+
+		// Event listener para o filtro
+		document.getElementById('receitas-mes-filter').addEventListener('change', (e) => {
+			const mesSelecionado = e.target.value;
+			const { rows, total } = renderTable(mesSelecionado);
+			document.getElementById('receitas-table-body').innerHTML = rows;
+			document.getElementById('receitas-total').textContent = this.formatCurrency(total);
+		});
+	}
+
+	showAddReceitaModal() {
+		const modalsContainer = document.getElementById('modals-container');
+		if (!modalsContainer) return;
+		modalsContainer.innerHTML = '';
+
+		const modalId = 'add-receita-modal';
+		const modal = document.createElement('div');
+		modal.id = modalId;
+		modal.className = 'modal-overlay show';
+		modal.onclick = (e) => {
+			if (e.target === modal) closeModalOverlay(e);
+		};
+
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="padding:2rem;max-width:500px;">
+				<h2 style="margin-bottom:1.5rem;color:#28a745;"><i class="fas fa-plus"></i> Adicionar Receita</h2>
+				
+				<div style="margin-bottom:1rem;">
+					<label style="display:block;margin-bottom:0.5rem;font-weight:600;">Descrição</label>
+					<input type="text" id="receita-descricao" placeholder="Ex: Venda adicional, Comissão, etc." 
+						   style="width:100%;padding:0.75rem;border:2px solid #e9ecef;border-radius:8px;font-size:1rem;">
+				</div>
+
+				<div style="margin-bottom:1rem;">
+					<label style="display:block;margin-bottom:0.5rem;font-weight:600;">Valor (R$)</label>
+					<input type="text" id="receita-valor" placeholder="0,00" 
+						   style="width:100%;padding:0.75rem;border:2px solid #e9ecef;border-radius:8px;font-size:1rem;">
+				</div>
+
+				<div style="margin-bottom:1rem;">
+					<label style="display:block;margin-bottom:0.5rem;font-weight:600;">Data</label>
+					<input type="date" id="receita-data" value="${new Date().toISOString().split('T')[0]}"
+						   style="width:100%;padding:0.75rem;border:2px solid #e9ecef;border-radius:8px;font-size:1rem;">
+				</div>
+
+				<div style="margin-bottom:2rem;">
+					<label style="display:block;margin-bottom:0.5rem;font-weight:600;">Categoria</label>
+					<select id="receita-categoria" style="width:100%;padding:0.75rem;border:2px solid #e9ecef;border-radius:8px;font-size:1rem;">
+						<option value="vendas">Vendas</option>
+						<option value="servicos">Serviços</option>
+						<option value="comissoes">Comissões</option>
+						<option value="outros">Outros</option>
+					</select>
+				</div>
+
+				<div style="display:flex;justify-content:flex-end;gap:1rem;">
+					<button onclick="closeModal('${modalId}')" 
+							style="background:#6c757d;color:white;border:none;padding:0.75rem 1.5rem;border-radius:8px;font-weight:600;">Cancelar</button>
+					<button onclick="window.dashboardApp.saveReceita('${modalId}')" 
+							style="background:#28a745;color:white;border:none;padding:0.75rem 1.5rem;border-radius:8px;font-weight:600;">
+						<i class="fas fa-save"></i> Salvar Receita
+					</button>
+				</div>
+			</div>
+		`;
+
+		modalsContainer.appendChild(modal);
+	}
+
+	showDespesasModal() {
+		// Verificar se o usuário é admin
+		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
+		const isAdmin = role === 'admin';
+		
+		if (!isAdmin) {
+			alert('Acesso negado. Apenas administradores podem gerenciar despesas.');
+			return;
 		}
+
+		const modalsContainer = document.getElementById('modals-container');
+		if (!modalsContainer) return;
+		modalsContainer.innerHTML = '';
+
+		const modalId = 'despesas-modal';
+		const modal = document.createElement('div');
+		modal.id = modalId;
+		modal.className = 'modal-overlay show';
+		modal.onclick = (e) => {
+			if (e.target === modal) closeModalOverlay(e);
+		};
+
+		// Obter meses disponíveis
+		const mesesDisponiveis = [...new Set(this.despesas.map(d => d.data_despesa.slice(0, 7)))].sort().reverse();
+		const currentMonth = new Date().toISOString().slice(0, 7);
+		if (!mesesDisponiveis.includes(currentMonth)) mesesDisponiveis.unshift(currentMonth);
+
+		const mesOptions = mesesDisponiveis.map(mes => {
+			const [ano, mesNum] = mes.split('-');
+			const data = new Date(ano, mesNum - 1);
+			const label = data.toLocaleDateString('pt-BR', { year: 'numeric', month: 'long' });
+			return `<option value="${mes}" ${mes === currentMonth ? 'selected' : ''}>${label}</option>`;
+		}).join('');
+
+		// Função para renderizar tabela
+		const renderTable = (mesSelecionado) => {
+			const despesasFiltradas = mesSelecionado === 'todos' ? this.despesas : this.despesas.filter(d => d.data_despesa.slice(0, 7) === mesSelecionado);
+			const total = despesasFiltradas.reduce((sum, d) => sum + parseFloat(d.valor || 0), 0);
+
+			let rows = '';
+			if (despesasFiltradas.length) {
+				rows = despesasFiltradas.map(d => `
+					<tr>
+						<td style="padding:0.5rem;">${d.descricao}</td>
+						<td style="padding:0.5rem;">${this.formatCurrency(d.valor)}</td>
+						<td style="padding:0.5rem;">${new Date(d.data_despesa).toLocaleDateString('pt-BR')}</td>
+						<td style="padding:0.5rem;">${d.categoria || 'N/A'}</td>
+					</tr>
+				`).join('');
+			} else {
+				rows = '<tr><td colspan="4" style="text-align:center;padding:1rem;">Nenhuma despesa encontrada</td></tr>';
+			}
+
+			return { rows, total };
+		};
+
+		const { rows, total } = renderTable(currentMonth);
+
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="padding:2rem;max-width:700px;">
+				<h2 style="margin-bottom:1rem;color:#dc3545;"><i class="fas fa-file-invoice-dollar"></i> Despesas</h2>
+				
+				<div style="margin-bottom:1rem;display:flex;gap:1rem;align-items:center;">
+					<label style="font-weight:600;">Filtrar por mês:</label>
+					<select id="despesas-mes-filter" style="padding:0.5rem;border:2px solid #e9ecef;border-radius:8px;">
+						<option value="todos">Todos os meses</option>
+						${mesOptions}
+					</select>
+				</div>
+				
+				<div style="margin-bottom:1rem;font-size:1.2rem;font-weight:600;">
+					Total: <span id="despesas-total">${this.formatCurrency(total)}</span>
+				</div>
+				
+				<div style="margin-bottom:2rem;max-height:400px;overflow-y:auto;">
+					<table style="width:100%;border-collapse:collapse;">
+						<thead>
+							<tr style="background:#f5f5f5;">
+								<th style="padding:0.5rem;border-bottom:1px solid #eee;">Descrição</th>
+								<th style="padding:0.5rem;border-bottom:1px solid #eee;">Valor</th>
+								<th style="padding:0.5rem;border-bottom:1px solid #eee;">Data</th>
+								<th style="padding:0.5rem;border-bottom:1px solid #eee;">Categoria</th>
+							</tr>
+						</thead>
+						<tbody id="despesas-table-body">
+							${rows}
+						</tbody>
+					</table>
+				</div>
+
+				<div style="display:flex;justify-content:flex-end;gap:1rem;">
+					<button onclick="window.dashboardApp.showAddDespesaModal()" 
+							style="background:#dc3545;color:white;border:none;padding:0.75rem 1.5rem;border-radius:8px;font-weight:600;">
+						<i class="fas fa-plus"></i> Adicionar Despesa
+					</button>
+					<button onclick="closeModal('${modalId}')" 
+							style="background:#6c757d;color:white;border:none;padding:0.75rem 1.5rem;border-radius:8px;font-weight:600;">Fechar</button>
+				</div>
+			</div>
+		`;
+
+		modalsContainer.appendChild(modal);
+
+		// Event listener para o filtro
+		document.getElementById('despesas-mes-filter').addEventListener('change', (e) => {
+			const mesSelecionado = e.target.value;
+			const { rows, total } = renderTable(mesSelecionado);
+			document.getElementById('despesas-table-body').innerHTML = rows;
+			document.getElementById('despesas-total').textContent = this.formatCurrency(total);
+		});
+	}
+
+	showAddDespesaModal() {
+		const modalsContainer = document.getElementById('modals-container');
+		if (!modalsContainer) return;
+		modalsContainer.innerHTML = '';
+
+		const modalId = 'add-despesa-modal';
+		const modal = document.createElement('div');
+		modal.id = modalId;
+		modal.className = 'modal-overlay show';
+		modal.onclick = (e) => {
+			if (e.target === modal) closeModalOverlay(e);
+		};
+
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="padding:2rem;max-width:500px;">
+				<h2 style="margin-bottom:1.5rem;color:#dc3545;"><i class="fas fa-plus"></i> Adicionar Despesa</h2>
+				
+				<div style="margin-bottom:1rem;">
+					<label style="display:block;margin-bottom:0.5rem;font-weight:600;">Descrição</label>
+					<input type="text" id="despesa-descricao" placeholder="Ex: Aluguel, Energia, Ingredientes, etc." 
+						   style="width:100%;padding:0.75rem;border:2px solid #e9ecef;border-radius:8px;font-size:1rem;">
+				</div>
+
+				<div style="margin-bottom:1rem;">
+					<label style="display:block;margin-bottom:0.5rem;font-weight:600;">Valor (R$)</label>
+					<input type="text" id="despesa-valor" placeholder="0,00" 
+						   style="width:100%;padding:0.75rem;border:2px solid #e9ecef;border-radius:8px;font-size:1rem;">
+				</div>
+
+				<div style="margin-bottom:1rem;">
+					<label style="display:block;margin-bottom:0.5rem;font-weight:600;">Data</label>
+					<input type="date" id="despesa-data" value="${new Date().toISOString().split('T')[0]}"
+						   style="width:100%;padding:0.75rem;border:2px solid #e9ecef;border-radius:8px;font-size:1rem;">
+				</div>
+
+				<div style="margin-bottom:2rem;">
+					<label style="display:block;margin-bottom:0.5rem;font-weight:600;">Categoria</label>
+					<select id="despesa-categoria" style="width:100%;padding:0.75rem;border:2px solid #e9ecef;border-radius:8px;font-size:1rem;">
+						<option value="produtos">Produtos/Ingredientes</option>
+						<option value="aluguel">Aluguel</option>
+						<option value="energia">Energia/Luz</option>
+						<option value="agua">Água</option>
+						<option value="telefone">Telefone/Internet</option>
+						<option value="marketing">Marketing</option>
+						<option value="equipamentos">Equipamentos</option>
+						<option value="outros">Outros</option>
+					</select>
+				</div>
+
+				<div style="display:flex;justify-content:flex-end;gap:1rem;">
+					<button onclick="closeModal('${modalId}')" 
+							style="background:#6c757d;color:white;border:none;padding:0.75rem 1.5rem;border-radius:8px;font-weight:600;">Cancelar</button>
+					<button onclick="window.dashboardApp.saveDespesa('${modalId}')" 
+							style="background:#dc3545;color:white;border:none;padding:0.75rem 1.5rem;border-radius:8px;font-weight:600;">
+						<i class="fas fa-save"></i> Salvar Despesa
+					</button>
+				</div>
+			</div>
+		`;
+
+		modalsContainer.appendChild(modal);
+	}
+
+	async saveReceita(modalId) {
+		const descricao = document.getElementById('receita-descricao').value.trim();
+		const valorStr = document.getElementById('receita-valor').value.trim();
+		const data = document.getElementById('receita-data').value;
+		const categoria = document.getElementById('receita-categoria').value;
+
+		// Converter vírgula para ponto
+		const valor = parseFloat(valorStr.replace(',', '.'));
+
+		if (!descricao || isNaN(valor) || !data) {
+			alert('Por favor, preencha todos os campos obrigatórios com valores válidos.');
+			return;
+		}
+
+		try {
+			const { data: result, error } = await this.supabase
+				.from('receitas')
+				.insert([{
+					descricao,
+					valor,
+					data_recebimento: data,
+					categoria,
+					created_at: new Date().toISOString()
+				}]);
+
+			if (error) throw error;
+
+			alert('Receita cadastrada com sucesso!');
+			closeModal(modalId);
+			await this.loadData(); // Recarregar dados
+			this.createStatsCards(); // Atualizar estatísticas
+			this.showReceitasModal(); // Reabrir modal de receitas
+
+		} catch (error) {
+			console.error('Erro ao salvar receita:', error);
+			alert('Erro ao salvar receita: ' + error.message);
+		}
+	}
+
+	async saveDespesa(modalId) {
+		const descricao = document.getElementById('despesa-descricao').value.trim();
+		const valorStr = document.getElementById('despesa-valor').value.trim();
+		const data = document.getElementById('despesa-data').value;
+		const categoria = document.getElementById('despesa-categoria').value;
+
+		// Converter vírgula para ponto
+		const valor = parseFloat(valorStr.replace(',', '.'));
+
+		if (!descricao || isNaN(valor) || !data) {
+			alert('Por favor, preencha todos os campos obrigatórios com valores válidos.');
+			return;
+		}
+
+		try {
+			const { data: result, error } = await this.supabase
+				.from('despesas')
+				.insert([{
+					descricao,
+					valor,
+					data_despesa: data,
+					categoria,
+					created_at: new Date().toISOString()
+				}]);
+
+			if (error) throw error;
+
+			alert('Despesa cadastrada com sucesso!');
+			closeModal(modalId);
+			await this.loadData(); // Recarregar dados
+			this.createStatsCards(); // Atualizar estatísticas
+			this.showDespesasModal(); // Reabrir modal de despesas
+
+		} catch (error) {
+			console.error('Erro ao salvar despesa:', error);
+			alert('Erro ao salvar despesa: ' + error.message);
+		}
+	}
+
+	loadPedidosStatusList() {
+		const container = document.getElementById('pedidos-status-list');
+		if (!container) return;
+
+		// Verificar role do usuário atual
+		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
+		const isVendedor = role === 'sale' || role === 'vendedor';
+		const isAdmin = role === 'admin';
+
+		// Filtrar pedidos baseado no role do usuário
+		let pedidosFiltrados = this.orders;
+		if (isVendedor && this.currentUser?.id) {
+			// Filtrar apenas pedidos criados pelo usuário logado
+			// Pedidos sem user_id (criados antes desta implementação) NÃO são mostrados para vendedores
+			pedidosFiltrados = this.orders.filter(order =>
+				order.user_id && order.user_id == this.currentUser.id
+			);
+			console.log(`👤 Vendedor logado - mostrando ${pedidosFiltrados.length} pedidos próprios (apenas com user_id)`);
+		} else if (isAdmin) {
+			console.log('👑 Admin logado - mostrando todos os pedidos');
+			pedidosFiltrados = this.orders;
+		}
+
+		// Status disponíveis para os pedidos
+		const statusOptions = [
+			{ value: 'pendente', label: 'Pendente', color: '#ffc107' },
+			{ value: 'confirmado', label: 'Confirmado', color: '#17a2b8' },
+			{ value: 'producao', label: 'Em Produção', color: '#fd7e14' },
+			{ value: 'pago', label: 'Pago', color: '#28a745' },
+			{ value: 'entregue', label: 'Entregue', color: '#20c997' },
+			{ value: 'cancelado', label: 'Cancelado', color: '#dc3545' }
+		];
+
+		// Mostrar lista resumida de pedidos com status editável
+		const pedidosList = pedidosFiltrados.slice(0, 10).map(order => `
+			<div class="pedido-item" data-order-id="${order.id}" style="cursor: pointer;">
+				<div class="pedido-info">
+					<strong>#${order.numero_pedido || order.id}</strong>
+					<span>${order.cliente_nome || 'Cliente'}</span>
+					<div class="pedido-valor">R$ ${order.valor_total ? parseFloat(order.valor_total).toFixed(2) : '0.00'}</div>
+				</div>
+				<div class="pedido-status">
+					<span class="status-badge status-${order.status}">${this.getStatusLabel(order.status)}</span>
+				</div>
+				<div class="pedido-actions">
+					<select class="status-dropdown" data-order-id="${order.id}" onchange="window.dashboardApp.updateOrderStatus(this)">
+						${statusOptions.map(option => `
+							<option value="${option.value}" ${order.status === option.value ? 'selected' : ''}>
+								${option.label}
+							</option>
+						`).join('')}
+					</select>
+				</div>
+			</div>
+		`).join('');
+
+		container.innerHTML = pedidosList || '<p style="text-align: center; color: #666; padding: 2rem;">Nenhum pedido encontrado</p>';
+		
+		// Adicionar event listeners para os pedidos
+		container.querySelectorAll('.pedido-item').forEach(item => {
+			item.addEventListener('click', () => {
+				const orderId = item.getAttribute('data-order-id');
+				if (orderId) {
+					this.showOrderDetails(orderId);
+				}
+			});
+		});
+	}
+
+	getStatusLabel(status) {
+		const statusLabels = {
+			'pendente': 'Pendente',
+			'confirmado': 'Confirmado',
+			'pago': 'Pago',
+			'producao': 'Em Produção',
+			'entregue': 'Entregue',
+			'cancelado': 'Cancelado'
+		};
+		return statusLabels[status] || status;
+	}
+
+	async showOrderDetails(orderId) {
+		const order = this.orders.find(o => o.id === orderId);
+		if (!order) {
+			console.error('❌ Pedido não encontrado:', orderId);
+			alert('Pedido não encontrado');
+			return;
+		}
+
+		console.log('✅ Pedido encontrado:', order);
+
+		// Verificar permissões de acesso
+		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
+		const isAdmin = role === 'admin';
+		const isVendedor = role === 'sale' || role === 'vendedor';
+
+		// Vendedores só podem ver pedidos próprios
+		if (isVendedor && order.user_id && order.user_id != this.currentUser.id) {
+			alert('Você só pode visualizar detalhes dos seus próprios pedidos.');
+			return;
+		}
+
+		// Pedidos sem user_id (antigos) só podem ser vistos por admins
+		if (!isAdmin && !order.user_id) {
+			alert('Este pedido não pode ser visualizado. Contate o administrador.');
+			return;
+		}
+
+		// Criar modal
+		const modalId = 'order-details-modal';
+		
+		// Remover TODOS os modais existentes para evitar sobreposição
+		document.querySelectorAll('.modal-overlay').forEach(modal => modal.remove());
+		
+		// Remover modal específico se ainda existir
+		const existingModal = document.getElementById(modalId);
+		if (existingModal) {
+			existingModal.remove();
+		}
+
+		const modal = document.createElement('div');
+		modal.id = modalId;
+		modal.className = 'modal-overlay show';
+		modal.style.zIndex = '1000'; // Garantir z-index alto
+		
+		// Event listener para fechar modal
+		modal.addEventListener('click', (e) => {
+			if (e.target === modal || e.target.classList.contains('modal-overlay')) {
+				closeModal(modalId);
+			}
+		});
+
+		// Buscar itens do pedido se disponíveis
+		let orderItems = [];
+		try {
+			const { data: items, error } = await this.supabase
+				.from('pedido_itens')
+				.select('*, produtos(id, nome, fotos)')
+				.eq('pedido_id', orderId);
+
+			if (!error && items) {
+				orderItems = items;
+				console.log('📦 Itens do pedido:', items.map(item => ({
+					produto: item.produtos?.nome,
+					fotos_raw: item.produtos?.fotos,
+					foto_parsed: item.produtos?.fotos ? (() => {
+						try {
+							const fotos = JSON.parse(item.produtos.fotos);
+							return Array.isArray(fotos) ? fotos[0] : null;
+						} catch (e) {
+							return 'ERRO_PARSE';
+						}
+					})() : null
+				})));
+			}
+		} catch (e) {
+			console.warn('Erro ao buscar itens do pedido:', e);
+		}
+
+		// Buscar cliente completo se necessário
+		let clienteCompleto = null;
+		if (order.cliente_id) {
+			clienteCompleto = this.clients.find(c => c.id == order.cliente_id);
+			if (!clienteCompleto) {
+				try {
+					const { data: clienteData, error } = await this.supabase
+						.from('clientes')
+						.select('*')
+						.eq('id', order.cliente_id)
+						.single();
+
+					if (!error && clienteData) {
+						clienteCompleto = clienteData;
+					}
+				} catch (e) {
+					console.warn('Erro ao buscar dados completos do cliente:', e);
+				}
+			}
+		}
+
+		// Formatar data
+		const dataCriacao = order.created_at ? new Date(order.created_at).toLocaleString('pt-BR') : 'N/A';
+		const dataEntrega = order.data_entrega ? new Date(order.data_entrega).toLocaleString('pt-BR') : 'N/A';
+
+		// Conteúdo do modal
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" onclick="event.stopPropagation()" style="max-width: 800px; width: 100%; padding: 1.5rem;">
+				<div style="margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid #eee;">
+					<div style="display: flex; justify-content: space-between; align-items: center;">
+						<h3 style="margin: 0; color: #333; font-size: 1.25rem;">📋 Detalhes do Pedido #${order.numero_pedido || order.id}</h3>
+						<button onclick="closeModal('${modalId}')" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #888; line-height: 1;">&times;</button>
+					</div>
+				</div>
+				
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+					<!-- Informações do Pedido -->
+					<div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+						<h4 style="margin: 0 0 1rem 0; color: #333;">📋 Informações do Pedido</h4>
+						<div style="display: flex; flex-direction: column; gap: 0.5rem;">
+							<div><strong>Número:</strong> #${order.numero_pedido || order.id}</div>
+							<div><strong>Status:</strong> <span class="status-badge status-${order.status}">${this.getStatusLabel(order.status)}</span></div>
+							<div><strong>Data de Criação:</strong> ${dataCriacao}</div>
+							<div><strong>Data de Entrega:</strong> ${dataEntrega}</div>
+							<div><strong>Valor Total:</strong> R$ ${order.valor_total ? parseFloat(order.valor_total).toFixed(2) : '0.00'}</div>
+							<div><strong>Valor Pago:</strong> R$ ${order.valor_pago ? parseFloat(order.valor_pago).toFixed(2) : '0.00'}</div>
+						</div>
+					</div>
+
+					<!-- Informações do Cliente -->
+					<div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+						<h4 style="margin: 0 0 1rem 0; color: #333;">👤 Informações do Cliente</h4>
+						<div style="display: flex; flex-direction: column; gap: 0.5rem;">
+							<div><strong>Nome:</strong> ${clienteCompleto?.nome || order.cliente_nome || 'Cliente não informado'}</div>
+							${clienteCompleto?.telefone ? `<div><strong>Telefone:</strong> ${clienteCompleto.telefone}</div>` : ''}
+							${clienteCompleto?.email ? `<div><strong>Email:</strong> ${clienteCompleto.email}</div>` : ''}
+							${clienteCompleto?.endereco ? `<div><strong>Endereço:</strong> ${clienteCompleto.endereco}</div>` : ''}
+						</div>
+					</div>
+				</div>
+
+				<!-- Itens do Pedido -->
+				${orderItems.length > 0 ? `
+					<div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+						<h4 style="margin: 0 0 1rem 0; color: #333;">🛒 Itens do Pedido</h4>
+						<div style="display: flex; flex-direction: column; gap: 0.5rem;">
+							${orderItems.map(item => {
+								const produto = item.produtos || {};
+								let fotoUrl = null;
+								
+								if (produto.fotos) {
+									try {
+										const fotos = JSON.parse(produto.fotos);
+										if (Array.isArray(fotos) && fotos.length > 0) {
+											fotoUrl = fotos[0];
+										}
+									} catch (e) {
+										console.warn('Erro ao parsear fotos do produto:', produto.nome, e);
+									}
+								}
+								
+								return `
+									<div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: white; border-radius: 4px;">
+										<div style="display: flex; align-items: center; gap: 0.75rem;">
+											<div style="width: 40px; height: 40px; background: #eee; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+												${fotoUrl ? `<img src="${fotoUrl}" alt="${produto.nome || 'Produto'}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.parentElement.innerHTML='📷'; this.parentElement.style.background='#f0f0f0';">` : '📷'}
+											</div>
+											<div>
+												<strong>${produto.nome || 'Produto'}</strong>
+												<span style="color: #666; margin-left: 1rem;">Quantidade: ${item.quantidade || 1}</span>
+											</div>
+										</div>
+										<div style="font-weight: 600; color: #28a745;">
+											R$ ${(item.preco_unitario ? parseFloat(item.preco_unitario) * (item.quantidade || 1) : 0).toFixed(2)}
+										</div>
+									</div>
+								`;
+							}).join('')}
+						</div>
+					</div>
+				` : '<p style="color: #666; font-style: italic;">Itens do pedido não disponíveis</p>'}
+
+				<!-- Ações -->
+				<div style="display: flex; gap: 1rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid #eee;">
+					<button onclick="closeModal('${modalId}')" style="background: #6c757d; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">Fechar</button>
+				</div>
+			</div>
+		`;
+
+		// Adicionar ao container de modais
+		let modalsContainer = document.getElementById('modals-container');
+		if (!modalsContainer) {
+			modalsContainer = document.createElement('div');
+			modalsContainer.id = 'modals-container';
+			document.body.appendChild(modalsContainer);
+		}
+		modalsContainer.appendChild(modal);
+	}
+
+	async updateOrderStatus(selectElement) {
+		const orderId = selectElement.getAttribute('data-order-id');
+		const newStatus = selectElement.value;
+
+		// Encontrar o pedido
+		const order = this.orders.find(o => o.id == orderId);
+		if (!order) {
+			alert('Pedido não encontrado');
+			return;
+		}
+
+		// Verificar se o usuário é administrador
+		const isAdmin = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase() === 'admin';
+		const isVendedor = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase() === 'sale' || (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase() === 'vendedor';
+
+		// Se for vendedor, verificar se o pedido é dele
+		if (isVendedor && order.user_id && order.user_id != this.currentUser.id) {
+			alert('Você só pode atualizar pedidos criados por você.');
+			// Reverter o select para o valor anterior
+			selectElement.value = order.status;
+			return;
+		}
+
+		// Se não for admin, aplicar validações de ordem cronológica
+		if (!isAdmin) {
+			// Validações de ordem cronológica dos status
+			const statusOrder = ['pendente', 'confirmado', 'producao', 'pago', 'entregue', 'cancelado'];
+			const currentIndex = statusOrder.indexOf(order.status);
+			const newIndex = statusOrder.indexOf(newStatus);
+
+			// Cancelado pode ser aplicado a qualquer status
+			if (newStatus === 'cancelado') {
+				// Permitir cancelamento de qualquer status
+			}
+			// Não permitir voltar para status anteriores (exceto cancelado)
+			else if (newIndex < currentIndex) {
+				alert(`Não é possível voltar para "${statusOptions.find(s => s.value === newStatus).label}". O pedido deve seguir a ordem cronológica.`);
+				selectElement.value = order.status;
+				return;
+			}
+			// Permitir progressões na ordem cronológica (pode pular etapas para frente)
+			else {
+				// Todas as progressões para frente são permitidas, desde que sigam a ordem
+			}
+		}
+		// Se for admin, permitir qualquer transição de status sem validações
+
+		try {
+			// Preparar dados para atualização
+			const updateData = {
+				status: newStatus,
+				updated_at: new Date().toISOString()
+			};
+
+			// Se estiver marcando como pago, garantir que valor_pago seja atualizado se necessário
+			if (newStatus === 'pago' && parseFloat(order.valor_pago || 0) < parseFloat(order.valor_total || 0)) {
+				updateData.valor_pago = order.valor_total;
+			}
+
+			const { data, error } = await this.supabase
+				.from('pedidos')
+				.update(updateData)
+				.eq('id', orderId);
+
+			if (error) {
+				console.error('Erro do Supabase:', error);
+				throw error;
+			}			// Atualizar o pedido na memória
+			order.status = newStatus;
+
+			// Se foi atualizado o valor_pago no banco, atualizar também na memória
+			if (updateData.valor_pago !== undefined) {
+				order.valor_pago = updateData.valor_pago;
+			}
+
+			// Mostrar feedback visual
+			selectElement.style.backgroundColor = '#d4edda';
+			selectElement.style.borderColor = '#c3e6cb';
+			setTimeout(() => {
+				selectElement.style.backgroundColor = '';
+				selectElement.style.borderColor = '';
+			}, 1000);
+
+			// Recarregar dados e atualizar estatísticas
+			await this.loadData();
+			this.createStatsCards();
+			
+			// Atualizar seções do dashboard
+			this.loadPedidosStatusList(); // Atualizar lista de pedidos no dashboard
+			this.updateFollowUpEntregas(); // Atualizar follow-up de entregas
+
+			console.log(`✅ Status do pedido #${orderId} atualizado para: ${newStatus}`);
+
+		} catch (error) {
+			console.error('❌ Erro ao atualizar status do pedido:', error);
+			alert('Erro ao atualizar status do pedido: ' + error.message);
+
+			// Reverter visual em caso de erro
+			selectElement.style.backgroundColor = '#f8d7da';
+			selectElement.style.borderColor = '#f5c6cb';
+			setTimeout(() => {
+				selectElement.style.backgroundColor = '';
+				selectElement.style.borderColor = '';
+			}, 2000);
+		}
+	}
+
+	loadEntregasHojeContent() {
+		const container = document.getElementById('entregas-hoje-content');
+		if (!container) return;
+
+		// Verificar role do usuário atual
+		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
+		const isVendedor = role === 'sale' || role === 'vendedor';
+		const isAdmin = role === 'admin';
+
+		// Filtrar pedidos baseado no role do usuário
+		let pedidosFiltrados = this.orders;
+		if (isVendedor && this.currentUser?.id) {
+			// Filtrar apenas pedidos criados pelo usuário logado
+			pedidosFiltrados = this.orders.filter(order =>
+				order.user_id && order.user_id == this.currentUser.id
+			);
+			console.log(`👤 Vendedor logado - mostrando ${pedidosFiltrados.length} entregas de hoje de pedidos próprios`);
+		} else if (isAdmin) {
+			console.log('👑 Admin logado - mostrando todas as entregas de hoje');
+			pedidosFiltrados = this.orders;
+		}
+
+		const hoje = new Date().toISOString().split('T')[0];
+		const entregasHoje = pedidosFiltrados.filter(order => 
+			order.data_entrega && order.data_entrega.startsWith(hoje) && order.status !== 'cancelado'
+		);
+
+		if (entregasHoje.length === 0) {
+			container.innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">Nenhuma entrega agendada para hoje</p>';
+			return;
+		}
+
+		const entregasList = entregasHoje.map(order => `
+			<div class="entrega-item">
+				<div class="entrega-info">
+					<strong>#${order.numero_pedido || order.id}</strong>
+					<span>${order.cliente_nome || 'Cliente'}</span>
+				</div>
+				<div class="entrega-status">
+					<span class="status-badge status-${order.status}">${this.getStatusLabel(order.status)}</span>
+				</div>
+			</div>
+		`).join('');
+
+		container.innerHTML = entregasList;
 	}
 
 	createDataCards() {
-		this.renderClientesPage();
-		this.renderProdutosPage();
-		this.renderPedidosPage();
-		this.renderEstoquePage();
-		this.renderEntregasPage();
+		// Só renderizar páginas se elas estiverem ativas ou forem necessárias para o dashboard
+		// Não renderizar seções individuais aqui, pois switchSection cuida disso
+		if (this.activeSection === 'dashboard') {
+			this.renderClientesPage();
+			this.renderProdutosPage();
+			this.renderPedidosPage();
+			this.renderEntregasPage();
+		}
+		// Para seções individuais, deixar que switchSection cuide da renderização
 	}
 
 	updateStats() {
-		const statusCounts = {
-			pendente: this.orders.filter(o => o.status === 'pendente').length,
-			pago: this.orders.filter(o => o.status === 'pago').length,
-			entregue: this.orders.filter(o => o.status === 'entregue').length,
-			cancelado: this.orders.filter(o => o.status === 'cancelado').length
-		};
-
-		const ids = [
-			'total-produtos',
-			'total-clientes',
-			'total-pedidos',
-			'pedidos-pendentes',
-			'pedidos-pagos',
-			'pedidos-entregues',
-			'pedidos-cancelados',
-			'total-entregas',
-			'total-estoque'
-		];
-
-		const values = [
-			this.products.length,
-			this.clients.length,
-			this.orders.length,
-			statusCounts.pendente,
-			statusCounts.pago,
-			statusCounts.entregue,
-			statusCounts.cancelado,
-			this.countDeliveriesToday(),
-			this.products.reduce((sum, p) => sum + (p.estoque || 0), 0)
-		];
-
-		ids.forEach((id, i) => {
-			const el = document.getElementById(id);
-			if (el) el.textContent = values[i];
-		});
+		this.createStatsCards();
 	}
 
 	countDeliveriesToday() {
@@ -958,174 +1933,1432 @@ class DashboardApp {
 		return this.orders.filter(o => o.data_entrega === today).length;
 	}
 
-	updateEntregasHoje() {
+	updateFollowUpEntregas() {
+		console.log('🔄 updateFollowUpEntregas() chamada');
 		const entregasHoje = document.getElementById('entregas-hoje');
-		if (!entregasHoje) return;
+		if (!entregasHoje) {
+			console.log('❌ Elemento entregas-hoje não encontrado');
+			return;
+		}
 
-	const today = new Date().toISOString().split('T')[0];
-	// Só pedidos com data_entrega igual a hoje, status diferente de 'cancelado', e tipo_entrega igual a 'entrega' (não retirada)
-	const entregas = this.orders.filter(o =>
-		o.data_entrega === today &&
-		o.status !== 'cancelado' &&
-		o.status !== 'entregue' &&
-		(o.tipo_entrega === 'entrega' || !o.tipo_entrega)
-	);
+		// Verificar role do usuário atual
+		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
+		const isVendedor = role === 'sale' || role === 'vendedor';
+		const isAdmin = role === 'admin';
 
-		if (entregas.length === 0) {
+		console.log('🔍 Atualizando follow-up de entregas. Total de entregas:', this.entregas?.length || 0);
+
+		// Filtrar entregas baseado no role do usuário
+		let entregasFiltradas = this.entregas;
+		if (isVendedor && this.currentUser?.id) {
+			// Filtrar apenas entregas de pedidos criados pelo usuário logado
+			// Pedidos sem user_id não são considerados
+			entregasFiltradas = this.entregas.filter(entrega => {
+				// Encontrar o pedido relacionado e verificar se é do usuário
+				const pedido = this.orders.find(o => o.id == entrega.pedido_id);
+				return pedido && pedido.user_id && pedido.user_id == this.currentUser.id;
+			});
+			console.log(`👤 Vendedor logado - mostrando ${entregasFiltradas.length} entregas de pedidos próprios`);
+		} else if (isAdmin) {
+			console.log('👑 Admin logado - mostrando todas as entregas');
+			entregasFiltradas = this.entregas;
+		}
+
+		// Filtrar apenas entregas não canceladas
+		const entregasAtivas = entregasFiltradas
+			.filter(entrega => entrega.status !== 'cancelada')
+			.sort((a, b) => {
+				// Primeiro critério: status (priorizar "saiu_entrega" e "agendada" sobre "entregue")
+				const statusPriority = { 'saiu_entrega': 1, 'agendada': 2, 'entregue': 3 };
+				const aPriority = statusPriority[a.status] || 4;
+				const bPriority = statusPriority[b.status] || 4;
+				
+				if (aPriority !== bPriority) return aPriority - bPriority;
+				
+				// Segundo critério: data (mais próximas primeiro)
+				return new Date(a.data_entrega) - new Date(b.data_entrega);
+			})
+			.slice(0, 10); // Limitar a 10 entregas
+
+		console.log('📅 Entregas no follow-up encontradas:', entregasAtivas.length);
+
+		if (entregasAtivas.length === 0) {
 			entregasHoje.innerHTML = `<div style="text-align: center; color: #888; padding: 2rem;"><i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 1rem;"></i><p>${this.t('msg.nenhuma_entrega')}</p></div>`;
 		} else {
 			entregasHoje.innerHTML = `
-				<div style="display: flex; flex-direction: column; gap: 0.75rem;">
-					${entregas.map(order => `
-						<div style="background: #f9f9f9; padding: 0.75rem; border-left: 4px solid #ff6b9d; border-radius: 4px;">
-							<p style="margin: 0; font-weight: 600; color: #333;">${this.t('detail.pedido')} #${order.id}</p>
-							<p style="margin: 0.25rem 0 0 0; color: #666; font-size: 0.9rem;">🕐 ${order.horario_entrega || 'N/A'}</p>
-						</div>
-					`).join('')}
+				<div style="display: flex; flex-direction: column; gap: 0.5rem;">
+					${entregasAtivas.map(entrega => {
+						const pedido = entrega.pedidos || {};
+						const cliente = pedido.clientes || {};
+						const dataEntrega = new Date(entrega.data_entrega);
+						const hoje = new Date();
+						hoje.setHours(0, 0, 0, 0);
+						const dataEntregaNorm = new Date(dataEntrega);
+						dataEntregaNorm.setHours(0, 0, 0, 0);
+						
+						const diffTime = dataEntregaNorm.getTime() - hoje.getTime();
+						const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+						
+						// Lógica de cores baseada na urgência
+						let cardColor = '#f9f9f9'; // padrão (cinza claro)
+						let borderColor = '#6c757d'; // padrão
+						
+						if (diffDays > 5) {
+							// Verde: acima de 5 dias
+							borderColor = '#28a745';
+							cardColor = '#f8fff8'; // fundo verde muito claro
+						} else if (diffDays > 2 && diffDays <= 5) {
+							// Amarelo: acima de 2 dias e <= 5 dias
+							borderColor = '#ffc107';
+							cardColor = '#fffef8'; // fundo amarelo muito claro
+						} else if (diffDays <= 2) {
+							// Vermelho: <= 2 dias
+							borderColor = '#dc3545';
+							cardColor = '#fff8f8'; // fundo vermelho muito claro
+							if (diffDays < 0) {
+								// Atrasado - manter vermelho
+								borderColor = '#dc3545';
+								cardColor = '#fff8f8';
+							}
+						}
+						
+						const isHoje = dataEntregaNorm.getTime() === hoje.getTime();
+						const isAmanha = dataEntregaNorm.getTime() === (hoje.getTime() + 24 * 60 * 60 * 1000);
+						
+						let dataLabel = dataEntrega.toLocaleDateString('pt-BR');
+						if (isHoje) dataLabel = 'HOJE';
+						else if (isAmanha) dataLabel = 'AMANHÃ';
+						
+						const statusColors = {
+							'agendada': '#17a2b8',
+							'saiu_entrega': '#ffc107',
+							'entregue': '#28a745',
+							'cancelada': '#dc3545'
+						};
+						
+						return `
+							<div style="background: ${cardColor}; padding: 0.6rem; border-left: 4px solid ${borderColor}; border-radius: 4px; cursor: pointer;" onclick="window.dashboardApp.showOrderDetails(${pedido.id})">
+								<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.2rem;">
+									<p style="margin: 0; font-weight: 600; color: #222;">${this.t('detail.pedido')} #${pedido.numero_pedido || pedido.id}</p>
+									<span style="background: ${statusColors[entrega.status] || '#6c757d'}; color: white; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 500;">
+										${entrega.status === 'agendada' ? 'Agendada' : 
+										  entrega.status === 'saiu_entrega' ? 'Em Trânsito' : 
+										  entrega.status === 'entregue' ? 'Entregue' : 
+										  entrega.status === 'cancelada' ? 'Cancelada' : entrega.status}
+									</span>
+								</div>
+								<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+									<span style="color: #444; font-size: 0.9rem; font-weight: 500;">👤 ${cliente.nome || 'Cliente'}</span>
+									<span style="color: #444; font-size: 0.9rem;">📍 ${entrega.endereco_entrega || cliente.endereco || 'Endereço não informado'}</span>
+								</div>
+								<div style="display: flex; justify-content: space-between; align-items: center;">
+									<span style="color: #444; font-size: 0.85rem;">📅 ${dataLabel} ${entrega.hora_entrega ? `• 🕐 ${entrega.hora_entrega}` : ''}</span>
+									<span style="color: #222; font-size: 0.85rem; font-weight: 500;">💰 R$ ${pedido.valor_total ? parseFloat(pedido.valor_total).toFixed(2) : '0.00'}</span>
+								</div>
+								${entrega.observacoes ? `<p style="margin: 0.2rem 0 0 0; color: #666; font-size: 0.8rem; font-style: italic;">📝 ${entrega.observacoes}</p>` : ''}
+							</div>
+						`;
+					}).join('')}
 				</div>
 			`;
 		}
 	}
 
-	updateAllTranslations() {
-		const labelIds = [
-			'label-produtos',
-			'label-clientes',
-			'label-pedidos',
-			'label-pendentes',
-			'label-pagos',
-			'label-entregues',
-			'label-cancelados',
-			'label-entregas',
-			'label-estoque'
-		];
-		const labelKeys = [
-			'dashboard.produtos',
-			'dashboard.clientes',
-			'dashboard.pedidos',
-			'dashboard.pendentes',
-			'dashboard.pagos',
-			'dashboard.entregues',
-			'dashboard.cancelados',
-			'dashboard.entregas',
-			'dashboard.estoque'
-		];
-		labelIds.forEach((id, i) => {
-			const el = document.getElementById(id);
-			if (el) el.textContent = this.t(labelKeys[i]);
-		});
+	getDeliveriesToday() {
+		const today = new Date().toISOString().split('T')[0];
+		
+		// Verificar role do usuário atual
+		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
+		const isVendedor = role === 'sale' || role === 'vendedor';
+		const isAdmin = role === 'admin';
 
-		this.createDataCards();
-		this.updateWelcomeMessage();
-		this.updateEntregasHoje();
+		// Filtrar pedidos baseado no role do usuário
+		let pedidosFiltrados = this.orders;
+		if (isVendedor && this.currentUser?.id) {
+			// Filtrar apenas pedidos criados pelo usuário logado
+			pedidosFiltrados = this.orders.filter(order =>
+				order.user_id && order.user_id == this.currentUser.id
+			);
+		} else if (isAdmin) {
+			pedidosFiltrados = this.orders;
+		}
+
+		return pedidosFiltrados.filter(o => 
+			o.data_entrega === today && 
+			o.status !== 'cancelado' && 
+			o.status !== 'entregue'
+			// TODO: Filtrar por tipo_entrega quando campo for adicionado ao schema
+		).length;
 	}
 
-	// ==================== DADOS SUPABASE ====================
+	getOrdersInProduction() {
+		return this.orders.filter(o => 
+			o.status === 'producao'
+		).length;
+	}
 
-	async loadData() {
-		if (!this.supabase) {
-			console.warn('⚠️ Supabase não disponível, usando localStorage');
-			this.loadFromLocalStorage();
+	updateAllTranslations() {
+		this.createStatsCards();
+		this.createDataCards();
+		this.updateWelcomeMessage();
+		this.updateFollowUpEntregas();
+	}
+
+	// PÁGINA DE PEDIDOS - VENDA PRESENCIAL
+	renderPedidosPage() {
+		const container = document.getElementById('pedidos-container');
+		if (!container) return;
+
+		if (!this.cart) this.cart = {};
+
+		// Calcular total do carrinho
+		let cartTotal = 0;
+		Object.values(this.cart).forEach(item => {
+			if (item.adicionado) {
+				cartTotal += item.quantidade * item.preco;
+			}
+		});
+
+		// Dropdown de categorias + Botão Cliente + Total Carrinho
+		const categorias = [...new Set(this.products.map(p => p.categoria).filter(Boolean))];
+		let categoriaSelecionada = this.selectedCategoria || '';
+
+		const topBar = `
+			<div style="width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+				<button onclick="window.dashboardApp.openQuickAddClientModal()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; box-shadow: 0 4px 12px rgba(102,126,234,0.3); display: flex; align-items: center; gap: 0.5rem;">
+					<i class="fas fa-user-plus"></i> Adicionar Cliente
+				</button>
+				
+				<div style="display: flex; align-items: center; gap: 0.5rem;">
+					<label for="dropdown-categoria" style="font-weight: 600;">Filtrar:</label>
+					<select id="dropdown-categoria" style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid #eee; font-size: 1rem;">
+						<option value="">Todas Categorias</option>
+						${categorias.map(cat => `<option value="${cat}" ${cat === categoriaSelecionada ? 'selected' : ''}>${cat}</option>`).join('')}
+					</select>
+				</div>
+				
+				<div style="font-size: 1.15rem; font-weight: 700; color: #28a745; background: #f8f9fa; border-radius: 8px; padding: 0.5rem 1.2rem;">
+					Total: <span class="pedidos-cart-total">${this.formatCurrency(cartTotal)}</span>
+				</div>
+			</div>
+		`;
+
+		// Produtos
+		let produtosHtml = '';
+		const produtosFiltrados = categoriaSelecionada 
+			? this.products.filter(p => p.categoria === categoriaSelecionada)
+			: this.products;
+
+		if (produtosFiltrados.length === 0) {
+			produtosHtml = `<div style="text-align: center; padding: 3rem; color: #888;"><i class="fas fa-box-open" style="font-size: 3rem; margin-bottom: 1rem;"></i><p>Nenhum produto disponível para venda</p></div>`;
+		} else {
+			produtosHtml = `
+				<div style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center;">
+					${produtosFiltrados.map(produto => {
+						let fotos = [];
+						if (produto.fotos) {
+							try { fotos = JSON.parse(produto.fotos); } catch {}
+						}
+						return `
+							<div class="card-produto" style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.2rem; max-width: 320px; width: 100%; display: flex; flex-direction: column; align-items: center;" data-descricao="${produto.descricao || ''}">
+								<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
+									<span style="font-size: 1.0rem; font-weight: 700; color: #333;">${produto.nome}</span>
+									<div style="margin-top: 0.5rem;">
+										<span style="background: ${produto.status_produto === 'pronta_entrega' ? '#28a745' : '#ff6b9d'}; color: white; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.7rem; font-weight: 600;">${produto.status_produto === 'pronta_entrega' ? 'Pronta Entrega' : 'Sob Encomenda'}</span>
+									</div>
+								</div>
+								<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
+									<div id="market-carousel-${produto.id}" data-current="0" style="display: flex; transition: transform 0.3s ease;">
+										${fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: cover;">`).join('')}
+									</div>
+									${fotos.length > 1 ? `
+										<button data-action="prev-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
+										<button data-action="next-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">›</button>
+									` : ''}
+								</div>
+								<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
+									<span style="font-size: 1.1rem; font-weight: 700; color: #ff6b9d;">${this.formatCurrency(produto.preco)}</span>
+								</div>
+								<div style="display: flex; align-items: center; justify-content: center; gap: 1rem; width: 100%; margin-bottom: 0.5rem;">
+									<button data-action="decrement-produto" data-id="${produto.id}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.1rem; cursor: pointer;">-</button>
+									<span id="contador-produto-${produto.id}" style="font-size: 1.1rem; font-weight: 600; min-width: 32px; text-align: center;">${this.cart[produto.id]?.quantidade || 0}</span>
+									<button data-action="increment-produto" data-id="${produto.id}" data-preco="${produto.preco}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.1rem; cursor: pointer;">+</button>
+								</div>
+								<button data-action="adicionar-carrinho" data-id="${produto.id}" data-preco="${produto.preco}" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 0; font-size: 1.1rem; font-weight: 700; cursor: pointer;">Adicionar ao Carrinho</button>
+							</div>
+						`;
+					}).join('')}
+				</div>
+			`;
+		}
+
+		container.innerHTML = topBar + produtosHtml;
+
+		// Tooltip
+		this.setupProductTooltip();
+
+		// Dropdown evento
+		const dropdown = container.querySelector('#dropdown-categoria');
+		if (dropdown) {
+			dropdown.onchange = (e) => {
+				this.selectedCategoria = e.target.value;
+				this.renderPedidosPage();
+			};
+		}
+
+		// Eventos dos produtos
+		this.setupPedidosEventDelegation();
+		// Atualizar valor total do carrinho no topo
+		this.updatePedidosCartTotal();
+	}
+
+	setupProductTooltip() {
+		let tooltip = document.getElementById('produto-tooltip-global');
+		if (!tooltip) {
+			tooltip = document.createElement('div');
+			tooltip.id = 'produto-tooltip-global';
+			tooltip.className = 'produto-tooltip-global hidden';
+			document.body.appendChild(tooltip);
+		}
+
+		document.querySelectorAll('.card-produto').forEach(card => {
+			card.addEventListener('mouseenter', function(e) {
+				const descricao = card.getAttribute('data-descricao');
+				if (descricao && descricao.trim()) {
+					tooltip.textContent = descricao;
+					tooltip.classList.remove('hidden');
+				}
+			});
+			card.addEventListener('mousemove', function(e) {
+				if (!tooltip.classList.contains('hidden')) {
+					const tooltipWidth = 200; // Largura aproximada do tooltip
+					const screenWidth = window.innerWidth;
+					const cursorX = e.clientX;
+					
+					// Se o cursor estiver próximo do lado direito (menos de 250px do fim), posiciona à esquerda
+					if (cursorX + tooltipWidth + 50 > screenWidth) {
+						tooltip.style.left = (cursorX - tooltipWidth - 18) + 'px';
+					} else {
+						tooltip.style.left = (cursorX + 18) + 'px';
+					}
+					
+					tooltip.style.top = (e.clientY + 18) + 'px';
+				}
+			});
+			card.addEventListener('mouseleave', function() {
+				tooltip.classList.add('hidden');
+			});
+		});
+	}
+
+	setupPedidosEventDelegation() {
+		const container = document.getElementById('pedidos-container');
+		if (!container) return;
+
+		if (container._delegationAttached) {
+			container.removeEventListener('click', container._delegationHandler);
+		}
+
+		const handler = (e) => {
+			// Não processar eventos que vêm de dentro de modais
+			if (e.target.closest('.modal-overlay') || e.target.closest('.modal-content-wrapper')) {
+				return;
+			}
+
+			// Só processar se o target for um botão ou estiver dentro de um botão
+			if (!e.target.matches('button[data-action]') && !e.target.closest('button[data-action]')) {
+				return;
+			}
+
+			const btn = e.target.closest('button[data-action]');
+			
+			const action = btn.getAttribute('data-action');
+			console.log('🎬 Ação executada:', action);
+			const produtoId = btn.getAttribute('data-id');
+			const preco = parseFloat(btn.getAttribute('data-preco'));
+			const total = parseInt(btn.getAttribute('data-total'));
+
+			switch (action) {
+				case 'prev-produto-photo':
+					this.prevProdutoPhoto(produtoId, total);
+					break;
+				case 'next-produto-photo':
+					this.nextProdutoPhoto(produtoId, total);
+					break;
+				case 'increment-produto':
+					console.log('➕ INCREMENTANDO produto:', produtoId);
+					this.incrementProdutoCarrinho(produtoId, preco);
+					break;
+				case 'decrement-produto':
+					console.log('➖ DECREMENTANDO produto:', produtoId);
+					this.decrementProdutoCarrinho(produtoId);
+					break;
+				case 'adicionar-carrinho':
+					console.log('🛒 ADICIONANDO AO CARRINHO:', produtoId, preco);
+					this.adicionarAoCarrinho(produtoId, preco);
+					break;
+			}
+		};
+
+		container.addEventListener('click', handler);
+		container._delegationAttached = true;
+		container._delegationHandler = handler;
+	}
+
+	incrementProdutoCarrinho(produtoId, preco) {
+		// Esta função serve para:
+		// 1. Contador visual no mercado (produtos não adicionados)
+		// 2. Editar quantidade de produtos já no carrinho
+		if (!this.cart[produtoId]) {
+			this.cart[produtoId] = { quantidade: 0, preco, adicionado: false };
+		}
+		
+		if (this.cart[produtoId].adicionado) {
+			// Se já está no carrinho, editar quantidade diretamente
+			this.cart[produtoId].quantidade++;
+			this.updateCartHeader();
+			if (this.activeSection === 'pedidos') {
+				this.updatePedidosCartTotal();
+			}
+		} else {
+			// Se não está no carrinho, apenas atualizar contador visual
+			this.cart[produtoId].quantidade++;
+		}
+		
+		document.getElementById(`contador-produto-${produtoId}`).textContent = this.cart[produtoId].quantidade;
+		this.updateCartBadge();
+	}
+
+	decrementProdutoCarrinho(produtoId) {
+		// Esta função serve para:
+		// 1. Contador visual no mercado (produtos não adicionados)
+		// 2. Editar quantidade de produtos já no carrinho
+		if (!this.cart[produtoId] || this.cart[produtoId].quantidade === 0) return;
+		
+		if (this.cart[produtoId].adicionado) {
+			// Se já está no carrinho, editar quantidade diretamente
+			this.cart[produtoId].quantidade--;
+			
+			if (this.cart[produtoId].quantidade > 0) {
+				// Ainda há quantidade, apenas atualizar
+				this.updateCartHeader();
+				if (this.activeSection === 'pedidos') {
+					this.updatePedidosCartTotal();
+				}
+			} else {
+				// Quantidade chegou a 0, remover completamente do carrinho
+				delete this.cart[produtoId];
+				// Resetar contador visual quando remover do carrinho
+				const contadorEl = document.getElementById(`contador-produto-${produtoId}`);
+				if (contadorEl) {
+					contadorEl.textContent = '0';
+				}
+				this.updateCartHeader();
+				if (this.activeSection === 'pedidos') {
+					this.updatePedidosCartTotal();
+				}
+			}
+		} else {
+			// Se não está no carrinho, apenas atualizar contador visual
+			this.cart[produtoId].quantidade--;
+		}
+		
+		document.getElementById(`contador-produto-${produtoId}`).textContent = this.cart[produtoId].quantidade;
+		this.updateCartBadge();
+	}
+
+	adicionarAoCarrinho(produtoId, preco) {
+		// Se o produto já está no carrinho, apenas incrementa a quantidade
+		if (this.cart[produtoId] && this.cart[produtoId].adicionado) {
+			this.cart[produtoId].quantidade += Math.max(1, this.cart[produtoId].quantidade || 0);
+		} else {
+			// Se não está no carrinho, adiciona com a quantidade do contador (mínimo 1)
+			const quantidadeAtual = this.cart[produtoId]?.quantidade || 0;
+			this.cart[produtoId] = { 
+				quantidade: Math.max(1, quantidadeAtual), 
+				preco, 
+				adicionado: true 
+			};
+		}
+		
+		// NÃO resetar o contador visual - manter a quantidade para futuras adições
+		
+		// Atualizar carrinho no topo
+		this.updateCartHeader();
+		// Atualizar total do carrinho na página de pedidos
+		if (this.activeSection === 'pedidos') {
+			this.updatePedidosCartTotal();
+		}
+		this.updateCartBadge();
+	}
+
+	updatePedidosCartTotal() {
+		// Atualiza apenas o valor total do carrinho no topo da página de pedidos
+		let cartTotal = 0;
+		Object.values(this.cart).forEach(item => {
+			if (item.adicionado) {
+				cartTotal += item.quantidade * item.preco;
+			}
+		});
+		const el = document.querySelector('.pedidos-cart-total');
+		if (el) {
+			el.textContent = this.formatCurrency(cartTotal);
+		}
+	}
+
+	updateCartHeader() {
+		const header = document.querySelector('header.header');
+		if (!header) return;
+
+		// Calcular total de itens no carrinho
+		let cartCount = Object.values(this.cart).filter(item => item.quantidade > 0 && item.adicionado).reduce((acc, item) => acc + item.quantidade, 0);
+		
+		let headCart = document.getElementById('head-cart');
+		
+		// Remover se carrinho vazio
+		if (cartCount === 0 && headCart) {
+			headCart.remove();
 			return;
 		}
 
-		try {
-			// Carregar clientes
-			const { data: clientes, error: clientesError } = await this.supabase
-				.from('clientes')
-				.select('*')
-				.order('created_at', { ascending: false });
-
-			if (!clientesError) this.clients = clientes || [];
-			// Filtra apenas clientes válidos (com id numérico)
-			this.clients = Array.isArray(clientes)
-				? clientes.filter(c => c && typeof c === 'object' && typeof c.id === 'string' && c.id.length > 0)
-				: [];
-			console.log('Dados brutos de clientes do Supabase:', clientes);
-			console.log('Clientes válidos após filtro:', this.clients);
-
-			// Carregar produtos
-			const { data: produtos, error: produtosError } = await this.supabase
-				.from('produtos')
-				.select('*')
-				.order('created_at', { ascending: false });
-
-			if (!produtosError) this.products = produtos || [];
-
-			// Carregar pedidos
-			const { data: pedidos, error: pedidosError } = await this.supabase
-				.from('pedidos')
-				.select('*')
-				.order('created_at', { ascending: false });
-
-			if (!pedidosError) this.orders = pedidos || [];
-
-			console.log('✅ Dados carregados do Supabase:', {
-				clientes: this.clients.length,
-				produtos: this.products.length,
-				pedidos: this.orders.length
-			});
-		} catch (error) {
-			console.error('Erro ao carregar dados:', error);
-			this.loadFromLocalStorage();
-		}
-	}
-
-	loadFromLocalStorage() {
-		this.products = JSON.parse(localStorage.getItem('products') || '[]');
-		this.clients = JSON.parse(localStorage.getItem('clients') || '[]');
-		this.orders = JSON.parse(localStorage.getItem('orders') || '[]');
-	}
-
-	async saveToSupabase(table, data, id = null) {
-		if (!this.supabase) {
-			console.warn('⚠️ Supabase não disponível');
-			return null;
-		}
-
-		try {
-			if (id) {
-				const { data: result, error } = await this.supabase
-					.from(table)
-					.update(data)
-					.eq('id', id)
-					.select()
-					.single();
-
-				if (error) {
-					console.error(`Erro Supabase UPDATE [${table}]:`, error, data);
-					throw error;
-				}
-				return result;
-			} else {
-				const { data: result, error } = await this.supabase
-					.from(table)
-					.insert([data])
-					.select()
-					.single();
-
-				if (error) {
-					console.error(`Erro Supabase INSERT [${table}]:`, error, data);
-					throw error;
-				}
-				return result;
+		// Criar/atualizar carrinho no header
+		if (cartCount > 0) {
+			if (!headCart) {
+				headCart = document.createElement('div');
+				headCart.id = 'head-cart';
+				headCart.style.position = 'absolute';
+				headCart.style.left = '50%';
+				headCart.style.top = '50%';
+				headCart.style.transform = 'translate(-50%, -50%)';
+				headCart.style.background = '#fff';
+				headCart.style.borderRadius = '50%';
+				headCart.style.boxShadow = '0 2px 8px rgba(0,0,0,0.12)';
+				headCart.style.width = '48px';
+				headCart.style.height = '48px';
+				headCart.style.display = 'flex';
+				headCart.style.alignItems = 'center';
+				headCart.style.justifyContent = 'center';
+				headCart.style.cursor = 'pointer';
+				headCart.style.zIndex = '1000';
+				header.appendChild(headCart);
 			}
-		} catch (error) {
-			alert('Erro ao salvar no banco: ' + (error?.message || error));
-			console.error('Erro ao salvar:', error, data);
-			return null;
+
+			headCart.innerHTML = `
+				<div style="position: relative;">
+					<i class='fas fa-shopping-cart' style='font-size: 1.5rem; color: #ff6b9d;'></i>
+					<span style="position: absolute; top: -8px; right: -8px; background: #dc3545; color: #fff; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">${cartCount}</span>
+				</div>
+			`;
+
+			headCart.onclick = (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				this.abrirFinalizarPedidoModal();
+			};
 		}
+	}
+
+	removerProdutoCarrinho(produtoId) {
+		if (this.cart[produtoId]) {
+			delete this.cart[produtoId];
+			// Resetar contador visual quando remover do carrinho
+			const contadorEl = document.getElementById(`contador-produto-${produtoId}`);
+			if (contadorEl) {
+				contadorEl.textContent = '0';
+			}
+		}
+		this.updateCartHeader();
+		if (this.activeSection === 'pedidos') {
+			this.updatePedidosCartTotal();
+		}
+		// Em vez de recriar o modal, apenas atualizar o conteúdo
+		this.atualizarConteudoModalPedido();
+	}
+
+	incrementProdutoCarrinhoModal(produtoId) {
+		// Esta função é para editar produtos JÁ adicionados ao carrinho (no modal)
+		if (this.cart[produtoId] && this.cart[produtoId].adicionado) {
+			this.cart[produtoId].quantidade++;
+			// Sincronizar contador visual na página de produtos
+			const contadorEl = document.getElementById(`contador-produto-${produtoId}`);
+			if (contadorEl) {
+				contadorEl.textContent = this.cart[produtoId].quantidade;
+			}
+			this.updateCartHeader();
+			if (this.activeSection === 'pedidos') {
+				this.updatePedidosCartTotal();
+			}
+			// Atualizar apenas o conteúdo do modal sem recriá-lo
+			this.atualizarConteudoModalPedido();
+		}
+	}
+
+	decrementProdutoCarrinhoModal(produtoId) {
+		// Esta função é para editar produtos JÁ adicionados ao carrinho (no modal)
+		if (this.cart[produtoId] && this.cart[produtoId].adicionado && this.cart[produtoId].quantidade > 0) {
+			this.cart[produtoId].quantidade--;
+			
+			if (this.cart[produtoId].quantidade > 0) {
+				// Ainda há quantidade, apenas atualizar
+				// Sincronizar contador visual na página de produtos
+				const contadorEl = document.getElementById(`contador-produto-${produtoId}`);
+				if (contadorEl) {
+					contadorEl.textContent = this.cart[produtoId].quantidade;
+				}
+				this.updateCartHeader();
+				if (this.activeSection === 'pedidos') {
+					this.updatePedidosCartTotal();
+				}
+				// Atualizar apenas o conteúdo do modal sem recriá-lo
+				this.atualizarConteudoModalPedido();
+			} else {
+				// Quantidade chegou a 0, remover completamente do carrinho
+				delete this.cart[produtoId];
+				// Resetar contador visual quando remover do carrinho
+				const contadorEl = document.getElementById(`contador-produto-${produtoId}`);
+				if (contadorEl) {
+					contadorEl.textContent = '0';
+				}
+				this.updateCartHeader();
+				if (this.activeSection === 'pedidos') {
+					this.updatePedidosCartTotal();
+				}
+				// Atualizar apenas o conteúdo do modal sem recriá-lo
+				this.atualizarConteudoModalPedido();
+			}
+		}
+	}
+
+	atualizarConteudoModalPedido() {
+		// Atualiza apenas o conteúdo dinâmico do modal sem recriá-lo completamente
+		const modal = document.getElementById('modal-finalizar-pedido');
+		if (!modal) return;
+
+		// Verificar se ainda há produtos no carrinho
+		const produtosNoCarrinho = Object.entries(this.cart)
+			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado);
+
+		if (produtosNoCarrinho.length === 0) {
+			// Se não há produtos, fechar o modal
+			closeModal('modal-finalizar-pedido');
+			return;
+		}
+
+		// Recriar a tabela de produtos
+		const produtosCarrinho = produtosNoCarrinho
+			.map(([id, item]) => {
+				const produto = this.products.find(p => p.id == id);
+				return produto ? `
+					<tr style="border-bottom:1px solid #eee;">
+						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#222; font-weight:600;">${produto.nome}</td>
+						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#764ba2; text-align:right;">${this.formatCurrency(item.preco)}</td>
+						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; text-align:center;">
+							<div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+								<button onclick="window.dashboardApp.decrementProdutoCarrinhoModal('${id}')" style="background: #eee; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">-</button>
+								<span class="produto-quantidade-${id}" style="font-weight: 600; min-width: 20px; text-align: center;">${item.quantidade}</span>
+								<button onclick="window.dashboardApp.incrementProdutoCarrinhoModal('${id}')" style="background: #eee; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">+</button>
+							</div>
+						</td>
+						<td class="produto-subtotal-${id}" style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#28a745; text-align:right; font-weight:600;">${this.formatCurrency(item.preco * item.quantidade)}</td>
+						<td style="padding:0.35rem 0.5rem; text-align:center;">
+							<button onclick="window.dashboardApp.removerProdutoCarrinho('${id}')" style="background: #dc3545; color: white; border: none; border-radius: 4px; padding: 0.2rem 0.4rem; font-size: 0.8rem; cursor: pointer;">×</button>
+						</td>
+					</tr>
+				` : '';
+			}).join('');
+
+		// Encontrar e substituir apenas a tabela de produtos
+		const tabelaContainer = modal.querySelector('.produtos-tabela-container');
+		if (tabelaContainer) {
+			tabelaContainer.innerHTML = `
+				<table style="width:100%; border-collapse:collapse;">
+					<thead>
+						<tr style="background:#e9ecef;">
+							<th style="padding:0.4rem; font-size:0.85rem; text-align:left;">Produto</th>
+							<th style="padding:0.4rem; font-size:0.85rem; text-align:right;">Preço</th>
+							<th style="padding:0.4rem; font-size:0.85rem; text-align:center;">Qtd</th>
+							<th style="padding:0.4rem; font-size:0.85rem; text-align:right;">Total</th>
+							<th style="padding:0.4rem; font-size:0.85rem; text-align:center;">Ações</th>
+						</tr>
+					</thead>
+					<tbody>
+						${produtosCarrinho}
+					</tbody>
+				</table>
+			`;
+		}
+
+		// Atualizar total geral
+		const totalCarrinho = produtosNoCarrinho
+			.reduce((acc, [_, item]) => acc + item.preco * item.quantidade, 0);
+
+		const totalElement = modal.querySelector('.modal-total-valor');
+		if (totalElement) {
+			totalElement.textContent = this.formatCurrency(totalCarrinho);
+		}
+	}
+
+	limparCarrinho() {
+		// Resetar todos os contadores visuais quando limpar o carrinho
+		Object.keys(this.cart).forEach(produtoId => {
+			const contadorEl = document.getElementById(`contador-produto-${produtoId}`);
+			if (contadorEl) {
+				contadorEl.textContent = '0';
+			}
+		});
+		this.cart = {};
+		this.updateCartHeader();
+		this.updateCartBadge(); // Atualizar badge flutuante também
+		if (this.activeSection === 'pedidos') {
+			this.updatePedidosCartTotal();
+		}
+		// Atualizar o modal atual se estiver aberto, em vez de abrir um novo
+		this.atualizarConteudoModalPedido();
+	}
+
+	atualizarModalFinalizarPedido() {
+		const modal = document.getElementById('modal-finalizar-pedido');
+		if (!modal) return; // Modal não está aberto, não faz nada
+
+		// Produtos do carrinho
+		const produtosCarrinho = Object.entries(this.cart)
+			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado)
+			.map(([id, item]) => {
+				const produto = this.products.find(p => p.id == id);
+				return produto ? `
+					<tr style="border-bottom:1px solid #eee;">
+						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#222; font-weight:600;">${produto.nome}</td>
+						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#764ba2; text-align:right;">${this.formatCurrency(item.preco)}</td>
+						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; text-align:center;">
+							<div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+								<button onclick="window.dashboardApp.decrementProdutoCarrinhoModal('${id}')" style="background: #eee; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">-</button>
+								<span class="produto-quantidade-${id}" style="font-weight: 600; min-width: 20px; text-align: center;">${item.quantidade}</span>
+								<button onclick="window.dashboardApp.incrementProdutoCarrinhoModal('${id}')" style="background: #eee; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">+</button>
+							</div>
+						</td>
+						<td class="produto-subtotal-${id}" style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#28a745; text-align:right; font-weight:600;">${this.formatCurrency(item.preco * item.quantidade)}</td>
+						<td style="padding:0.35rem 0.5rem; text-align:center;">
+							<button onclick="window.dashboardApp.removerProdutoCarrinho('${id}')" style="background: #dc3545; color: white; border: none; border-radius: 4px; padding: 0.2rem 0.4rem; font-size: 0.8rem; cursor: pointer;">×</button>
+						</td>
+					</tr>
+				` : '';
+			}).join('');
+
+		const totalCarrinho = Object.entries(this.cart)
+			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado)
+			.reduce((acc, [_, item]) => acc + item.preco * item.quantidade, 0);
+
+		// Atualiza o valor do topo da página de pedidos para refletir o total do carrinho
+		const pedidosCartTotalEl = document.querySelector('.pedidos-cart-total');
+		if (pedidosCartTotalEl) {
+			pedidosCartTotalEl.textContent = this.formatCurrency(totalCarrinho);
+		}
+
+		// Atualizar apenas a tabela de produtos e o total no modal existente
+		const produtosTbody = modal.querySelector('.produtos-tabela-container tbody');
+		const modalTotalValor = modal.querySelector('.modal-total-valor');
+
+		if (produtosTbody) {
+			produtosTbody.innerHTML = produtosCarrinho;
+		}
+
+		if (modalTotalValor) {
+			modalTotalValor.textContent = this.formatCurrency(totalCarrinho);
+		}
+
+		// Se o carrinho estiver vazio, mostrar mensagem
+		if (Object.keys(this.cart).length === 0 || Object.values(this.cart).every(item => !item.adicionado || item.quantidade === 0)) {
+			const produtosContainer = modal.querySelector('.produtos-tabela-container');
+			if (produtosContainer) {
+				produtosContainer.innerHTML = `
+					<div style="text-align: center; padding: 2rem; color: #888;">
+						<i class="fas fa-shopping-cart" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+						<p>Carrinho vazio</p>
+						<p style="font-size: 0.9rem;">Adicione produtos para continuar</p>
+					</div>
+				`;
+			}
+		}
+	}
+
+	prevProdutoPhoto(produtoId, totalPhotos) {
+		const carousel = document.getElementById(`market-carousel-${produtoId}`);
+		if (!carousel) return;
+		const current = parseInt(carousel.dataset.current || 0);
+		const prev = current === 0 ? totalPhotos - 1 : current - 1;
+		carousel.style.transform = `translateX(-${prev * 100}%)`;
+		carousel.dataset.current = prev;
+	}
+
+	nextProdutoPhoto(produtoId, totalPhotos) {
+		const carousel = document.getElementById(`market-carousel-${produtoId}`);
+		if (!carousel) return;
+		const current = parseInt(carousel.dataset.current || 0);
+		const next = (current + 1) % totalPhotos;
+		carousel.style.transform = `translateX(-${next * 100}%)`;
+		carousel.dataset.current = next;
+	}
+
+	// MODAL RÁPIDO ADICIONAR CLIENTE
+	openQuickAddClientModal() {
+		const modal = this.createModal('modal-quick-add-client', 'Adicionar Cliente Rápido', true);
+		
+		modal.querySelector('.modal-content-wrapper').innerHTML += `
+			<form id="form-quick-add-client" style="display: flex; flex-direction: column; gap: 1rem;">
+				<div class="form-group">
+					<label for="quick-client-nome">Nome *</label>
+					<input type="text" id="quick-client-nome" required class="form-control">
+				</div>
+				<div class="form-group">
+					<label for="quick-client-telefone">Telefone *</label>
+					<input type="tel" id="quick-client-telefone" required class="form-control">
+				</div>
+				<div class="form-group">
+					<label for="quick-client-email">Email</label>
+					<input type="email" id="quick-client-email" class="form-control">
+				</div>
+				<div class="form-group">
+					<label for="quick-client-endereco">Endereço *</label>
+					<textarea id="quick-client-endereco" required class="form-control" rows="2"></textarea>
+				</div>
+				<div class="modal-actions">
+					<button type="button" onclick="closeModal('modal-quick-add-client')" class="btn btn-secondary">Cancelar</button>
+					<button type="submit" class="btn btn-primary">Salvar</button>
+				</div>
+			</form>
+		`;
+
+		document.getElementById('modals-container').appendChild(modal);
+		modal.classList.add('show');
+
+		modal.querySelector('#form-quick-add-client').addEventListener('submit', async (e) => {
+			e.preventDefault();
+			const nome = modal.querySelector('#quick-client-nome').value.trim();
+			const telefone = modal.querySelector('#quick-client-telefone').value.trim();
+			const email = modal.querySelector('#quick-client-email').value.trim();
+			const endereco = modal.querySelector('#quick-client-endereco').value.trim();
+
+			if (!nome || !telefone || !endereco) {
+				alert('Preencha todos os campos obrigatórios');
+				return;
+			}
+
+			const clientData = { nome, telefone, email, endereco };
+			const result = await this.saveToSupabase('clientes', clientData);
+			
+			if (result) {
+				this.clients.unshift(result);
+				alert('Cliente adicionado com sucesso!');
+				closeModal('modal-quick-add-client');
+			}
+		});
+	}
+
+	// MODAL FINALIZAR PEDIDO - VENDA PRESENCIAL
+	abrirFinalizarPedidoModal() {
+		// Verificar se já existe um modal aberto e removê-lo
+		const existingModal = document.getElementById('modal-finalizar-pedido');
+		if (existingModal) {
+			existingModal.remove();
+		}
+
+		const modal = this.createModal('modal-finalizar-pedido', '🛒 Finalizar Pedido');
+		modal.classList.add('show');
+		
+		Object.assign(modal.style, {
+			display: 'flex',
+			justifyContent: 'center',
+			alignItems: 'center',
+			position: 'fixed',
+			top: '0',
+			left: '0',
+			width: '100vw',
+			height: '100vh',
+			background: 'rgba(0,0,0,0.4)',
+			zIndex: '2000'
+		});
+
+		let modalsContainer = document.getElementById('modals-container');
+		if (!modalsContainer) {
+			modalsContainer = document.createElement('div');
+			modalsContainer.id = 'modals-container';
+			document.body.appendChild(modalsContainer);
+		}
+		modalsContainer.appendChild(modal);
+
+		// Produtos do carrinho
+		const produtosCarrinho = Object.entries(this.cart)
+			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado)
+			.map(([id, item]) => {
+				const produto = this.products.find(p => p.id == id);
+				return produto ? `
+					<tr style="border-bottom:1px solid #eee;">
+						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#222; font-weight:600;">${produto.nome}</td>
+						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#764ba2; text-align:right;">${this.formatCurrency(item.preco)}</td>
+						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; text-align:center;">
+							<div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+								<button onclick="window.dashboardApp.decrementProdutoCarrinhoModal('${id}')" style="background: #eee; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">-</button>
+								<span class="produto-quantidade-${id}" style="font-weight: 600; min-width: 20px; text-align: center;">${item.quantidade}</span>
+								<button onclick="window.dashboardApp.incrementProdutoCarrinhoModal('${id}')" style="background: #eee; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">+</button>
+							</div>
+						</td>
+						<td class="produto-subtotal-${id}" style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#28a745; text-align:right; font-weight:600;">${this.formatCurrency(item.preco * item.quantidade)}</td>
+						<td style="padding:0.35rem 0.5rem; text-align:center;">
+							<button onclick="window.dashboardApp.removerProdutoCarrinho('${id}')" style="background: #dc3545; color: white; border: none; border-radius: 4px; padding: 0.2rem 0.4rem; font-size: 0.8rem; cursor: pointer;">×</button>
+						</td>
+					</tr>
+				` : '';
+			}).join('');
+
+		const totalCarrinho = Object.entries(this.cart)
+			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado)
+			.reduce((acc, [_, item]) => acc + item.preco * item.quantidade, 0);
+
+		// Atualiza o valor do topo da página de pedidos para refletir o total do carrinho
+		const pedidosCartTotalEl = document.querySelector('.pedidos-cart-total');
+		if (pedidosCartTotalEl) {
+			pedidosCartTotalEl.textContent = this.formatCurrency(totalCarrinho);
+		}
+
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 500px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 1.3rem; max-height: 90vh; overflow-y: auto;">
+				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+					<h3 style="margin: 0; font-size: 1.5rem; color: #333;">🛒 Finalizar Venda</h3>
+					<button id="close-finalizar-pedido" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
+				</div>
+
+				<form id="form-finalizar-pedido" style="display: flex; flex-direction: column; gap: 1.2rem;">
+					<!-- Produtos -->
+					<div style="background: #f8f9fa; padding: 1rem; border-radius: 10px;">
+						<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+							<h4 style="margin: 0; font-size: 1.05rem; color: #764ba2;">Produtos</h4>
+							<button onclick="window.dashboardApp.limparCarrinho()" style="background: #dc3545; color: white; border: none; border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.8rem; cursor: pointer;">Limpar Carrinho</button>
+						</div>
+						<div class="produtos-tabela-container" style="overflow-x: auto;">
+							<table style="width:100%; border-collapse:collapse;">
+								<thead>
+									<tr style="background:#e9ecef;">
+										<th style="padding:0.4rem; font-size:0.85rem; text-align:left;">Produto</th>
+										<th style="padding:0.4rem; font-size:0.85rem; text-align:right;">Preço</th>
+										<th style="padding:0.4rem; font-size:0.85rem; text-align:center;">Qtd</th>
+										<th style="padding:0.4rem; font-size:0.85rem; text-align:right;">Total</th>
+										<th style="padding:0.4rem; font-size:0.85rem; text-align:center;">Ações</th>
+									</tr>
+								</thead>
+								<tbody>${produtosCarrinho}</tbody>
+							</table>
+						</div>
+					</div>
+
+					<!-- Cliente -->
+					<div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 1rem; border-radius: 10px; color: white;">
+						<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">Cliente</h4>
+						<select id="finalizar-cliente" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem;">
+							<option value="">-- Selecione o cliente --</option>
+							${this.clients.map(c => `<option value="${c.id}">${c.nome} - ${c.telefone}</option>`).join('')}
+						</select>
+					</div>
+
+					<!-- Pagamento -->
+					<div style="background: linear-gradient(135deg, #f093fb, #f5576c); padding: 1rem; border-radius: 10px; color: white;">
+						<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">Forma de Pagamento</h4>
+						<select id="finalizar-pagamento" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem; margin-bottom: 0.75rem;">
+							<option value="dinheiro">Dinheiro</option>
+							<option value="transferencia">Transferência</option>
+							<option value="cartao">Cartão</option>
+						</select>
+						
+						<label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500;">
+							<input type="checkbox" id="finalizar-full-payment" checked style="width: 18px; height: 18px;"> 
+							Pagamento total?
+						</label>
+						
+						<div id="finalizar-sinal-group" style="display: none; margin-top: 0.75rem;">
+							<label style="display: block; margin-bottom: 0.25rem;">Valor do sinal (CAD$):</label>
+							<input type="number" id="finalizar-sinal" min="0" step="0.01" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none;">
+							<p id="finalizar-restante" style="margin: 0.5rem 0 0 0; font-size: 0.9rem;"></p>
+						</div>
+					</div>
+
+					<!-- Tipo de Entrega -->
+					<div style="background: linear-gradient(135deg, #4facfe, #00f2fe); padding: 1rem; border-radius: 10px; color: white;">
+						<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">Tipo de Entrega</h4>
+						<select id="finalizar-entrega" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem;">
+							<option value="retirada">Retirada na Loja</option>
+							<option value="entrega">Entrega</option>
+						</select>
+						
+						<div id="entrega-detalhes" style="display: none; margin-top: 0.75rem;">
+							<label style="display: block; margin-bottom: 0.25rem;">Data de Entrega:</label>
+							<input type="date" id="finalizar-data-entrega" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none; margin-bottom: 0.5rem;">
+							
+							<label style="display: block; margin-bottom: 0.25rem;">Horário:</label>
+							<input type="time" id="finalizar-horario-entrega" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none;">
+						</div>
+					</div>
+
+					<!-- Total -->
+					<div style="background: #28a745; padding: 1rem; border-radius: 10px; text-align: center; color: white;">
+						<h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; font-weight: 400; opacity: 0.9;">VALOR TOTAL</h4>
+						<h2 class="modal-total-valor" style="margin: 0; font-size: 2rem; font-weight: 700;">${this.formatCurrency(totalCarrinho)}</h2>
+					</div>
+
+					<button type="submit" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 1rem; font-size: 1.2rem; font-weight: 700; cursor: pointer;">
+						✓ Finalizar Venda
+					</button>
+				</form>
+			</div>
+		`;
+
+		// Event listener para o botão de fechar
+		setTimeout(() => {
+			const closeButton = document.getElementById('close-finalizar-pedido');
+			if (closeButton) {
+				// Remove event listeners anteriores
+				const newCloseButton = closeButton.cloneNode(true);
+				closeButton.parentNode.replaceChild(newCloseButton, closeButton);
+				
+				// Adiciona novo event listener
+				newCloseButton.addEventListener('click', (e) => {
+					e.preventDefault();
+					e.stopPropagation();
+					closeModal('modal-finalizar-pedido');
+				});
+			}
+		}, 100);
+
+		// Eventos do formulário
+		const fullPaymentCheckbox = modal.querySelector('#finalizar-full-payment');
+		const sinalGroup = modal.querySelector('#finalizar-sinal-group');
+		const sinalInput = modal.querySelector('#finalizar-sinal');
+		const restanteLabel = modal.querySelector('#finalizar-restante');
+		const entregaSelect = modal.querySelector('#finalizar-entrega');
+		const entregaDetalhes = modal.querySelector('#entrega-detalhes');
+
+		fullPaymentCheckbox.addEventListener('change', () => {
+			sinalGroup.style.display = fullPaymentCheckbox.checked ? 'none' : 'block';
+			updateRestante();
+		});
+
+		sinalInput.addEventListener('input', updateRestante);
+
+		function updateRestante() {
+			const sinal = parseFloat(sinalInput.value) || 0;
+			const restante = totalCarrinho - sinal;
+			restanteLabel.textContent = restante > 0 ? `Restante: ${window.dashboardApp.formatCurrency(restante)}` : '';
+		}
+
+		entregaSelect.addEventListener('change', () => {
+			entregaDetalhes.style.display = entregaSelect.value === 'entrega' ? 'block' : 'none';
+		});
+
+		// Submit
+		modal.querySelector('#form-finalizar-pedido').addEventListener('submit', async (e) => {
+			e.preventDefault();
+			await this.finalizarVendaPresencial();
+		});
+	}
+
+	async finalizarVendaPresencial() {
+		const clienteId = document.getElementById('finalizar-cliente').value;
+		const formaPagamento = document.getElementById('finalizar-pagamento').value;
+		const tipoEntrega = document.getElementById('finalizar-entrega').value;
+		const fullPayment = document.getElementById('finalizar-full-payment').checked;
+		const sinal = fullPayment ? 0 : (parseFloat(document.getElementById('finalizar-sinal').value) || 0);
+
+		if (!clienteId) {
+			alert('Selecione um cliente!');
+			return;
+		}
+
+		const produtos = Object.entries(this.cart)
+			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado)
+			.map(([id, item]) => ({ produto_id: id, quantidade: item.quantidade, preco_unitario: item.preco }));
+
+		const valor_total = produtos.reduce((acc, p) => acc + p.preco_unitario * p.quantidade, 0);
+		const valor_pago = fullPayment ? valor_total : sinal;
+
+		// Status baseado no pagamento
+		let status = 'pago'; // Padrão: pagamento total
+		if (!fullPayment && sinal < valor_total) {
+			status = 'confirmado'; // Pagamento parcial
+		}
+
+		const cliente = this.clients.find(c => c.id == clienteId);
+		const hoje = new Date();
+		const dataStr = hoje.toISOString().slice(0,10).replace(/-/g, '');
+		const randomNum = Math.floor(Math.random() * 9000) + 1000;
+		const numeroPedido = `PED-${dataStr}-${randomNum}`;
+
+		// Data de entrega
+		let dataEntrega = hoje.toISOString().slice(0,10);
+		let horarioEntrega = null;
+		
+		if (tipoEntrega === 'entrega') {
+			dataEntrega = document.getElementById('finalizar-data-entrega').value || dataEntrega;
+			horarioEntrega = document.getElementById('finalizar-horario-entrega').value || null;
+		}
+
+		const pedidoData = {
+			numero_pedido: numeroPedido,
+			cliente_id: clienteId,
+			user_id: this.currentUser?.id, // Adicionar ID do usuário que criou o pedido
+			data_pedido: hoje.toISOString(),
+			data_entrega: dataEntrega,
+			hora_entrega: horarioEntrega,
+			valor_total,
+			valor_pago,
+			status,
+			forma_pagamento: formaPagamento,
+			observacoes: '',
+			idioma: cliente?.idioma || 'pt'
+		};
+
+		// Salvar pedido
+		const pedidoSalvo = await this.saveToSupabase('pedidos', pedidoData);
+		
+		if (pedidoSalvo && pedidoSalvo.id) {
+			// Salvar itens do pedido
+			for (const item of produtos) {
+				const itemData = {
+					pedido_id: pedidoSalvo.id,
+					produto_id: item.produto_id,
+					quantidade: item.quantidade,
+					preco_unitario: item.preco_unitario,
+					created_at: new Date().toISOString()
+				};
+				await this.saveToSupabase('pedido_itens', itemData);
+			}
+
+			// Criar entrega se necessário
+			if (tipoEntrega === 'entrega') {
+				const entregaData = {
+					pedido_id: pedidoSalvo.id,
+					data_entrega: dataEntrega,
+					hora_entrega: horarioEntrega,
+					endereco_entrega: cliente.endereco,
+					status: 'agendada',
+					created_at: new Date().toISOString()
+				};
+				await this.saveToSupabase('entregas', entregaData);
+			}
+
+			// Registrar custos automaticamente dos produtos vendidos
+			await this.registrarCustosProdutosVendidos(pedidoSalvo.id, produtos);
+
+			// Enviar email apropriado
+			if (cliente && cliente.email) {
+				if (status === 'pago') {
+					// Pagamento total -> Recibo
+					this.enviarReciboPorEmail(pedidoSalvo, produtos, cliente.email);
+				} else {
+					// Pagamento parcial -> Confirmação
+					this.enviarConfirmacaoCompraPorEmail(pedidoSalvo, produtos, cliente.email);
+				}
+			}
+
+			// Limpar carrinho
+			this.cart = {};
+			this.updateCartBadge(); // Atualizar badge do carrinho
+			
+			// Recarregar dados
+			await this.loadData();
+			
+			// Atualizar seções do dashboard ANTES de renderizar a página
+			this.loadPedidosStatusList(); // Atualizar lista de pedidos no dashboard
+			this.updateFollowUpEntregas(); // Atualizar follow-up de entregas
+			this.updateStats(); // Atualizar estatísticas
+			
+			this.renderPedidosPage(); // Mostrar página de pedidos após venda
+			
+			closeModal('modal-finalizar-pedido');
+			alert('Venda finalizada com sucesso!');
+		}
+	}
+
+	// ENVIAR RECIBO POR EMAIL
+	enviarReciboPorEmail(pedido, produtos, emailCliente) {
+		if (!window.emailjs) {
+			console.error('EmailJS não carregado');
+			return;
+		}
+
+		const produtosHtml = produtos.map(p => {
+			const prod = this.products.find(pr => pr.id == p.produto_id);
+			return `${prod?.nome || 'Produto'} - ${p.quantidade}x ${this.formatCurrency(p.preco_unitario)}`;
+		}).join('<br>');
+
+		const templateParams = {
+			to_email: emailCliente,
+			pedido_numero: pedido.numero_pedido,
+			cliente_nome: pedido.cliente_nome,
+			produtos: produtosHtml,
+			valor_total: this.formatCurrency(pedido.valor_total),
+			data_pedido: this.formatDate(pedido.data_pedido.slice(0,10)),
+			forma_pagamento: pedido.forma_pagamento
+		};
+
+		emailjs.send('service_ydmyk5b', 'template_044bzyj', templateParams)
+			.then(() => console.log('✅ Recibo enviado'))
+			.catch(err => console.error('❌ Erro ao enviar recibo:', err));
+	}
+
+	// ENVIAR CONFIRMAÇÃO DE COMPRA
+	enviarConfirmacaoCompraPorEmail(pedido, produtos, emailCliente) {
+		if (!window.emailjs) {
+			console.error('EmailJS não carregado');
+			return;
+		}
+
+		const produtosHtml = produtos.map(p => {
+			const prod = this.products.find(pr => pr.id == p.produto_id);
+			return `${prod?.nome || 'Produto'} - ${p.quantidade}x ${this.formatCurrency(p.preco_unitario)}`;
+		}).join('<br>');
+
+		const valorRestante = pedido.valor_total - pedido.valor_pago;
+
+		const templateParams = {
+			to_email: emailCliente,
+			pedido_numero: pedido.numero_pedido,
+			cliente_nome: pedido.cliente_nome,
+			produtos: produtosHtml,
+			valor_total: this.formatCurrency(pedido.valor_total),
+			valor_pago: this.formatCurrency(pedido.valor_pago),
+			valor_restante: this.formatCurrency(valorRestante),
+			data_pedido: this.formatDate(pedido.data_pedido.slice(0,10))
+		};
+
+		emailjs.send('service_ydmyk5b', 'template_confirmacao', templateParams)
+			.then(() => console.log('✅ Confirmação enviada'))
+			.catch(err => console.error('❌ Erro ao enviar confirmação:', err));
+	}
+
+	// PÁGINA DE ENTREGAS
+	renderEntregasPage() {
+		const container = document.getElementById('entregas-container');
+		if (!container) return;
+
+		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
+		const isVendedor = role === 'sale' || role === 'vendedor';
+		const isAdmin = role === 'admin';
+
+		// Filtrar entregas baseado no papel do usuário
+		let entregas = [...this.entregas];
+		if (isVendedor && this.currentUser?.id) {
+			// Filtrar apenas entregas de pedidos criados pelo usuário logado
+			entregas = this.entregas.filter(entrega => {
+				// Encontrar o pedido relacionado e verificar se é do usuário
+				const pedido = this.orders.find(o => o.id == entrega.pedido_id);
+				return pedido && pedido.user_id && pedido.user_id == this.currentUser.id;
+			});
+			console.log(`👤 Vendedor logado - mostrando ${entregas.length} entregas de pedidos próprios`);
+		} else if (isAdmin) {
+			console.log('👑 Admin logado - mostrando todas as entregas');
+			entregas = [...this.entregas];
+		}
+
+		// Ordenar por data (mais próximas primeiro)
+		entregas.sort((a, b) => new Date(a.data_entrega) - new Date(b.data_entrega));
+
+		if (entregas.length === 0) {
+			container.innerHTML = `<p style="text-align: center; padding: 3rem; color: #888;">${this.t('msg.nenhuma_entrega')}</p>`;
+			return;
+		}
+
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+
+		const list = entregas.map(entrega => {
+			const pedido = entrega.pedidos || {};
+			const cliente = pedido.clientes || {};
+			const dataEntrega = new Date(entrega.data_entrega);
+			dataEntrega.setHours(0, 0, 0, 0);
+			
+			const isToday = dataEntrega.getTime() === today.getTime();
+			const isPast = dataEntrega < today;
+			const isTomorrow = dataEntrega.getTime() === (today.getTime() + 24 * 60 * 60 * 1000);
+			
+			let bgColor = 'white';
+			let borderColor = '#17a2b8';
+			
+			if (isToday) {
+				bgColor = '#fff3cd';
+				borderColor = '#FFC107';
+			} else if (isPast) {
+				bgColor = '#f8d7da';
+				borderColor = '#dc3545';
+			} else if (isTomorrow) {
+				bgColor = '#d1ecf1';
+				borderColor = '#17a2b8';
+			}
+
+			const statusColors = {
+				'agendada': '#17a2b8',
+				'saiu_entrega': '#ffc107',
+				'entregue': '#28a745',
+				'cancelada': '#dc3545'
+			};
+
+			return `
+				<div style="background: ${bgColor}; padding: 1.25rem; border-radius: 10px; margin-bottom: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid ${borderColor}; cursor: pointer;" onclick="window.dashboardApp.showOrderDetails(${pedido.id})">
+					<div style="display: flex; justify-content: space-between; align-items: start;">
+						<div style="flex: 1;">
+							<h4 style="margin: 0 0 0.75rem 0; color: #333;">
+								🚚 Pedido #${pedido.numero_pedido || pedido.id}
+								${isToday ? '<span style="background: #FFC107; color: white; padding: 0.25rem 0.5rem; border-radius: 8px; font-size: 0.75rem; margin-left: 0.5rem;">HOJE</span>' : ''}
+								${isTomorrow ? '<span style="background: #17a2b8; color: white; padding: 0.25rem 0.5rem; border-radius: 8px; font-size: 0.75rem; margin-left: 0.5rem;">AMANHÃ</span>' : ''}
+								${isPast ? '<span style="background: #dc3545; color: white; padding: 0.25rem 0.5rem; border-radius: 8px; font-size: 0.75rem; margin-left: 0.5rem;">ATRASADO</span>' : ''}
+							</h4>
+							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>👤</strong> ${cliente.nome || 'Cliente não informado'}</p>
+							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>📅</strong> ${dataEntrega.toLocaleDateString('pt-BR')}</p>
+							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>🕐</strong> ${entrega.hora_entrega || 'Não informado'}</p>
+							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>📍</strong> ${entrega.endereco_entrega || cliente.endereco || 'Endereço não informado'}</p>
+							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>💰</strong> R$ ${pedido.valor_total ? parseFloat(pedido.valor_total).toFixed(2) : '0.00'}</p>
+							${entrega.observacoes ? `<p style="margin: 0.5rem 0 0 0; color: #888; font-size: 0.8rem; font-style: italic;">📝 ${entrega.observacoes}</p>` : ''}
+							<span style="display: inline-block; margin-top: 0.5rem; background: ${statusColors[entrega.status] || '#6c757d'}; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem;">
+								${entrega.status === 'agendada' ? 'Agendada' : 
+								  entrega.status === 'saiu_entrega' ? 'Em Trânsito' : 
+								  entrega.status === 'entregue' ? 'Entregue' : 
+								  entrega.status === 'cancelada' ? 'Cancelada' : entrega.status}
+							</span>
+						</div>
+					</div>
+				</div>
+			`;
+		}).join('');
+
+		container.innerHTML = list;
+	}
+
+	// PÁGINA DE CLIENTES
+	renderClientesPage() {
+		const container = document.getElementById('clientes-container');
+		if (!container) return;
+		
+		container.style.display = 'flex';
+		container.style.flexDirection = 'column';
+		container.style.gap = '0.75rem';
+
+		const actionBar = `
+			<button onclick="window.dashboardApp.openAddClientModal()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 1rem; box-shadow: 0 4px 12px rgba(255,107,157,0.3);">
+				<i class="fas fa-plus"></i> Novo Cliente
+			</button>
+		`;
+
+		if (this.clients.length === 0) {
+			container.innerHTML = actionBar + `<p style="text-align: center; padding: 3rem; color: #888;">Nenhum cliente cadastrado</p>`;
+			return;
+		}
+
+		function escapeHtml(text) {
+			if (!text) return '';
+			return String(text)
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;')
+				.replace(/"/g, '&quot;')
+				.replace(/'/g, '&#39;');
+		}
+
+		const list = this.clients.map(c => `
+			<div style="background: white; padding: 1.25rem; border-radius: 10px; margin-bottom: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid #667eea;">
+				<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+					<div style="background: linear-gradient(135deg, #667eea, #6dd5ed); border-radius: 8px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+						<i class="fas fa-user" style="color: #fff; font-size: 1.5rem;"></i>
+					</div>
+					<h4 style="margin: 0; color: #333; font-size: 1.15rem; font-weight: 700;">${escapeHtml(c.nome)}</h4>
+				</div>
+				<div style="display: flex; justify-content: space-between; align-items: flex-start;">
+					<div style="flex: 1;">
+						<p style="margin: 0 0 0.25rem 0; color: #666; font-size: 0.9rem;"><i class="fas fa-phone" style="color: #667eea; width: 20px;"></i> ${escapeHtml(c.telefone)}</p>
+						${c.email ? `<p style="margin: 0 0 0.25rem 0; color: #666; font-size: 0.9rem;"><i class="fas fa-envelope" style="color: #667eea; width: 20px;"></i> ${escapeHtml(c.email)}</p>` : ''}
+						<p style="margin: 0; color: #666; font-size: 0.9rem;"><i class="fas fa-map-marker-alt" style="color: #667eea; width: 20px;"></i> ${escapeHtml(c.endereco)}</p>
+					</div>
+					<div style="display: flex; gap: 0.5rem; align-items: center;">
+						<button onclick="window.dashboardApp.editClient('${escapeHtml(c.id)}')" style="padding: 0.5rem 0.75rem; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;" title="Editar">
+							<i class="fas fa-edit"></i>
+						</button>
+						<button onclick="window.dashboardApp.deleteClient('${escapeHtml(c.id)}')" style="padding: 0.5rem 0.75rem; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;" title="Deletar">
+							<i class="fas fa-trash"></i>
+						</button>
+					</div>
+				</div>
+			</div>
+		`).join('');
+
+		container.innerHTML = actionBar + list;
+	}
+
+	async editClient(id) {
+		const client = this.clients.find(c => c.id === id);
+		if (!client) return;
+
+		const modal = this.createModal('modal-edit-client', 'Editar Cliente', true);
+		
+		function escapeHtml(text) {
+			if (!text) return '';
+			return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+		}
+
+		modal.querySelector('.modal-content-wrapper').innerHTML += `
+			<form id="form-edit-client" class="form-modal">
+				<div class="form-group">
+					<label for="edit-client-nome">Nome *</label>
+					<input type="text" id="edit-client-nome" required class="form-control" value="${escapeHtml(client.nome)}">
+				</div>
+				<div class="form-group">
+					<label for="edit-client-telefone">Telefone *</label>
+					<input type="tel" id="edit-client-telefone" required class="form-control" value="${escapeHtml(client.telefone)}">
+				</div>
+				<div class="form-group">
+					<label for="edit-client-email">Email</label>
+					<input type="email" id="edit-client-email" class="form-control" value="${escapeHtml(client.email || '')}">
+				</div>
+				<div class="form-group">
+					<label for="edit-client-endereco">Endereço *</label>
+					<textarea id="edit-client-endereco" required class="form-control" rows="3">${escapeHtml(client.endereco)}</textarea>
+				</div>
+				<div class="modal-actions">
+					<button type="button" onclick="closeModal('modal-edit-client')" class="btn btn-secondary">Cancelar</button>
+					<button type="submit" class="btn btn-primary">Salvar</button>
+				</div>
+			</form>
+		`;
+
+		document.getElementById('modals-container').appendChild(modal);
+		modal.classList.add('show');
+
+		modal.querySelector('#form-edit-client').addEventListener('submit', async (e) => {
+			e.preventDefault();
+			const nome = modal.querySelector('#edit-client-nome').value.trim();
+			const telefone = modal.querySelector('#edit-client-telefone').value.trim();
+			const email = modal.querySelector('#edit-client-email').value.trim();
+			const endereco = modal.querySelector('#edit-client-endereco').value.trim();
+
+			if (!nome || !telefone || !endereco) {
+				alert('Preencha todos os campos obrigatórios');
+				return;
+			}
+
+			const clientData = { nome, telefone, email, endereco };
+			await this.saveToSupabase('clientes', clientData, id);
+			Object.assign(client, clientData);
+			closeModal('modal-edit-client');
+			this.renderClientesPage();
+		});
+	}
+
+	async deleteClient(id) {
+		if (!confirm('Tem certeza que deseja excluir este cliente?')) return;
+		await this.deleteFromSupabase('clientes', id);
+		this.clients = this.clients.filter(c => c.id !== id);
+		this.renderClientesPage();
 	}
 
 	async deleteFromSupabase(table, id) {
 		if (!this.supabase) return false;
-
 		try {
-			const { error } = await this.supabase
-				.from(table)
-				.delete()
-				.eq('id', id);
-
+			const { error } = await this.supabase.from(table).delete().eq('id', id);
 			return !error;
 		} catch (error) {
 			console.error('Erro ao deletar:', error);
@@ -1133,68 +3366,54 @@ class DashboardApp {
 		}
 	}
 
-	// ==================== CLIENTES ====================
-
-	async openAddClientModal() {
-	const modal = this.createModal('modal-add-client', '', false);
-	modal.querySelector('.modal-content-wrapper').innerHTML = `
+	openAddClientModal() {
+		const modal = this.createModal('modal-add-client', '', false);
+		modal.querySelector('.modal-content-wrapper').innerHTML = `
 			<div style="display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.7rem;">
 				<span style="width: 50px; height: 50px; background: linear-gradient(135deg, #667eea, #6dd5ed); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.7rem;"><i class="fas fa-user"></i></span>
-				<span style="font-size: 1.35rem; font-weight: 700; color: #333;">${this.t('modal.add_client')}</span>
+				<span style="font-size: 1.35rem; font-weight: 700; color: #333;">Novo Cliente</span>
 				<button onclick="closeModal('modal-add-client')" style="margin-left:auto; background:none; border:none; font-size:1.3rem; color:#888; cursor:pointer;">&times;</button>
 			</div>
 			<div style="border-bottom:1px solid #eee; margin-bottom:1rem;"></div>
 			<form id="form-add-client" class="form-modal">
 				<div class="form-group">
-					<label for="client-nome">${this.t('modal.client_name')} *</label>
-					<input type="text" id="client-nome" required class="form-control" placeholder="${this.t('placeholder.enter_name')}">
+					<label for="client-nome">Nome *</label>
+					<input type="text" id="client-nome" required class="form-control">
 				</div>
 				<div class="form-group">
-					<label for="client-telefone">${this.t('modal.client_phone')} *</label>
-					<input type="tel" id="client-telefone" required class="form-control" placeholder="${this.t('placeholder.enter_phone')}">
+					<label for="client-telefone">Telefone *</label>
+					<input type="tel" id="client-telefone" required class="form-control">
 				</div>
 				<div class="form-group">
-					<label for="client-email">${this.t('modal.client_email')}</label>
-					<input type="email" id="client-email" class="form-control" placeholder="${this.t('placeholder.enter_email')}">
+					<label for="client-email">Email</label>
+					<input type="email" id="client-email" class="form-control">
 				</div>
 				<div class="form-group">
-					<label for="client-endereco">${this.t('modal.client_address')} *</label>
-					<textarea id="client-endereco" required class="form-control" rows="3" placeholder="${this.t('placeholder.enter_address')}"></textarea>
+					<label for="client-endereco">Endereço *</label>
+					<textarea id="client-endereco" required class="form-control" rows="3"></textarea>
 				</div>
 				<div class="modal-actions">
-					<button type="button" onclick="closeModal('modal-add-client')" class="btn btn-secondary">${this.t('btn.cancel')}</button>
-					<button type="submit" class="btn btn-primary">${this.t('btn.save')}</button>
+					<button type="button" onclick="closeModal('modal-add-client')" class="btn btn-secondary">Cancelar</button>
+					<button type="submit" class="btn btn-primary">Salvar</button>
 				</div>
 			</form>
 		`;
-		
-		// Corrige submit para ser async
-		const form = modal.querySelector('form');
-		if (form) {
-			form.addEventListener('submit', async (e) => {
-				e.preventDefault();
-				// ...código de coleta dos dados do produto...
-				await this.loadData();
-				this.renderProdutosPage();
-				this.renderEstoquePage();
-				this.updateStats();
-				closeModal('modal-add-product');
-			});
-		}
+
 		document.getElementById('modals-container').appendChild(modal);
 		modal.classList.add('show');
 
-		// Event listener para cadastro de cliente
 		modal.querySelector('#form-add-client').addEventListener('submit', async (e) => {
 			e.preventDefault();
 			const nome = modal.querySelector('#client-nome').value.trim();
 			const telefone = modal.querySelector('#client-telefone').value.trim();
 			const email = modal.querySelector('#client-email').value.trim();
 			const endereco = modal.querySelector('#client-endereco').value.trim();
+
 			if (!nome || !telefone || !endereco) {
 				alert('Preencha todos os campos obrigatórios');
 				return;
 			}
+
 			const clientData = { nome, telefone, email, endereco };
 			const result = await this.saveToSupabase('clientes', clientData);
 			if (result) this.clients.unshift(result);
@@ -1205,404 +3424,490 @@ class DashboardApp {
 		});
 	}
 
-	async deleteProduct(id) {
-		// Removida confirmação daqui, pois já existe na renderProdutosPage
-		const success = await this.deleteFromSupabase('produtos', id);
-		if (success) {
-			this.products = this.products.filter(p => p.id !== id);
-			this.renderProdutosPage();
-			this.renderEstoquePage();
-			this.updateStats();
-		}
-	}
-
-	// ==================== PEDIDOS INTUITIVO ====================
-
-	async openAddOrderModal() {
-		if (this.clients.length === 0) {
-			alert('Cadastre pelo menos um cliente primeiro');
+	// PÁGINA DE PRODUTOS
+	renderProdutosPage() {
+		const container = document.getElementById('produtos-container');
+		if (!container) {
+			console.error('❌ Container produtos não encontrado');
 			return;
 		}
+
+		// Verificar se o usuário é admin para mostrar botão de adicionar produto
+		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
+		const isAdmin = role === 'admin';
+
+		// Limpar completamente o container
+		while (container.firstChild) {
+			container.removeChild(container.firstChild);
+		}
+
+		container.style.display = 'flex';
+		container.style.flexDirection = 'column';
+		container.style.gap = '1rem';
+
+		const actionBar = isAdmin ? `
+			<button onclick="window.dashboardApp.openAddProductModal()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 1rem; box-shadow: 0 4px 12px rgba(255,107,157,0.3);">
+				<i class="fas fa-plus"></i> Novo Produto
+			</button>
+		` : '';
+
 		if (this.products.length === 0) {
-			alert('Cadastre pelo menos um produto primeiro');
+			container.innerHTML = actionBar + `<p style="text-align: center; padding: 3rem; color: #888;">Nenhum produto cadastrado</p>`;
 			return;
 		}
 
-		const modal = this.createModal('modal-add-order', '🛒 ' + this.t('modal.add_order'));
-		
-        modal.style.display = 'flex';
-        modal.style.justifyContent = 'center';
-        modal.style.alignItems = 'center';
-        modal.style.minHeight = '100vh';
-        modal.innerHTML = `
-			<style>
-				@media (max-width: 600px) {
-					.modal-order-card { padding: 1rem 0.5rem !important; max-width: 100vw !important; max-height: 90vh !important; overflow-y: auto !important; }
-					.modal-order-form { gap: 0.7rem !important; max-width: 100vw !important; }
-				}
-				.modal-order-card { max-height: 90vh; overflow-y: auto; }
-			</style>
-			<div class="modal-order-card" style="background: #fff; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); padding: 2rem 1rem; max-width: 420px; width: 100%; margin: 2rem auto; box-sizing: border-box; max-height: 90vh; overflow-y: auto;">
-				<form id="form-add-order" class="modal-order-form" style="display: flex; flex-direction: column; gap: 1.1rem; width: 100%; max-width: 420px; margin: 0 auto;">
-				<!-- Passo 1: Cliente -->
-				<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1.25rem 1rem; border-radius: 10px; color: white; box-shadow: 0 2px 8px rgba(102,126,234,0.08);">
-					<h4 style="margin: 0 0 1rem 0; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem;">
-						<span style="background: white; color: #667eea; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem;">1</span>
-						Selecione o Cliente
-					</h4>
-					<select id="order-client" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem;">
-						<option value="">-- Escolha um cliente --</option>
-						${this.clients.map(c => `<option value="${c.id}">${c.nome} - ${c.telefone}</option>`).join('')}
-					</select>
-				</div>
-
-				<!-- Passo 2: Produto -->
-				<div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 1.25rem 1rem; border-radius: 10px; color: white; box-shadow: 0 2px 8px rgba(240,147,251,0.08);">
-					<h4 style="margin: 0 0 1rem 0; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem;">
-						<span style="background: white; color: #f5576c; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem;">2</span>
-						Escolha o Produto
-					</h4>
-					<select id="order-product" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem; margin-bottom: 0.75rem;">
-						<option value="">-- Escolha um produto --</option>
-						${this.products.map(p => `<option value="${p.id}" data-price="${p.preco}">${p.nome} - ${this.formatCurrency(p.preco)}</option>`).join('')}
-					</select>
-					<input type="number" id="order-quantity" required min="1" value="1" placeholder="Quantidade" style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem;">
-				</div>
-
-				<!-- Passo 3: Entrega -->
-				<div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 1.25rem 1rem; border-radius: 10px; color: white; box-shadow: 0 2px 8px rgba(79,172,254,0.08);">
-					<h4 style="margin: 0 0 1rem 0; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem;">
-						<span style="background: white; color: #4facfe; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem;">3</span>
-						Dados de Entrega
-					</h4>
-					<div style="display: grid; gap: 0.75rem;">
-						<input type="date" id="order-date" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem;">
-						<input type="time" id="order-time" style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem;">
-						<textarea id="order-address" required rows="2" placeholder="Endereço de entrega" style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem; resize: none;"></textarea>
-					</div>
-				</div>
-
-				<!-- Total -->
-				<div style="background: #28a745; padding: 1.25rem 1rem; border-radius: 10px; color: white; text-align: center; box-shadow: 0 2px 8px rgba(40,167,69,0.08);">
-					<h3 style="margin: 0; font-size: 0.9rem; font-weight: 400; opacity: 0.9;">VALOR TOTAL</h3>
-					<h2 id="order-total" style="margin: 0.5rem 0 0 0; font-size: 2.2rem; font-weight: 700;">CAD$ 0.00</h2>
-					<div style="margin-top: 1rem; text-align: left;">
-						<label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; color: #fff;">
-							<input type="checkbox" id="order-full-payment" checked style="accent-color: #28a745; width: 18px; height: 18px;"> Pagamento total?
-						</label>
-						<div id="order-sinal-group" style="display: none; margin-top: 0.5rem;">
-							<label for="order-sinal" style="color: #fff; font-weight: 500;">Valor do sinal:</label>
-							<input type="number" id="order-sinal" min="0" step="0.01" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none; margin-top: 0.25rem;">
-							<p id="order-restante" style="margin: 0.5rem 0 0 0; color: #fff; font-size: 0.95rem;"></p>
+		const produtosHtml = `
+			<div style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center;">
+				${this.products.map(p => {
+					let fotos = [];
+					if (p.fotos) {
+						try { fotos = JSON.parse(p.fotos); } catch {}
+					}
+					
+					return `
+						<div class="card-produto" style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.2rem; max-width: 320px; width: 100%; display: flex; flex-direction: column; align-items: center;" data-descricao="${p.descricao || ''}">
+							<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
+								<span style="font-size: 1.0rem; font-weight: 700; color: #333;">${p.nome}</span>
+								<div style="margin-top: 0.5rem;">
+									<span style="background: ${p.status_produto === 'pronta_entrega' ? '#28a745' : '#ff6b9d'}; color: white; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.7rem; font-weight: 600;">${p.status_produto === 'pronta_entrega' ? 'Pronta Entrega' : 'Sob Encomenda'}</span>
+								</div>
+							</div>
+							<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
+								<div id="carousel-${p.id}" data-current="0" style="display: flex; transition: transform 0.3s ease;">
+									${fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: cover;">`).join('')}
+								</div>
+								${fotos.length > 1 ? `
+									<button data-action="prev-photo" data-id="${p.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
+									<button data-action="next-photo" data-id="${p.id}" data-total="${fotos.length}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">›</button>
+								` : ''}
+							</div>
+							<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
+								<span style="font-size: 1.1rem; font-weight: 700; color: #ff6b9d;">${this.formatCurrency(p.preco)}</span>
+								<p style="margin: 0.3rem 0 0 0; color: #666; font-size: 0.8rem;">💰 Custo: <strong>${p.custo ? this.formatCurrency(p.custo) : 'Não informado'}</strong></p>
+								<p style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;">📦 Estoque: <strong>${p.estoque}</strong></p>
+								${p.descricao ? `<p style="margin: 0.5rem 0 0 0; color: #888; font-size: 0.8rem; line-height: 1.3; text-align: center;">${p.descricao}</p>` : ''}
+							</div>
+							<div style="display: flex; gap: 0.5rem; align-items: center; width: 100%; justify-content: center;">
+								${isAdmin ? `
+									<button data-action="edit-product" data-id="${p.id}" style="padding: 0.5rem 0.75rem; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;">
+										<i class="fas fa-edit"></i>
+									</button>
+									<button data-action="delete-product" data-id="${p.id}" style="padding: 0.5rem 0.75rem; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;">
+										<i class="fas fa-trash"></i>
+									</button>
+								` : ''}
+							</div>
 						</div>
-					</div>
-				</div>
-
-				<!-- Forma de Pagamento -->
-				<div style="background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%); padding: 1.25rem 1rem; border-radius: 10px; color: #333; box-shadow: 0 2px 8px rgba(255,179,71,0.08); margin-top: 0.5rem;">
-					<h4 style="margin: 0 0 1rem 0; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem;">
-						<span style="background: white; color: #ffb347; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem;">💰</span>
-						Forma de Pagamento
-					</h4>
-					<select id="order-payment" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem;">
-						<option value="dinheiro">Dinheiro</option>
-						<option value="transferencia">Transferência</option>
-					</select>
-				</div>
-
-				<div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
-					<button type="button" onclick="closeModal('modal-add-order')" class="btn btn-secondary" style="padding: 0.75rem 2rem;">Cancelar</button>
-					<button type="submit" class="btn btn-success" style="padding: 0.75rem 2rem; background: #28a745;">✓ Criar Pedido</button>
-				</div>
-			</form>
-			</form>
+					`;
+				}).join('')}
 			</div>
 		`;
-		
-		document.getElementById('modals-container').appendChild(modal);
-		modal.classList.add('show');
 
-		// Auto-preencher endereço
-		document.getElementById('order-client').addEventListener('change', (e) => {
-			const clientId = parseInt(e.target.value);
-			const client = this.clients.find(c => c.id === clientId);
-			if (client) document.getElementById('order-address').value = client.endereco;
-		});
+		container.innerHTML = actionBar + produtosHtml;
 
-		// Calcular total em tempo real
-		const updateTotal = () => {
-			const productSelect = document.getElementById('order-product');
-			const quantity = parseInt(document.getElementById('order-quantity').value) || 0;
-			const selectedOption = productSelect.options[productSelect.selectedIndex];
-			const price = parseFloat(selectedOption.dataset.price) || 0;
-			const total = price * quantity;
-			document.getElementById('order-total').textContent = this.formatCurrency(total);
-		};
-
-		document.getElementById('order-product').addEventListener('change', updateTotal);
-		document.getElementById('order-quantity').addEventListener('input', updateTotal);
-		
-		// Pagamento total/sinal
-		const fullPaymentCheckbox = modal.querySelector('#order-full-payment');
-		const sinalGroup = modal.querySelector('#order-sinal-group');
-		const sinalInput = modal.querySelector('#order-sinal');
-		const restanteLabel = modal.querySelector('#order-restante');
-		fullPaymentCheckbox.addEventListener('change', () => {
-			if (fullPaymentCheckbox.checked) {
-				sinalGroup.style.display = 'none';
-			} else {
-				sinalGroup.style.display = 'block';
-				updateRestante();
+		// Eventos do carrossel e botões
+		container.onclick = (e) => {
+			const btn = e.target.closest('button[data-action]');
+			if (!btn) return;
+			const action = btn.getAttribute('data-action');
+			const id = btn.getAttribute('data-id');
+			const preco = parseFloat(btn.getAttribute('data-preco'));
+			const total = parseInt(btn.getAttribute('data-total'));
+			
+			switch (action) {
+				case 'prev-photo':
+					this.prevPhoto(id, total);
+					break;
+				case 'next-photo':
+					this.nextPhoto(id, total);
+					break;
+				case 'edit-product':
+					this.editProduct(id);
+					break;
+				case 'delete-product':
+					if (confirm('Tem certeza que deseja excluir este produto?')) {
+						this.deleteProduct(id);
+					}
+					break;
+				case 'increment-produto':
+					this.incrementProdutoCarrinho(id, preco);
+					break;
+				case 'decrement-produto':
+					this.decrementProdutoCarrinho(id);
+					break;
+				case 'adicionar-carrinho':
+					this.adicionarAoCarrinho(id, preco);
+					break;
 			}
-		});
-		sinalInput.addEventListener('input', updateRestante);
-		function updateRestante() {
-			const total = parseFloat(document.getElementById('order-total').textContent.replace(/[^\d\.,]/g, '').replace(',', '.')) || 0;
-			const sinal = parseFloat(sinalInput.value) || 0;
-			const restante = total - sinal;
-			restanteLabel.textContent = restante > 0 ? `Valor restante na entrega: ${window.dashboardApp.formatCurrency(restante)}` : '';
-		}
-		document.getElementById('form-add-order').addEventListener('submit', (e) => {
-			e.preventDefault();
-			this.saveOrder();
-		});
+		};
 	}
 
-	async saveOrder(editId = null) {
-		const clientId = parseInt(document.getElementById('order-client').value);
-		const productId = parseInt(document.getElementById('order-product').value);
-		const quantidade = parseInt(document.getElementById('order-quantity').value);
-		const data_entrega = document.getElementById('order-date').value;
-		const horario_entrega = document.getElementById('order-time').value;
-		const endereco_entrega = document.getElementById('order-address').value.trim();
-
-		const client = this.clients.find(c => c.id === clientId);
-		const product = this.products.find(p => p.id === productId);
-
-		if (!client || !product || !quantidade || !data_entrega || !endereco_entrega) {
-			alert('Preencha todos os campos obrigatórios');
+	async editProduct(id) {
+		// Verificar se o usuário é admin
+		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
+		const isAdmin = role === 'admin';
+		
+		if (!isAdmin) {
+			alert('Acesso negado. Apenas administradores podem editar produtos.');
 			return;
 		}
 
-		const valor_unitario = product.preco;
-		const valor_total = valor_unitario * quantidade;
+		const product = this.products.find(p => p.id == id);
+		if (!product) return;
 
-		const orderData = {
-			cliente_id: clientId,
-			cliente_nome: client.nome,
-			produto_id: productId,
-			produto_nome: product.nome,
-			quantidade,
-			valor_unitario,
-			valor_total,
-			data_entrega,
-			horario_entrega,
-			endereco_entrega,
-			status: editId ? document.getElementById('order-status')?.value || 'pendente' : 'pendente'
-		};
+		console.log('Produto encontrado:', product);
+		console.log('Custo do produto:', product.custo, typeof product.custo);
 
-		let pedidoSalvo;
-		if (editId) {
-			pedidoSalvo = await this.saveToSupabase('pedidos', orderData, editId);
-			if (pedidoSalvo) {
-				const index = this.orders.findIndex(o => o.id === editId);
-				if (index !== -1) this.orders[index] = pedidoSalvo;
-			}
-		} else {
-			pedidoSalvo = await this.saveToSupabase('pedidos', orderData);
-			if (pedidoSalvo) this.orders.unshift(pedidoSalvo);
-		}
+		const modal = this.createModal('modal-edit-product', '✏️ Editar Produto');
+		modal.classList.add('show');
 
-		// Envio de recibo ou confirmação após salvar pedido
-		if (pedidoSalvo) {
-			const cliente = this.clients.find(c => c.id === pedidoSalvo.cliente_id);
-			const valorPago = pedidoSalvo.valor_pago || pedidoSalvo.valor_total;
-			const isRetirada = pedidoSalvo.tipo_entrega === 'retirada' || pedidoSalvo.endereco_entrega?.toLowerCase().includes('retirada');
-			if (cliente && cliente.email) {
-				if (valorPago >= pedidoSalvo.valor_total && isRetirada) {
-					// Recibo para retirada com pagamento total
-					window.gerarEEnviarRecibo({ ...pedidoSalvo, produtos: [{ nome: pedidoSalvo.produto_nome, quantidade: pedidoSalvo.quantidade }] }, cliente.email);
-				} else if (valorPago < pedidoSalvo.valor_total) {
-					// Confirmação de compra para pagamento parcial
-					if (window.gerarEEnviarConfirmacaoCompra) {
-						window.gerarEEnviarConfirmacaoCompra({ ...pedidoSalvo, produtos: [{ nome: pedidoSalvo.produto_nome, quantidade: pedidoSalvo.quantidade }] }, cliente.email);
-					}
-				}
-			}
-		}
-
-		await this.loadData();
-		this.renderPedidosPage();
-		this.renderEntregasPage();
-		this.updateStats();
-		this.updateEntregasHoje();
-		closeModal(editId ? 'modal-edit-order' : 'modal-add-order');
-	}
-
-	async editOrder(id) {
-		const order = this.orders.find(o => o.id === id);
-		if (!order) return;
-
-		const modal = this.createModal('modal-edit-order', '✏️ Editar Pedido #' + id);
-		
-		modal.innerHTML += `
-			<form id="form-edit-order" style="display: flex; flex-direction: column; gap: 1rem;">
-				<div>
-					<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Cliente *</label>
-					<select id="order-client" required class="form-control">
-						${this.clients.map(c => `<option value="${c.id}" ${c.id === order.cliente_id ? 'selected' : ''}>${c.nome}</option>`).join('')}
+		const wrapper = modal.querySelector('.modal-content-wrapper');
+		wrapper.innerHTML += `
+			<form id="form-edit-product" class="form-modal">
+				<div class="form-group">
+					<label for="edit-nome">Nome *</label>
+					<input type="text" id="edit-nome" required value="${product.nome}" class="form-control">
+				</div>
+				<div class="form-group">
+					<label for="edit-categoria">Categoria *</label>
+					<input type="text" id="edit-categoria" required value="${product.categoria}" class="form-control">
+				</div>
+				<div class="form-group">
+					<label for="edit-preco">Preço *</label>
+					<input type="text" id="edit-preco" required value="${product.preco}" class="form-control" inputmode="decimal">
+				</div>
+				<div class="form-group">
+					<label for="edit-custo">Custo de Produção</label>
+					<input type="text" id="edit-custo" value="${product.custo || ''}" class="form-control" inputmode="decimal" placeholder="0,00">
+				</div>
+				<div class="form-group">
+					<label for="edit-estoque">Estoque *</label>
+					<input type="number" id="edit-estoque" required value="${product.estoque}" class="form-control" min="0" step="1">
+				</div>
+				<div class="form-group">
+					<label for="edit-status">Disponibilidade *</label>
+					<select id="edit-status" required class="form-control">
+						<option value="pronta_entrega" ${product.status_produto === 'pronta_entrega' ? 'selected' : ''}>Pronta Entrega</option>
+						<option value="sob_encomenda" ${product.status_produto === 'sob_encomenda' ? 'selected' : ''}>Sob Encomenda</option>
 					</select>
 				</div>
-				<div>
-					<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Produto *</label>
-					<select id="order-product" required class="form-control">
-						${this.products.map(p => `<option value="${p.id}" data-price="${p.preco}" ${p.id === order.produto_id ? 'selected' : ''}>${p.nome} - ${this.formatCurrency(p.preco)}</option>`).join('')}
-					</select>
+				<div class="form-group">
+					<label for="edit-descricao">Descrição</label>
+					<textarea id="edit-descricao" class="form-control" rows="2">${product.descricao || ''}</textarea>
 				</div>
-				<div>
-					<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Quantidade *</label>
-					<input type="number" id="order-quantity" required class="form-control" min="1" value="${order.quantidade}">
-				</div>
-				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-					<div>
-						<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Data *</label>
-						<input type="date" id="order-date" required class="form-control" value="${order.data_entrega}">
+				<div class="form-group">
+					<label for="edit-fotos">Fotos do Produto</label>
+					<div id="edit-fotos-preview" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem;">
+						${(() => {
+							let fotos = [];
+							if (product.fotos) {
+								try { fotos = JSON.parse(product.fotos); } catch {}
+							}
+							return fotos.map((foto, index) => `
+								<div style="position: relative; display: inline-block;">
+									<img src="${foto}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;">
+									<button type="button" onclick="this.parentElement.remove()" data-foto-index="${index}" style="position: absolute; top: -5px; right: -5px; background: #dc3545; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer;">×</button>
+								</div>
+							`).join('');
+						})()}
 					</div>
-					<div>
-						<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Horário</label>
-						<input type="time" id="order-time" class="form-control" value="${order.horario_entrega || ''}">
-					</div>
+					<input type="file" id="edit-fotos-upload" multiple accept="image/*" style="margin-bottom: 0.5rem;">
+					<small style="color: #666; font-size: 0.8rem;">Selecione uma ou mais imagens para adicionar (PNG, JPG, JPEG)</small>
 				</div>
-				<div>
-					<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Endereço *</label>
-					<textarea id="order-address" required class="form-control" rows="2">${order.endereco_entrega}</textarea>
-				</div>
-				<div>
-					<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Status *</label>
-					<select id="order-status" required class="form-control">
-						<option value="pendente" ${order.status === 'pendente' ? 'selected' : ''}>Pendente</option>
-						<option value="pago" ${order.status === 'pago' ? 'selected' : ''}>Pago</option>
-						<option value="entregue" ${order.status === 'entregue' ? 'selected' : ''}>Entregue</option>
-						<option value="cancelado" ${order.status === 'cancelado' ? 'selected' : ''}>Cancelado</option>
-					</select>
-				</div>
-				<div>
-					<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Forma de Pagamento *</label>
-					<select id="order-payment" required class="form-control">
-						<option value="dinheiro" ${order.forma_pagamento === 'dinheiro' ? 'selected' : ''}>Dinheiro</option>
-						<option value="transferencia" ${order.forma_pagamento === 'transferencia' ? 'selected' : ''}>Transferência</option>
-					</select>
-				</div>
-				<div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-					<strong>Total:</strong> <span id="order-total" style="color: #28a745; font-size: 1.2rem; font-weight: 600;">${this.formatCurrency(order.valor_total)}</span>
-				</div>
-				<div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1rem;">
-					<button type="button" onclick="closeModal('modal-edit-order')" class="btn btn-secondary">Cancelar</button>
+				<div class="modal-actions">
+					<button type="button" onclick="closeModal('modal-edit-product')" class="btn btn-secondary">Cancelar</button>
 					<button type="submit" class="btn btn-primary">Salvar</button>
 				</div>
 			</form>
 		`;
-		
+
 		document.getElementById('modals-container').appendChild(modal);
-		modal.classList.add('show');
 
-		const updateTotal = () => {
-			const productSelect = document.getElementById('order-product');
-			const quantity = parseInt(document.getElementById('order-quantity').value) || 0;
-			const selectedOption = productSelect.options[productSelect.selectedIndex];
-			const price = parseFloat(selectedOption.dataset.price) || 0;
-			document.getElementById('order-total').textContent = this.formatCurrency(price * quantity);
-		};
-
-		document.getElementById('order-product').addEventListener('change', updateTotal);
-		document.getElementById('order-quantity').addEventListener('input', updateTotal);
+		// Preview de novas imagens no upload
+		const fileInput = modal.querySelector('#edit-fotos-upload');
+		const previewContainer = modal.querySelector('#edit-fotos-preview');
 		
-		document.getElementById('form-edit-order').addEventListener('submit', (e) => {
+		fileInput.addEventListener('change', function(e) {
+			// Adicionar preview das novas imagens (apenas as do upload, mantendo as existentes)
+			if (this.files && this.files.length > 0) {
+				Array.from(this.files).forEach(file => {
+					const reader = new FileReader();
+					reader.onload = function(e) {
+						const img = document.createElement('img');
+						img.src = e.target.result;
+						img.style.width = '80px';
+						img.style.height = '80px';
+						img.style.objectFit = 'cover';
+						img.style.borderRadius = '8px';
+						img.style.border = '1px solid #ddd';
+						previewContainer.appendChild(img);
+					};
+					reader.readAsDataURL(file);
+				});
+			}
+		});
+
+		modal.querySelector('#form-edit-product').addEventListener('submit', async (e) => {
 			e.preventDefault();
-			this.saveOrder(id);
+			const nome = modal.querySelector('#edit-nome').value.trim();
+			const categoria = modal.querySelector('#edit-categoria').value.trim();
+			let precoStr = modal.querySelector('#edit-preco').value.trim().replace(',', '.');
+			const preco = parseFloat(precoStr);
+			let custoStr = modal.querySelector('#edit-custo').value.trim().replace(',', '.');
+			const custo = custoStr && !isNaN(parseFloat(custoStr)) && parseFloat(custoStr) > 0 ? parseFloat(custoStr) : null;
+			const estoque = parseInt(modal.querySelector('#edit-estoque').value);
+			const status_produto = modal.querySelector('#edit-status').value;
+			const descricao = modal.querySelector('#edit-descricao').value.trim();
+
+			if (!nome || !categoria || isNaN(preco) || isNaN(estoque) || !status_produto) {
+				alert('Preencha todos os campos obrigatórios');
+				return;
+			}
+
+			// Processar fotos existentes (remover as que foram deletadas)
+			let fotos = [];
+			if (product.fotos) {
+				try { fotos = JSON.parse(product.fotos); } catch {}
+			}
+			
+			// Remover fotos que foram clicadas para deletar
+			const previewContainer = modal.querySelector('#edit-fotos-preview');
+			const remainingImages = previewContainer.querySelectorAll('img');
+			fotos = Array.from(remainingImages).map(img => img.src);
+
+			// Adicionar novas fotos do upload
+			const fileInput = modal.querySelector('#edit-fotos-upload');
+			if (fileInput.files && fileInput.files.length > 0) {
+				for (let file of fileInput.files) {
+					const base64 = await this.fileToBase64(file);
+					fotos.push(base64);
+				}
+			}
+
+			const productData = { nome, categoria, preco, custo, estoque, status_produto, fotos: JSON.stringify(fotos), descricao };
+			const result = await this.saveToSupabase('produtos', productData, id);
+			
+			if (result) {
+				const idx = this.products.findIndex(p => p.id == id);
+				if (idx !== -1) this.products[idx] = { ...this.products[idx], ...productData };
+				this.renderProdutosPage();
+				this.updateStats();
+			}
+			closeModal('modal-edit-product');
 		});
 	}
 
-	async deleteOrder(id) {
-		if (!confirm('Excluir este pedido?')) return;
+	async deleteProduct(id) {
+		// Verificar se o usuário é admin
+		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
+		const isAdmin = role === 'admin';
+		
+		if (!isAdmin) {
+			alert('Acesso negado. Apenas administradores podem excluir produtos.');
+			return;
+		}
 
-		const success = await this.deleteFromSupabase('pedidos', id);
+		const success = await this.deleteFromSupabase('produtos', id);
 		if (success) {
-			this.orders = this.orders.filter(o => o.id !== id);
-			this.renderPedidosPage();
-			this.renderEntregasPage();
+			this.products = this.products.filter(p => p.id !== id);
+			this.renderProdutosPage();
 			this.updateStats();
-			this.updateEntregasHoje();
 		}
 	}
 
+	openAddProductModal() {
+		// Verificar se o usuário é admin
+		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
+		const isAdmin = role === 'admin';
+		
+		if (!isAdmin) {
+			alert('Acesso negado. Apenas administradores podem adicionar produtos.');
+			return;
+		}
+
+		const modal = this.createModal('modal-add-product', '', false);
+		modal.querySelector('.modal-content-wrapper').innerHTML = `
+			<div style="display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.7rem;">
+				<span style="width: 50px; height: 50px; background: linear-gradient(135deg, #f5576c, #ff6b9d); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.7rem;"><i class="fas fa-cookie-bite"></i></span>
+				<span style="font-size: 1.35rem; font-weight: 700; color: #333;">Novo Produto</span>
+				<button onclick="closeModal('modal-add-product')" style="margin-left:auto; background:none; border:none; font-size:1.3rem; color:#888; cursor:pointer;">&times;</button>
+			</div>
+			<div style="border-bottom:1px solid #eee; margin-bottom:1rem;"></div>
+			<form id="form-add-product" class="form-modal">
+				<div class="form-group">
+					<label for="product-nome">Nome *</label>
+					<input type="text" id="product-nome" required class="form-control">
+				</div>
+				<div class="form-group">
+					<label for="product-categoria">Categoria *</label>
+					<input type="text" id="product-categoria" required class="form-control">
+				</div>
+				<div class="form-group">
+					<label for="product-preco">Preço *</label>
+					<input type="text" id="product-preco" required class="form-control" inputmode="decimal">
+				</div>
+				<div class="form-group">
+					<label for="product-custo">Custo de Produção</label>
+					<input type="text" id="product-custo" class="form-control" inputmode="decimal" placeholder="0,00">
+				</div>
+				<div class="form-group">
+					<label for="product-estoque">Estoque *</label>
+					<input type="number" id="product-estoque" required class="form-control" min="0" step="1">
+				</div>
+				<div class="form-group">
+					<label for="product-status">Disponibilidade *</label>
+					<select id="product-status" required class="form-control">
+						<option value="pronta_entrega">Pronta Entrega</option>
+						<option value="sob_encomenda">Sob Encomenda</option>
+					</select>
+				</div>
+				<div class="form-group">
+					<label for="product-descricao">Descrição</label>
+					<textarea id="product-descricao" class="form-control" rows="2"></textarea>
+				</div>
+				<div class="form-group">
+					<label for="product-fotos">Fotos do Produto</label>
+					<div id="product-fotos-preview" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem;"></div>
+					<input type="file" id="product-fotos-upload" multiple accept="image/*" style="margin-bottom: 0.5rem;">
+					<small style="color: #666; font-size: 0.8rem;">Selecione uma ou mais imagens (PNG, JPG, JPEG)</small>
+				</div>
+				<div class="modal-actions">
+					<button type="button" onclick="closeModal('modal-add-product')" class="btn btn-secondary">Cancelar</button>
+					<button type="submit" class="btn btn-primary">Salvar</button>
+				</div>
+			</form>
+		`;
+
+		document.getElementById('modals-container').appendChild(modal);
+		modal.classList.add('show');
+
+		// Preview de imagens no upload
+		const fileInput = modal.querySelector('#product-fotos-upload');
+		const previewContainer = modal.querySelector('#product-fotos-preview');
+		
+		fileInput.addEventListener('change', function(e) {
+			previewContainer.innerHTML = '';
+			if (this.files && this.files.length > 0) {
+				Array.from(this.files).forEach(file => {
+					const reader = new FileReader();
+					reader.onload = function(e) {
+						const img = document.createElement('img');
+						img.src = e.target.result;
+						img.style.width = '80px';
+						img.style.height = '80px';
+						img.style.objectFit = 'cover';
+						img.style.borderRadius = '8px';
+						img.style.border = '1px solid #ddd';
+						previewContainer.appendChild(img);
+					};
+					reader.readAsDataURL(file);
+				});
+			}
+		});
+
+		modal.querySelector('#form-add-product').addEventListener('submit', async (e) => {
+			e.preventDefault();
+			const nome = modal.querySelector('#product-nome').value.trim();
+			const categoria = modal.querySelector('#product-categoria').value.trim();
+			let precoStr = modal.querySelector('#product-preco').value.trim().replace(',', '.');
+			const preco = parseFloat(precoStr);
+			let custoStr = modal.querySelector('#product-custo').value.trim().replace(',', '.');
+			const custo = custoStr && !isNaN(parseFloat(custoStr)) && parseFloat(custoStr) > 0 ? parseFloat(custoStr) : null;
+			const estoque = parseInt(modal.querySelector('#product-estoque').value);
+			const status_produto = modal.querySelector('#product-status').value;
+			const descricao = modal.querySelector('#product-descricao').value.trim();
+
+			if (!nome || !categoria || isNaN(preco) || isNaN(estoque) || !status_produto) {
+				alert('Preencha todos os campos obrigatórios');
+				return;
+			}
+
+			// Processar fotos
+			let fotos = [];
+			const fileInput = modal.querySelector('#product-fotos-upload');
+			if (fileInput.files && fileInput.files.length > 0) {
+				for (let file of fileInput.files) {
+					const base64 = await this.fileToBase64(file);
+					fotos.push(base64);
+				}
+			}
+
+			const productData = { nome, categoria, preco, custo, estoque, status_produto, fotos: JSON.stringify(fotos), descricao };
+			const result = await this.saveToSupabase('produtos', productData);
+			if (result) this.products.unshift(result);
+			await this.loadData();
+			this.renderProdutosPage();
+			closeModal('modal-add-product');
+		});
+	}
+
+	prevPhoto(productId, totalPhotos) {
+		const carousel = document.getElementById(`carousel-${productId}`);
+		if (!carousel) return;
+		const current = parseInt(carousel.dataset.current || 0);
+		const prev = current === 0 ? totalPhotos - 1 : current - 1;
+		carousel.style.transform = `translateX(-${prev * 100}%)`;
+		carousel.dataset.current = prev;
+	}
+
+	nextPhoto(productId, totalPhotos) {
+		const carousel = document.getElementById(`carousel-${productId}`);
+		if (!carousel) return;
+		const current = parseInt(carousel.dataset.current || 0);
+		const next = (current + 1) % totalPhotos;
+		carousel.style.transform = `translateX(-${next * 100}%)`;
+		carousel.dataset.current = next;
+	}
+
+	// Função auxiliar para converter arquivo para base64
+	fileToBase64(file) {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.readAsDataURL(file);
+			reader.onload = () => resolve(reader.result);
+			reader.onerror = error => reject(error);
+		});
+	}
+
+	// VISUALIZAR PEDIDO
 	viewOrder(id) {
-		const order = this.orders.find(o => o.id === id);
+		const order = this.orders.find(o => o.id == id);
 		if (!order) return;
 
 		const modal = this.createModal('modal-view-order', '', false);
+		const client = this.clients.find(c => c.id == order.cliente_id);
 		
-		   const client = this.clients.find(c => c.id == order.cliente_id);
-		   modal.querySelector('.modal-content-wrapper').style.maxWidth = '430px';
-		   modal.querySelector('.modal-content-wrapper').style.padding = '2.2rem 1.7rem';
-		   modal.querySelector('.modal-content-wrapper').innerHTML = `
-			   <div style="display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.7rem;">
-				   <span style="width: 50px; height: 50px; background: linear-gradient(135deg, #ff6b9d, #ffa726); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.7rem;"><i class="fas fa-file-invoice"></i></span>
-				   <span style="font-size: 1.35rem; font-weight: 700; color: #333;">Pedido Nº ${order.numero_pedido || order.id}</span>
-				   <button onclick="closeModal('modal-view-order')" style="margin-left:auto; background:none; border:none; font-size:1.3rem; color:#888; cursor:pointer;">&times;</button>
-			   </div>
-			   <div style="border-bottom:1px solid #eee; margin-bottom:1rem;"></div>
-			   <div style="padding: 1.25rem 1rem; border-radius: 10px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
-				   <h4 style="margin: 0 0 1rem 0; font-size: 1.08rem; color: #764ba2;">Cliente</h4>
-				   <input type="text" class="form-control" value="${order.cliente_nome || ''}" readonly style="width: 100%; margin-bottom: 0.2rem;">
-			   </div>
-			   <div style="padding: 1.25rem 1rem; border-radius: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-				   <h4 style="margin: 0 0 1rem 0; font-size: 1.08rem;">Produto</h4>
-				   <input type="text" class="form-control" value="${order.produto_nome || ''}" readonly style="width: 100%; margin-bottom: 0.2rem;">
-				   <div style="display: flex; gap: 0.5rem;">
-					   <input type="text" class="form-control" value="Qtd: ${order.quantidade || ''}" readonly style="width: 50%;">
-					   <input type="text" class="form-control" value="${this.formatCurrency(order.valor_unitario)}" readonly style="width: 50%;">
-				   </div>
-			   </div>
-			   <div style="padding: 1.25rem 1rem; border-radius: 10px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
-				   <h4 style="margin: 0 0 1rem 0; font-size: 1.08rem;">Entrega</h4>
-				   <input type="text" class="form-control" value="${this.formatDate(order.data_entrega)}" readonly style="width: 100%; margin-bottom: 0.2rem;">
-				   <input type="text" class="form-control" value="${order.horario_entrega || 'Não informado'}" readonly style="width: 100%; margin-bottom: 0.2rem;">
-				   <input type="text" class="form-control" value="${order.endereco_entrega || ''}" readonly style="width: 100%;">
-			   </div>
-			   <div style="background: #28a745; padding: 1rem; border-radius: 8px; text-align: center; color: white; margin-bottom: 0.5rem;">
-				   <h4 style="margin: 0 0 0.3rem 0; font-size: 0.85rem; font-weight: 400; opacity: 0.9;">VALOR TOTAL</h4>
-				   <h2 style="margin: 0; font-size: 1.3rem;">${this.formatCurrency(order.valor_total)}</h2>
-			   </div>
-			   <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.7rem;">
-				   <button type="button" onclick="closeModal('modal-view-order')" class="btn btn-secondary" style="font-size: 0.95rem; padding: 0.4rem 0.8rem;">Fechar</button>
-				   <button type="button" onclick="closeModal('modal-view-order'); window.dashboardApp.editOrder(${order.id});" class="btn btn-primary" style="font-size: 0.95rem; padding: 0.4rem 0.8rem;">
-					   ✏️ Editar
-				   </button>
-				   <button type="button" onclick="window.gerarEEnviarRecibo(window.dashboardApp.orders.find(o => o.id == ${order.id}), '${client?.email || ''}')" class="btn btn-info" style="font-size: 0.95rem; padding: 0.4rem 0.8rem;">
-					   <i class="fas fa-paper-plane"></i> Reenviar Recibo
-				   </button>
-			   </div>
-		   `;
-		
+		modal.querySelector('.modal-content-wrapper').style.maxWidth = '430px';
+		modal.querySelector('.modal-content-wrapper').style.padding = '2.2rem 1.7rem';
+		modal.querySelector('.modal-content-wrapper').innerHTML = `
+			<div style="display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.7rem;">
+				<span style="width: 50px; height: 50px; background: linear-gradient(135deg, #ff6b9d, #ffa726); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.7rem;"><i class="fas fa-file-invoice"></i></span>
+				<span style="font-size: 1.35rem; font-weight: 700; color: #333;">Pedido Nº ${order.numero_pedido || order.id}</span>
+				<button onclick="closeModal('modal-view-order')" style="margin-left:auto; background:none; border:none; font-size:1.3rem; color:#888; cursor:pointer;">&times;</button>
+			</div>
+			<div style="border-bottom:1px solid #eee; margin-bottom:1rem;"></div>
+			<div style="padding: 1.25rem 1rem; border-radius: 10px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+				<h4 style="margin: 0 0 1rem 0; font-size: 1.08rem; color: #764ba2;">Cliente</h4>
+				<p style="margin: 0; color: #333;"><strong>${order.cliente_nome || ''}</strong></p>
+			</div>
+			<div style="padding: 1.25rem 1rem; border-radius: 10px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; margin-top: 1rem;">
+				<h4 style="margin: 0 0 1rem 0; font-size: 1.08rem;">Entrega</h4>
+				<p style="margin: 0 0 0.5rem 0;">${this.formatDate(order.data_entrega)}</p>
+				<p style="margin: 0 0 0.5rem 0;">${order.horario_entrega || 'Não informado'}</p>
+				<p style="margin: 0;">${order.observacoes || 'Sem observações'}</p>
+			</div>
+			<div style="background: #28a745; padding: 1rem; border-radius: 8px; text-align: center; color: white; margin-top: 1rem;">
+				<h4 style="margin: 0 0 0.3rem 0; font-size: 0.85rem; font-weight: 400; opacity: 0.9;">VALOR TOTAL</h4>
+				<h2 style="margin: 0; font-size: 1.3rem;">${this.formatCurrency(order.valor_total)}</h2>
+			</div>
+			<div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
+				<button type="button" onclick="closeModal('modal-view-order')" class="btn btn-secondary" style="font-size: 0.95rem; padding: 0.5rem 1rem;">Fechar</button>
+			</div>
+		`;
+
 		document.getElementById('modals-container').appendChild(modal);
 		modal.classList.add('show');
 	}
-
-	async markAsDelivered(id) {
-		if (!confirm('Marcar como entregue?')) return;
-
-		const order = this.orders.find(o => o.id === id);
-		if (order) {
-			await this.saveToSupabase('pedidos', { status: 'entregue' }, id);
-			order.status = 'entregue';
-			this.renderPedidosPage();
-			this.renderEntregasPage();
-			this.updateStats();
-			this.updateEntregasHoje();
-		}
-	}
-
 	createModal(id, title, showClose = true) {
 		const modal = document.createElement('div');
 		modal.id = id;
@@ -1622,227 +3927,432 @@ class DashboardApp {
 		return modal;
 	}
 
-	// ==================== RENDERIZAÇÃO ====================
+	async saveToSupabase(table, data, id = null) {
+		if (!this.supabase) return null;
 
-	renderClientesPage() {
-		console.log('IDs dos clientes:', this.clients.map(c => c.id));
-		const container = document.getElementById('clientes-container');
-		if (!container) return;
-	container.style.display = '';
-	container.style.flexDirection = '';
-	container.style.gap = '';
+		try {
+			if (id) {
+				const { data: result, error } = await this.supabase
+					.from(table)
+					.update(data)
+					.eq('id', id)
+					.select()
+					.single();
 
-		const actionBar = `
-			<button onclick="window.dashboardApp.openAddClientModal()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 1rem; box-shadow: 0 4px 12px rgba(255,107,157,0.3);">
-				<i class="fas fa-plus"></i> Novo Cliente
-			</button>
-		`;
+				if (error) throw error;
+				return result;
+			} else {
+				const { data: result, error } = await this.supabase
+					.from(table)
+					.insert([data])
+					.select()
+					.single();
 
-		if (this.clients.length === 0) {
-			container.innerHTML = actionBar + `<p style="text-align: center; padding: 3rem; color: #888;">Nenhum cliente cadastrado</p>`;
-		} else {
-			function escapeHtml(text) {
-				if (!text) return '';
-				return String(text)
-					.replace(/&/g, '&amp;')
-					.replace(/</g, '&lt;')
-					.replace(/>/g, '&gt;')
-					.replace(/"/g, '&quot;')
-					.replace(/'/g, '&#39;')
-					.replace(/`/g, '')
-					.replace(/[\r\n]+/g, ' ');
+				if (error) throw error;
+				return result;
 			}
-			const list = this.clients.map(c => `
-				<div style="background: white; padding: 1.25rem; border-radius: 10px; margin-bottom: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid #667eea;">
-					<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
-						<div style="background: linear-gradient(135deg, #667eea, #6dd5ed); border-radius: 8px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
-							<i class="fas fa-user" style="color: #fff; font-size: 1.5rem;"></i>
-						</div>
-						<h4 style="margin: 0; color: #333; font-size: 1.15rem; font-weight: 700;">${escapeHtml(c.nome)}</h4>
-					</div>
-					<div style="display: flex; justify-content: space-between; align-items: flex-start;">
-						<div style="flex: 1;">
-							<p style="margin: 0 0 0.25rem 0; color: #666; font-size: 0.9rem;"><i class="fas fa-phone" style="color: #667eea; width: 20px;"></i> ${escapeHtml(c.telefone)}</p>
-							${c.email ? `<p style="margin: 0 0 0.25rem 0; color: #666; font-size: 0.9rem;"><i class="fas fa-envelope" style="color: #667eea; width: 20px;"></i> ${escapeHtml(c.email)}</p>` : ''}
-							<p style="margin: 0; color: #666; font-size: 0.9rem;"><i class="fas fa-map-marker-alt" style="color: #667eea; width: 20px;"></i> ${escapeHtml(c.endereco)}</p>
-						</div>
-						<div style="display: flex; gap: 0.5rem; align-items: center;">
-							<button onclick="window.dashboardApp.editClient('${escapeHtml(c.id)}')" style="padding: 0.5rem 0.75rem; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;" title="Editar">
-								<i class="fas fa-edit"></i>
-							</button>
-							<button onclick="window.dashboardApp.deleteClient('${escapeHtml(c.id)}')" style="padding: 0.5rem 0.75rem; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;" title="Deletar">
-								<i class="fas fa-trash"></i>
-							</button>
-						</div>
-					</div>
-				</div>
-			`).join('');
-			container.innerHTML = actionBar + list;
+		} catch (error) {
+			console.error('Erro ao salvar:', error);
+			alert('Erro ao salvar no banco: ' + (error?.message || error));
+			return null;
 		}
 	}
-	// ==================== PRODUTOS ====================
-	async openAddProductModal() {
-		const modal = this.createModal('modal-add-product', '', false);
-		modal.querySelector('.modal-content-wrapper').innerHTML = `
-			<div style="display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.7rem;">
-				<span style="width: 50px; height: 50px; background: linear-gradient(135deg, #f5576c, #ff6b9d); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.7rem;"><i class="fas fa-cookie-bite"></i></span>
-				<span style="font-size: 1.35rem; font-weight: 700; color: #333;">${this.t('modal.add_product')}</span>
-				<button onclick="closeModal('modal-add-product')" style="margin-left:auto; background:none; border:none; font-size:1.3rem; color:#888; cursor:pointer;">&times;</button>
+
+	async editUser(userId) {
+		try {
+			const { data: user, error } = await this.supabase
+				.from('usuarios')
+				.select('*')
+				.eq('id', userId)
+				.single();
+
+			if (error) throw error;
+
+			this.showEditUserModal(user);
+		} catch (error) {
+			console.error('Erro ao carregar usuário:', error);
+			alert('Erro ao carregar dados do usuário.');
+		}
+	}
+
+	showEditUserModal(user = null) {
+		// Verificar se já existe um modal aberto e removê-lo
+		const existingModal = document.getElementById('modal-edit-user');
+		if (existingModal) {
+			existingModal.remove();
+		}
+
+		const targetUser = user || this.currentUser;
+		const isOwnProfile = !user || user.id === this.currentUser.id;
+		
+		const modal = this.createModal('modal-edit-user', `👤 ${isOwnProfile ? 'Editar Perfil' : 'Editar Usuário'}`);
+		modal.classList.add('show');
+
+		Object.assign(modal.style, {
+			display: 'flex',
+			justifyContent: 'center',
+			alignItems: 'center',
+			position: 'fixed',
+			top: '0',
+			left: '0',
+			width: '100vw',
+			height: '100vh',
+			background: 'rgba(0,0,0,0.4)',
+			zIndex: '2000'
+		});
+
+		let modalsContainer = document.getElementById('modals-container');
+		if (!modalsContainer) {
+			modalsContainer = document.createElement('div');
+			modalsContainer.id = 'modals-container';
+			document.body.appendChild(modalsContainer);
+		}
+		modalsContainer.appendChild(modal);
+
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 500px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 1.3rem; max-height: 90vh; overflow-y: auto;">
+				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+					<h3 style="margin: 0; font-size: 1.5rem; color: #333;">👤 ${isOwnProfile ? 'Editar Perfil' : 'Editar Usuário'}</h3>
+					<button onclick="closeModal('modal-edit-user')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
+				</div>
+
+				<form id="form-edit-user" style="display: flex; flex-direction: column; gap: 1.2rem;">
+					<div style="text-align: center; margin-bottom: 1rem;">
+						<div style="position: relative; display: inline-block;">
+							<img id="edit-user-avatar" src="${targetUser.foto_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(targetUser.nome)}&background=ff6b9d&color=fff&size=80`}" 
+								 style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid #ff6b9d; margin-bottom: 0.5rem; object-fit: cover; cursor: pointer; transition: opacity 0.2s;">
+							<div id="avatar-overlay" style="position: absolute; top: 0; left: 0; width: 80px; height: 80px; border-radius: 50%; background: rgba(0,0,0,0.6); display: ${targetUser.foto_url ? 'flex' : 'none'}; align-items: center; justify-content: center; color: white; font-size: 0.8rem; cursor: pointer; opacity: 0; transition: opacity 0.2s;">
+								<i class="fas fa-camera"></i>
+							</div>
+							${!targetUser.foto_url ? `
+							<div style="position: absolute; bottom: 5px; right: 5px; background: #ff6b9d; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; cursor: pointer;" onclick="document.getElementById('edit-user-foto-file').click()">
+								<i class="fas fa-plus"></i>
+							</div>
+							` : ''}
+						</div>
+						<p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #666;">Foto de perfil</p>
+						<button type="button" onclick="document.getElementById('edit-user-foto-file').click()" style="background: none; border: none; color: #ff6b9d; text-decoration: underline; cursor: pointer; font-size: 0.9rem;">
+							${targetUser.foto_url ? 'Alterar foto' : 'Adicionar foto'}
+						</button>
+						<input type="file" id="edit-user-foto-file" accept="image/*" style="display: none;">
+					</div>
+
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Nome Completo</label>
+						<input type="text" id="edit-user-nome" value="${targetUser.nome}" required 
+							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+					</div>
+
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Email</label>
+						<input type="email" id="edit-user-email" value="${targetUser.email}" required 
+							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+					</div>
+
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Telefone</label>
+						<input type="tel" id="edit-user-telefone" value="${targetUser.telefone || ''}" 
+							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+					</div>
+
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Endereço</label>
+						<textarea id="edit-user-endereco" rows="3" placeholder="Digite seu endereço completo"
+							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box; resize: vertical;">${targetUser.endereco || ''}</textarea>
+					</div>
+
+					<div style="border-top: 1px solid #eee; padding-top: 1rem; margin-top: 0.5rem;">
+						<h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem;">🔒 Alterar Senha</h4>
+						
+						<div style="margin-bottom: 1rem;">
+							<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Nova Senha</label>
+							<input type="password" id="edit-user-nova-senha" placeholder="Digite a nova senha (mínimo 6 caracteres)"
+								   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+						</div>
+					</div>
+
+					<div style="display: flex; gap: 1rem; margin-top: 1rem;">
+						<button type="submit" style="flex: 1; padding: 0.75rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
+							💾 Salvar Alterações
+						</button>
+						<button type="button" onclick="closeModal('modal-edit-user')" style="flex: 1; padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
+							Cancelar
+						</button>
+					</div>
+				</form>
 			</div>
-			<div style="border-bottom:1px solid #eee; margin-bottom:1rem;"></div>
-			<form id="form-add-product" class="form-modal">
-				<div class="form-group">
-					<label for="product-nome">${this.t('modal.product_name')} *</label>
-					<input type="text" id="product-nome" required class="form-control" placeholder="${this.t('placeholder.enter_name')}">
-				</div>
-				<div class="form-group">
-					<label for="product-categoria">Categoria *</label>
-					<select id="product-categoria-select" class="form-control" required>
-						<option value="">Selecione...</option>
-						${(this.products ? [...new Set(this.products.map(p => p.categoria).filter(Boolean))] : []).map(cat => `<option value="${cat}">${cat}</option>`).join('')}
-						<option value="nova">Nova categoria...</option>
-					</select>
-					<input type="text" id="product-categoria-nova" class="form-control" placeholder="Digite nova categoria" style="display:none; margin-top:0.5rem;">
-				</div>
-				<div class="form-group">
-					<label for="product-preco">${this.t('modal.product_price')} *</label>
-					<input type="text" id="product-preco" required class="form-control" inputmode="decimal" pattern="^\\d+(\\,|\\.)?\\d{0,2}$" placeholder="${this.t('placeholder.enter_price')}">
-				</div>
-				<div class="form-group">
-					<label for="product-estoque">${this.t('modal.product_stock')} *</label>
-					<input type="number" id="product-estoque" required class="form-control" min="0" step="1" placeholder="${this.t('placeholder.enter_stock')}">
-				</div>
-				<div class="form-group">
-					<label for="product-ativo">Produto Ativo?</label>
-					<select id="product-ativo" class="form-control">
-						<option value="true" selected>Sim</option>
-						<option value="false">Não</option>
-					</select>
-				</div>
-				<div class="form-group">
-					<label for="product-preparo">Status do Produto *</label>
-					<select id="product-preparo" class="form-control" required>
-						<option value="pronta_entrega">Pronta Entrega</option>
-						<option value="sob_encomenda">Sob Encomenda</option>
-					</select>
-				</div>
-				<div class="form-group">
-					<label for="product-descricao">${this.t('modal.product_description')}</label>
-					<textarea id="product-descricao" class="form-control" rows="2" placeholder="Descrição do produto"></textarea>
-				</div>
-				<div class="form-group">
-					<label for="product-fotos">Fotos do Produto (máx. 5)</label>
-					<input type="file" id="product-fotos" class="form-control" accept="image/*" multiple max="5">
-					<div id="preview-fotos" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;"></div>
-				</div>
-				<div class="modal-actions">
-					<button type="button" onclick="closeModal('modal-add-product')" class="btn btn-secondary">${this.t('btn.cancel')}</button>
-					<button type="submit" class="btn btn-primary">${this.t('btn.save')}</button>
-				</div>
-			</form>
 		`;
 
-		// Lógica para mostrar/esconder input de nova categoria (fora do template)
-		setTimeout(() => {
-			const categoriaSelect = modal.querySelector('#product-categoria-select');
-			const categoriaNovaInput = modal.querySelector('#product-categoria-nova');
-			if (categoriaSelect && categoriaNovaInput) {
-				categoriaNovaInput.style.display = 'none'; // Garante que começa escondido
-				categoriaSelect.addEventListener('change', function() {
-					if (categoriaSelect.value === 'nova') {
-						categoriaNovaInput.style.display = 'block';
-						categoriaNovaInput.required = true;
-					} else {
-						categoriaNovaInput.style.display = 'none';
-						categoriaNovaInput.required = false;
-					}
-				});
-			}
-		}, 0);
-
-		// Carrossel de fotos preview
-		const fotosInput = modal.querySelector('#product-fotos');
-		const previewFotos = modal.querySelector('#preview-fotos');
-		fotosInput.addEventListener('change', (e) => {
-			previewFotos.innerHTML = '';
-			const files = Array.from(e.target.files).slice(0, 5);
-			categorias.forEach(cat => {
-				const produtosCat = this.products.filter(p => p.categoria === cat);
-				if (produtosCat.length) {
-					produtosHtml += `
-						<div style="width: 100%; margin-bottom: 2.5rem;">
-							<h2 style="font-size: 1.25rem; font-weight: 700; color: #764ba2; margin-bottom: 1.2rem; text-align:left;">${cat}</h2>
-							<div class="produtos-marketplace" style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center;">
-								${produtosCat.map(produto => {
-									let fotos = [];
-									if (produto.fotos) {
-										try { fotos = JSON.parse(produto.fotos); } catch {}
-									}
-									return `
-																	<div class="card-produto" style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.2rem; max-width: 320px; width: 100%; display: flex; flex-direction: column; align-items: center; position: relative;" data-descricao="${produto.descricao || ''}">
-																		<div class="produto-tooltip hidden">${produto.descricao || ''}</div>
-										<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
-											<span style="font-size: 1.15rem; font-weight: 700; color: #333;">${produto.nome}</span>
-										</div>
-											<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
-												<div id="market-carousel-${produto.id}" style="display: flex; transition: transform 0.3s ease;">
-													${fotos.map((foto, i) => `<img src=\"${foto}\" style=\"min-width: 100%; height: 220px; object-fit: cover;\">`).join('')}
-												</div>
-												${fotos.length > 1 ? `
-													<button data-action=\"prev-produto-photo\" data-id=\"${produto.id}\" data-total=\"${fotos.length}\" style=\"position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;\">‹</button>
-													<button data-action=\"next-produto-photo\" data-id=\"${produto.id}\" data-total=\"${fotos.length}\" style=\"position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;\">›</button>
-												` : ''}
-											</div>
-											<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
-												<span style="font-size: 1.2rem; font-weight: 700; color: #ff6b9d;">${this.formatCurrency(produto.preco)}</span>
-											</div>
-											<div style="display: flex; align-items: center; justify-content: center; gap: 1rem; width: 100%; margin-bottom: 0.5rem;">
-												<button data-action=\"decrement-produto\" data-id=\"${produto.id}\" style=\"background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2rem; cursor: pointer;\">-</button>
-												<span id=\"contador-produto-${produto.id}\" style=\"font-size: 1.2rem; font-weight: 600; min-width: 32px; text-align: center;\">${this.cart[produto.id]?.quantidade || 0}</span>
-												<button data-action=\"increment-produto\" data-id=\"${produto.id}\" data-preco=\"${produto.preco}\" style=\"background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2rem; cursor: pointer;\">+</button>
-											</div>
-											<button data-action=\"adicionar-carrinho\" data-id=\"${produto.id}\" data-preco=\"${produto.preco}\" style=\"width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 0; font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-bottom: 0.5rem;\">Adicionar ao Carrinho</button>
-										</div>
-									`;
-								}).join('')}
-							</div>
-						</div>
-					`;
-				}
-			});
-		});
-		// Corrige submit para ser async
-		const form = modal.querySelector('#form-add-product');
+		// Eventos do formulário
+		const form = modal.querySelector('#form-edit-user');
 		if (form) {
 			form.addEventListener('submit', async (e) => {
 				e.preventDefault();
-				// Pega categoria escolhida ou nova
-				let categoria;
-				if (categoriaSelect && categoriaSelect.value === 'nova') {
-					categoria = categoriaNovaInput.value.trim();
-				} else if (categoriaSelect) {
-					categoria = categoriaSelect.value;
-				} else {
-					categoria = '';
-				}
-				// Substitua o uso do valor do input antigo pelo valor da variável categoria
-				// ...código de coleta dos dados do produto, usando a variável categoria...
-				await this.loadData();
-				this.renderProdutosPage();
-				this.renderEstoquePage();
-				this.updateStats();
-				closeModal('modal-add-product');
+				await this.saveUserProfile(targetUser);
 			});
 		}
-		document.getElementById('modals-container').appendChild(modal);
-		modal.classList.add('show');
+
+		// Eventos da foto/avatar
+		const avatarImg = modal.querySelector('#edit-user-avatar');
+		const avatarOverlay = modal.querySelector('#avatar-overlay');
+		const fotoFileInput = modal.querySelector('#edit-user-foto-file');
+
+		if (avatarImg && fotoFileInput) {
+			// Atualizar preview quando arquivo selecionado
+			fotoFileInput.addEventListener('change', (e) => {
+				const file = e.target.files[0];
+				if (file) {
+					const reader = new FileReader();
+					reader.onload = (e) => {
+						avatarImg.src = e.target.result;
+						if (avatarOverlay) avatarOverlay.style.display = 'flex';
+					};
+					reader.readAsDataURL(file);
+				}
+			});
+		}
 	}
 
-	async editProduct(id) {
-		const product = this.products.find(p => p.id == id);
-		if (!product) return;
-		const modal = this.createModal('modal-edit-product', '✏️ Editar Produto');
+	async saveUserProfile(targetUser = null) {
+		const user = targetUser || this.currentUser;
+		const isOwnProfile = !targetUser || targetUser.id === this.currentUser.id;
+		
+		const nome = document.getElementById('edit-user-nome').value.trim();
+		const email = document.getElementById('edit-user-email').value.trim();
+		const telefone = document.getElementById('edit-user-telefone').value.trim();
+		const endereco = document.getElementById('edit-user-endereco').value.trim();
+		const fotoFile = document.getElementById('edit-user-foto-file')?.files[0];
+		
+		// Campo de senha
+		const novaSenha = document.getElementById('edit-user-nova-senha').value;
+
+		if (!nome || !email) {
+			alert('Nome e email são obrigatórios!');
+			return;
+		}
+
+		// Validação de senha se foi preenchida
+		if (novaSenha && novaSenha.length < 6) {
+			alert('A nova senha deve ter pelo menos 6 caracteres!');
+			return;
+		}
+
+		try {
+			let fotoUrl = user.foto_url;
+
+			// Se uma nova foto foi selecionada, fazer upload
+			if (fotoFile) {
+				// Validar arquivo
+				if (fotoFile.size > 5 * 1024 * 1024) { // 5MB
+					throw new Error('A imagem deve ter no máximo 5MB');
+				}
+
+				const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+				if (!allowedTypes.includes(fotoFile.type)) {
+					throw new Error('Formato de imagem não suportado. Use JPEG, PNG, GIF ou WebP');
+				}
+
+				try {
+					// Verificar buckets disponíveis (priorizando os que já existem)
+					const { data: buckets, error: listError } = await this.supabase.storage.listBuckets();
+					
+					if (listError) {
+						console.warn('Não foi possível listar buckets, usando fallback base64:', listError.message);
+						// Fallback direto para base64
+						const reader = new FileReader();
+						fotoUrl = await new Promise((resolve, reject) => {
+							reader.onload = () => resolve(reader.result);
+							reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
+							reader.readAsDataURL(fotoFile);
+						});
+					} else {
+						// Priorizar buckets conhecidos que podem já existir
+						const preferredBuckets = ['user-photos', 'uploads', 'fotos-perfil'];
+						let bucketToUse = null;
+						
+						for (const bucketName of preferredBuckets) {
+							if (buckets.some(bucket => bucket.name === bucketName)) {
+								bucketToUse = bucketName;
+								console.log(`✅ Usando bucket existente: ${bucketName}`);
+								break;
+							}
+						}
+						
+						if (!bucketToUse) {
+							console.warn('Nenhum bucket conhecido encontrado, usando fallback base64');
+							// Fallback para base64 se nenhum bucket conhecido existir
+							const reader = new FileReader();
+							fotoUrl = await new Promise((resolve, reject) => {
+								reader.onload = () => resolve(reader.result);
+								reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
+								reader.readAsDataURL(fotoFile);
+							});
+						} else {
+							// Bucket existe, tentar upload
+							const fileExt = fotoFile.name.split('.').pop();
+							const fileName = `${user.id}_${Date.now()}.${fileExt}`;
+
+							const { data: uploadData, error: uploadError } = await this.supabase.storage
+								.from(bucketToUse)
+								.upload(fileName, fotoFile, {
+									cacheControl: '3600',
+									upsert: false
+								});
+
+							if (uploadError) {
+								console.warn(`Upload falhou no bucket ${bucketToUse}, usando fallback base64:`, uploadError.message);
+								// Fallback para base64 se upload falhar
+								const reader = new FileReader();
+								fotoUrl = await new Promise((resolve, reject) => {
+									reader.onload = () => resolve(reader.result);
+									reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
+									reader.readAsDataURL(fotoFile);
+								});
+							} else {
+								const { data: { publicUrl } } = this.supabase.storage
+									.from(bucketToUse)
+									.getPublicUrl(fileName);
+
+								fotoUrl = publicUrl;
+								console.log(`Upload realizado com sucesso no bucket ${bucketToUse}:`, fotoUrl);
+							}
+						}
+					}
+
+				} catch (uploadError) {
+					console.error('Erro completo no upload:', uploadError);
+					// Fallback final para base64
+					try {
+						const reader = new FileReader();
+						fotoUrl = await new Promise((resolve, reject) => {
+							reader.onload = () => resolve(reader.result);
+							reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
+							reader.readAsDataURL(fotoFile);
+						});
+						console.log('Usando fallback base64 devido a erro no upload');
+					} catch (fallbackError) {
+						console.error('Erro no fallback base64:', fallbackError);
+						alert(`Erro ao processar a foto: ${fallbackError.message}`);
+						throw fallbackError;
+					}
+				}
+			}			// Salvar dados do usuário no banco (independente do upload da foto)
+			const updateData = {
+				nome,
+				email,
+				telefone: telefone || null,
+				endereco: endereco || null,
+				foto_url: fotoUrl,
+				updated_at: new Date().toISOString()
+			};
+			
+			// Se uma nova senha foi definida, incluir no update
+			if (novaSenha) {
+				updateData.password_hash = btoa(novaSenha);
+			}
+			
+			const { data, error } = await this.supabase
+				.from('usuarios')
+				.update(updateData)
+				.eq('id', user.id);
+
+			if (error) throw error;
+
+			console.log('Dados salvos no banco. Foto URL:', fotoUrl ? (fotoUrl.length > 50 ? fotoUrl.substring(0, 50) + '...' : fotoUrl) : 'null');
+
+			// Se editou o próprio perfil, atualizar dados locais e interface
+			if (isOwnProfile) {
+				const updatedUser = { ...this.currentUser, nome, email, telefone, endereco, foto_url: fotoUrl };
+				
+				// Se a senha foi alterada, incluir no objeto local
+				if (novaSenha) {
+					updatedUser.senha = btoa(novaSenha);
+				}
+				
+				this.currentUser = updatedUser;
+				
+				// Atualizar interface do usuário
+				const userNameEl = document.getElementById('dropdown-user-name');
+				const userAvatarEl = document.getElementById('user-avatar');
+				const welcomeName = document.getElementById('welcome-name');
+				
+				if (userNameEl) userNameEl.textContent = this.currentUser.nome;
+				if (userAvatarEl) {
+					userAvatarEl.src = this.currentUser.foto_url || 
+						`https://ui-avatars.com/api/?name=${encodeURIComponent(this.currentUser.nome)}&background=ff6b9d&color=fff&size=32`;
+				}
+				if (welcomeName) welcomeName.textContent = this.currentUser.nome;
+			}
+
+			// Verificar se os dados foram realmente salvos consultando o banco
+			const { data: verifyData, error: verifyError } = await this.supabase
+				.from('usuarios')
+				.select('nome, email, foto_url')
+				.eq('id', user.id)
+				.single();
+
+			if (verifyError) {
+				console.warn('Não foi possível verificar os dados salvos:', verifyError.message);
+			} else {
+				console.log('✅ Verificação: Dados salvos corretamente no banco:', verifyData);
+				if (verifyData.foto_url !== fotoUrl) {
+					console.warn('⚠️ Aviso: URL da foto no banco difere da esperada');
+				}
+			}
+
+			alert(`${isOwnProfile ? 'Perfil' : 'Usuário'} atualizado com sucesso!${novaSenha ? ' Sua senha foi alterada.' : ''}`);
+			closeModal('modal-edit-user');
+
+			// Limpar campo de senha se foi preenchido
+			if (novaSenha) {
+				document.getElementById('edit-user-nova-senha').value = '';
+			}
+
+			// Recarregar tabela de usuários se estiver aberta
+			const usuariosModal = document.getElementById('modal-usuarios');
+			if (usuariosModal) {
+				this.loadUsuariosTable(usuariosModal);
+			}
+
+		} catch (error) {
+			console.error('Erro completo ao salvar perfil:', error);
+			console.error('Stack trace:', error.stack);
+			alert(`Erro ao salvar: ${error.message || 'Erro desconhecido'}`);
+		}
+	}
+
+	showUsuariosModal() {
+		// Verificar se o usuário é admin
+		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
+		const isAdmin = role === 'admin';
+		
+		if (!isAdmin) {
+			alert('Acesso negado. Apenas administradores podem gerenciar usuários.');
+			return;
+		}
+
+		// Verificar se já existe um modal aberto e removê-lo
+		const existingModal = document.getElementById('modal-usuarios');
+		if (existingModal) {
+			existingModal.remove();
+		}
+
+		const modal = this.createModal('modal-usuarios', '👥 Gerenciar Usuários');
 		modal.classList.add('show');
+
+		Object.assign(modal.style, {
+			display: 'flex',
+			justifyContent: 'center',
+			alignItems: 'center',
+			position: 'fixed',
+			top: '0',
+			left: '0',
+			width: '100vw',
+			height: '100vh',
+			background: 'rgba(0,0,0,0.4)',
+			zIndex: '2000'
+		});
+
 		let modalsContainer = document.getElementById('modals-container');
 		if (!modalsContainer) {
 			modalsContainer = document.createElement('div');
@@ -1850,814 +4360,1723 @@ class DashboardApp {
 			document.body.appendChild(modalsContainer);
 		}
 		modalsContainer.appendChild(modal);
-		// Corrige: insere o formulário dentro do .modal-content-wrapper
-		const wrapper = modal.querySelector('.modal-content-wrapper');
-		wrapper.innerHTML += `
-			<form id="form-edit-product" class="form-modal">
-				<div class="form-group">
-					<label for="edit-nome">Nome *</label>
-					<input type="text" id="edit-nome" required value="${product.nome}" class="form-control">
-				</div>
-				<div class="form-group">
-					<label for="edit-categoria">Categoria *</label>
-					<input type="text" id="edit-categoria" required value="${product.categoria}" class="form-control">
-				</div>
-				<div class="form-group">
-					<label for="edit-preco">Preço *</label>
-					<input type="text" id="edit-preco" required value="${product.preco}" class="form-control" inputmode="decimal" pattern="^\\d+(\\.|\\,)?\\d{0,2}$">
-				</div>
-				<div class="form-group">
-					<label for="edit-estoque">Estoque *</label>
-					<input type="number" id="edit-estoque" required value="${product.estoque}" class="form-control" min="0" step="1">
-				</div>
-				<div class="form-group">
-					<label for="edit-descricao">Descrição</label>
-					<textarea id="edit-descricao" class="form-control" rows="2">${product.descricao || ''}</textarea>
-				</div>
-				<div class="modal-actions">
-					<button type="button" onclick="closeModal('modal-edit-product')" class="btn btn-secondary">Cancelar</button>
-					<button type="submit" class="btn btn-primary">Salvar</button>
-				</div>
-			</form>
-		`;
-		modal.querySelector('#form-edit-product').addEventListener('submit', async (e) => {
-			e.preventDefault();
-			const nome = modal.querySelector('#edit-nome').value.trim();
-			const categoria = modal.querySelector('#edit-categoria').value.trim();
-			let precoStr = modal.querySelector('#edit-preco').value.trim();
-			precoStr = precoStr.replace(',', '.');
-			const preco = parseFloat(precoStr);
-			const estoque = parseInt(modal.querySelector('#edit-estoque').value);
-			const descricao = modal.querySelector('#edit-descricao').value.trim();
-			if (!nome || !categoria || isNaN(preco) || isNaN(estoque)) {
-				alert('Preencha todos os campos obrigatórios');
-				return;
-			}
-			const productData = {
-				nome,
-				categoria,
-				preco,
-				estoque,
-				descricao
-			};
-			const result = await this.saveToSupabase('produtos', productData, id);
-			if (result) {
-				const idx = this.products.findIndex(p => p.id == id);
-				if (idx !== -1) this.products[idx] = { ...this.products[idx], ...productData };
-				this.renderProdutosPage();
-				this.renderEstoquePage();
-				this.updateStats();
-			}
-			closeModal('modal-edit-product');
-		});
+
+		// Carregar usuários
+		this.loadUsuariosTable(modal);
 	}
 
-	renderProdutosPage() {
-		const container = document.getElementById('produtos-container');
-		if (!container) return;
-		container.style.display = '';
-		container.style.flexDirection = '';
-		container.style.gap = '';
+	showAddUserModal() {
+		console.log('🔧 showAddUserModal: Iniciando criação do modal');
 
-		const actionBar = `
-			<button onclick="window.dashboardApp.openAddProductModal()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 1rem; box-shadow: 0 4px 12px rgba(255,107,157,0.3);">
-				<i class="fas fa-plus"></i> Novo Produto
-			</button>
-		`;
+		// Verificar se há modais abertos e fechar o modal de usuários se existir
+		const usuariosModal = document.getElementById('modal-usuarios');
+		if (usuariosModal) {
+			console.log('🧹 Fechando modal de usuários antes de abrir modal de adicionar');
+			usuariosModal.remove();
+		}
 
-		if (this.products.length === 0) {
-			container.innerHTML = actionBar + `<p style="text-align: center; padding: 3rem; color: #888;">Nenhum produto cadastrado</p>`;
+		// Verificar se já existe um modal aberto
+		const existingModal = document.getElementById('modal-add-user');
+		if (existingModal) {
+			console.log('🧹 Removendo modal existente');
+			existingModal.remove();
+		}
+
+		// Criar modal usando createModal se disponível, senão criar diretamente
+		let modal;
+		if (this.createModal) {
+			modal = this.createModal('modal-add-user', '➕ Adicionar Usuário');
+			modal.classList.add('show');
+
+			// IMPORTANTE: Adicionar o modal ao container quando usar createModal
+			let modalsContainer = document.getElementById('modals-container');
+			if (!modalsContainer) {
+				modalsContainer = document.createElement('div');
+				modalsContainer.id = 'modals-container';
+				document.body.appendChild(modalsContainer);
+			}
+			modalsContainer.appendChild(modal);
 		} else {
-			const list = this.products.map(p => {
-				const fotos = p.fotos ? JSON.parse(p.fotos) : [];
-				const carrossel = fotos.length > 0 ? `
-					<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; margin-bottom: 0.7rem; background: #f0f0f0;">
-						<div id="carousel-${p.id}" data-current="0" style="display: flex; transition: transform 0.3s ease;">
-							${fotos.map((foto, i) => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: cover;">`).join('')}
-						</div>
-						${fotos.length > 1 ? `
-							<button data-action="prev-photo" data-id="${p.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer;">‹</button>
-							<button data-action="next-photo" data-id="${p.id}" data-total="${fotos.length}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer;">›</button>
-						` : ''}
-					</div>
-				` : '';
-				return `
-					<div style="background: white; padding: 1.25rem; border-radius: 10px; margin-bottom: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid #f5576c;">
-						<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
-							<div style="background: linear-gradient(135deg, #f5576c, #ff6b9d); border-radius: 8px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
-								<i class="fas fa-cookie-bite" style="color: #fff; font-size: 1.5rem;"></i>
-							</div>
-							<h4 style="margin: 0; color: #333; font-size: 1.15rem; font-weight: 700;">${p.nome}</h4>
-						</div>
-						${carrossel}
-						<div style="display: flex; justify-content: space-between; align-items: flex-start;">
-							<div style="flex: 1;">
-								<p style="margin: 0; color: #28a745; font-size: 1.3rem; font-weight: 700;">${this.formatCurrency(p.preco)}</p>
-								<p style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;">📦 Estoque: <strong>${p.estoque}</strong></p>
-								${p.descricao ? `<p style="margin: 0.5rem 0 0 0; color: #888; font-size: 0.85rem;">${p.descricao}</p>` : ''}
-							</div>
-							<div style="display: flex; gap: 0.5rem; align-items: center;">
-								<button data-action="edit-product" data-id="${p.id}" style="padding: 0.5rem 0.75rem; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;">
-									<i class="fas fa-edit"></i>
-								</button>
-								<button data-action="delete-product" data-id="${p.id}" style="padding: 0.5rem 0.75rem; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;">
-									<i class="fas fa-trash"></i>
-								</button>
-							</div>
-						</div>
-					</div>
-				`;
-			}).join('');
-			container.innerHTML = actionBar + `<div style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: flex-start;">${list}</div>`;
-			// Delegação de eventos para carrossel e botões
-			container.onclick = (e) => {
-				const btn = e.target.closest('button[data-action]');
-				if (!btn) return;
-				const action = btn.getAttribute('data-action');
-				const id = btn.getAttribute('data-id');
-				const total = parseInt(btn.getAttribute('data-total'));
-				if (action === 'prev-photo') this.prevPhoto(id, total);
-				if (action === 'next-photo') this.nextPhoto(id, total);
-				if (action === 'edit-product') {
-					this.editProduct(id);
-				}
-				if (action === 'delete-product') {
-					// Apenas uma confirmação
-					if (window.confirm('Tem certeza que deseja excluir este produto?')) {
-						this.deleteProduct(id);
-					}
-				}
-			};
-		}
-	}
+			// Fallback: criar modal diretamente
+			modal = document.createElement('div');
+			modal.id = 'modal-add-user';
+			modal.className = 'modal-overlay show';
+			modal.onclick = closeModalOverlay;
 
-	nextPhoto(productId, totalPhotos) {
-		const carousel = document.getElementById(`carousel-${productId}`);
-		if (!carousel) return;
-		
-		const current = parseInt(carousel.dataset.current || 0);
-		const next = (current + 1) % totalPhotos;
-		carousel.style.transform = `translateX(-${next * 100}%)`;
-		carousel.dataset.current = next;
-	}
+			Object.assign(modal.style, {
+				display: 'flex',
+				justifyContent: 'center',
+				alignItems: 'center',
+				position: 'fixed',
+				top: '0',
+				left: '0',
+				width: '100vw',
+				height: '100vh',
+				background: 'rgba(0,0,0,0.4)',
+				zIndex: '2000'
+			});
 
-	prevPhoto(productId, totalPhotos) {
-		const carousel = document.getElementById(`carousel-${productId}`);
-		if (!carousel) return;
-		
-		const current = parseInt(carousel.dataset.current || 0);
-		const prev = current === 0 ? totalPhotos - 1 : current - 1;
-		carousel.style.transform = `translateX(-${prev * 100}%)`;
-		carousel.dataset.current = prev;
-	}
-
-	renderPedidosPage() {
-		const container = document.getElementById('pedidos-container');
-		if (!container) return;
-
-		if (!this.cart) this.cart = {};
-		let cartTotal = 0;
-		Object.values(this.cart).forEach(item => {
-			if (item.adicionado) {
-				cartTotal += item.quantidade * item.preco;
+			let modalsContainer = document.getElementById('modals-container');
+			if (!modalsContainer) {
+				modalsContainer = document.createElement('div');
+				modalsContainer.id = 'modals-container';
+				document.body.appendChild(modalsContainer);
 			}
+			modalsContainer.appendChild(modal);
+		}
+
+		console.log('✅ Modal criado, verificando DOM...');
+		console.log('Modal no DOM:', document.getElementById('modal-add-user'));
+		console.log('Modal style.display:', modal.style.display);
+		console.log('Modal className:', modal.className);
+		console.log('Modals container exists:', !!document.getElementById('modals-container'));
+		console.log('Body children count:', document.body.children.length);
+		console.log('All modals in DOM:', Array.from(document.querySelectorAll('[id^="modal-"]')).map(m => m.id));
+
+		// Verificar se há modais sobrepostos
+		const allModals = document.querySelectorAll('.modal-overlay');
+		console.log('All modal overlays:', allModals.length);
+		allModals.forEach((m, i) => {
+			console.log(`Modal ${i}: id=${m.id}, class=${m.className}, display=${m.style.display}`);
 		});
 
-		// Cria ou remove carrinho centralizado no header conforme o contador
-		const header = document.querySelector('header.header');
-	// O contador do carrinho só soma produtos com quantidade > 0 e adicionado: true
-	let cartCount = Object.values(this.cart).filter(item => item.quantidade > 0 && item.adicionado).reduce((acc, item) => acc + item.quantidade, 0);
-		let headCart = document.getElementById('head-cart');
-		if (headCart && cartCount === 0) {
-			headCart.remove();
-		}
-		if (cartCount > 0 && header) {
-			if (!headCart) {
-				headCart = document.createElement('div');
-				headCart.id = 'head-cart';
-				headCart.style.position = 'absolute';
-				headCart.style.left = '50%';
-				headCart.style.top = '50%';
-				headCart.style.transform = 'translate(-50%, -50%)';
-				headCart.style.background = '#fff';
-				headCart.style.borderRadius = '50%';
-				headCart.style.boxShadow = '0 2px 8px rgba(0,0,0,0.12)';
-				headCart.style.width = '32px';
-				headCart.style.height = '32px';
-				headCart.style.display = 'flex';
-				headCart.style.flexDirection = 'column';
-				headCart.style.alignItems = 'center';
-				headCart.style.justifyContent = 'center';
-				headCart.style.cursor = 'pointer';
-				headCart.onclick = () => window.dashboardApp.abrirFinalizarPedidoModal();
-				header.appendChild(headCart);
+		// Verificar imediatamente se o modal ainda existe
+		setTimeout(() => {
+			const modalStillExists = document.getElementById('modal-add-user');
+			console.log('⚠️ Modal ainda existe após 1ms:', !!modalStillExists);
+			if (!modalStillExists) {
+				console.log('❌ Modal foi removido! Verificando possíveis causas...');
+				// Verificar se há event listeners que podem estar removendo o modal
+				console.log('Event listeners no body:', window.getEventListeners?.(document.body) || 'N/A');
 			}
-			headCart.innerHTML = `
-				<i class='fas fa-shopping-cart' style='font-size: 1rem; color: #ff6b9d; position: relative;'></i>
-				<span id="cart-count" style="position: absolute; top: -4px; right: -4px; background: #dc3545; color: #fff; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.10);">${cartCount}</span>
-			`;
-			headCart.onclick = (e) => {
-				e.preventDefault();
-				e.stopPropagation();
-				if (typeof window.dashboardApp.abrirFinalizarPedidoModal === 'function') {
-					window.dashboardApp.abrirFinalizarPedidoModal();
-				}
-			};
-		}
+		}, 1);
 
-		// Mensagem aparece no marketplace, carrinho flutuante no topo
-		const showCart = Object.values(this.cart).some(item => item.quantidade > 0);
-		let cartMessageHtml = '';
-		if (showCart) {
-			cartMessageHtml = `
-				<div id="cart-message" style="width: 100%; text-align: center; margin: 1.2rem 0 0 0;">
-					<div style="display: inline-flex; align-items: center; gap: 0.7rem; background: #ff6b9d; color: white; border-radius: 16px; padding: 0.7rem 2rem; font-weight: 600; font-size: 1.1rem;">
-						Clique no carrinho para fechar o pedido
+		// Definir conteúdo HTML
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 500px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18);">
+				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+					<h3 style="margin: 0; font-size: 1.5rem; color: #333;">👤 Adicionar Novo Usuário</h3>
+					<button onclick="closeModal('modal-add-user')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
+				</div>
+
+				<form id="form-add-user" style="display: flex; flex-direction: column; gap: 1.2rem;">
+					<div style="text-align: center; margin-bottom: 1rem;">
+						<div style="position: relative; display: inline-block;">
+							<img id="add-user-avatar" src="https://ui-avatars.com/api/?name=Novo%20Usuário&background=ff6b9d&color=fff&size=80"
+								 style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid #ff6b9d; margin-bottom: 0.5rem;">
+							<div style="position: absolute; bottom: 5px; right: 5px; background: #ff6b9d; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; cursor: pointer;" onclick="document.getElementById('add-user-foto-file').click()">
+								<i class="fas fa-plus"></i>
+							</div>
+						</div>
+						<p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #666;">Foto de perfil</p>
+						<div style="display: flex; flex-direction: column; gap: 0.5rem; align-items: center;">
+							<label for="add-user-foto-file" style="background: #ff6b9d; color: white; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 500;">
+								📁 Escolher arquivo
+							</label>
+							<input type="file" id="add-user-foto-file" accept="image/*" style="display: none;">
+							<span id="file-name-display" style="font-size: 0.8rem; color: #666;">Nenhum arquivo selecionado</span>
+						</div>
 					</div>
-				</div>
-			`;
-		}
 
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Nome Completo *</label>
+						<input type="text" id="add-user-nome" placeholder="Digite o nome completo" required
+							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+					</div>
 
-		// Obter categorias únicas dos produtos
-		const categorias = [...new Set(this.products.map(p => p.categoria).filter(Boolean))];
-		let categoriaSelecionada = this.selectedCategoria || '';
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Email *</label>
+						<input type="email" id="add-user-email" placeholder="Digite o email" required
+							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+					</div>
 
-		// Dropdown de categorias + Total do Carrinho no topo
-		const dropdownHtml = `
-			<div style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 2rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
-				<div style="display: flex; align-items: center; gap: 0.5rem;">
-					<label for="dropdown-categoria" style="font-weight: 600; margin-right: 0.5rem;">Filtrar por categoria:</label>
-					<select id="dropdown-categoria" style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid #eee; font-size: 1rem;">
-						<option value="">Todas</option>
-						${categorias.map(cat => `<option value="${cat}" ${cat === categoriaSelecionada ? 'selected' : ''}>${cat}</option>`).join('')}
-					</select>
-				</div>
-				<div style="font-size: 1.15rem; font-weight: 700; color: #28a745; background: #f8f9fa; border-radius: 8px; padding: 0.5rem 1.2rem;">
-					Total do Carrinho: ${this.formatCurrency(cartTotal)}
-				</div>
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Telefone</label>
+						<input type="tel" id="add-user-telefone" placeholder="Digite o telefone"
+							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+					</div>
+
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Endereço</label>
+						<input type="text" id="add-user-endereco" placeholder="Digite o endereço"
+							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+					</div>
+
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Senha *</label>
+						<input type="password" id="add-user-senha" placeholder="Digite a senha" required
+							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+					</div>
+
+					<div style="display: flex; gap: 1rem; margin-top: 1rem;">
+						<button type="submit" style="flex: 1; padding: 0.75rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
+							👤 Criar Usuário
+						</button>
+						<button type="button" onclick="closeModal('modal-add-user')" style="flex: 1; padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
+							Cancelar
+						</button>
+					</div>
+				</form>
 			</div>
 		`;
 
+		console.log('📄 innerHTML definido');
 
-		let produtosHtml = '';
-		if (!categoriaSelecionada) {
-			// Todas: dividir por categoria
-			categorias.forEach(cat => {
-				const produtosCat = this.products.filter(p => p.categoria === cat);
-				if (produtosCat.length) {
-					produtosHtml += `
-						<div style="width: 100%; margin-bottom: 2.5rem;">
-							<h2 style="font-size: 1.25rem; font-weight: 700; color: #764ba2; margin-bottom: 1.2rem; text-align:left;">${cat}</h2>
-							<div style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center;">
-								${produtosCat.map(produto => {
-									let fotos = [];
-									if (produto.fotos) {
-										try { fotos = JSON.parse(produto.fotos); } catch {}
-									}
-									return `
-																	<div class="card-produto" style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.2rem; max-width: 320px; width: 100%; display: flex; flex-direction: column; align-items: center; position: relative;" data-descricao="${produto.descricao || ''}">
-																		<div class="produto-tooltip hidden">${produto.descricao || ''}</div>
-										<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
-											<span style="font-size: 1.15rem; font-weight: 700; color: #333;">${produto.nome}</span>
-										</div>
-											<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
-												<div id="market-carousel-${produto.id}" style="display: flex; transition: transform 0.3s ease;">
-													${fotos.map((foto, i) => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: cover;">`).join('')}
-												</div>
-												${fotos.length > 1 ? `
-													<button data-action="prev-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
-													<button data-action="next-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">›</button>
-												` : ''}
-											</div>
-											<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
-												<span style="font-size: 1.2rem; font-weight: 700; color: #ff6b9d;">${this.formatCurrency(produto.preco)}</span>
-											</div>
-											<div style="display: flex; align-items: center; justify-content: center; gap: 1rem; width: 100%; margin-bottom: 0.5rem;">
-												<button data-action="decrement-produto" data-id="${produto.id}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2rem; cursor: pointer;">-</button>
-												<span id="contador-produto-${produto.id}" style="font-size: 1.2rem; font-weight: 600; min-width: 32px; text-align: center;">${this.cart[produto.id]?.quantidade || 0}</span>
-												<button data-action="increment-produto" data-id="${produto.id}" data-preco="${produto.preco}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2rem; cursor: pointer;">+</button>
-											</div>
-											<button data-action="adicionar-carrinho" data-id="${produto.id}" data-preco="${produto.preco}" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 0; font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-bottom: 0.5rem;">Adicionar ao Carrinho</button>
-										</div>
-									`;
-								}).join('')}
+		// Forçar exibição do modal
+		modal.style.display = 'flex';
+		modal.style.visibility = 'visible';
+		modal.style.opacity = '1';
+
+		console.log('👁️ Modal forçado a ser visível');
+		console.log('Modal final style:', {
+			display: modal.style.display,
+			visibility: modal.style.visibility,
+			opacity: modal.style.opacity,
+			zIndex: modal.style.zIndex,
+			position: modal.style.position
+		});
+
+		// Verificar novamente se o modal está no DOM após forçar visibilidade
+		const modalAfterForce = document.getElementById('modal-add-user');
+		console.log('🔍 Modal após forçar visibilidade:', !!modalAfterForce);
+		if (modalAfterForce) {
+			console.log('Modal parent:', modalAfterForce.parentElement?.id || 'no parent');
+			console.log('Modal position in parent:', Array.from(modalAfterForce.parentElement?.children || []).indexOf(modalAfterForce));
+		}
+
+		// Aguardar um pouco para garantir que o DOM seja processado
+		setTimeout(() => {
+			console.log('⏳ Configurando event listeners');
+
+			// Configurar event listeners
+			const form = modal.querySelector('#form-add-user');
+			const avatarImg = modal.querySelector('#add-user-avatar');
+			const fotoFileInput = modal.querySelector('#add-user-foto-file');
+			const fileNameDisplay = modal.querySelector('#file-name-display');
+
+			console.log('🔍 Elementos encontrados:', {
+				form: !!form,
+				avatarImg: !!avatarImg,
+				fotoFileInput: !!fotoFileInput,
+				fileNameDisplay: !!fileNameDisplay
+			});
+
+			if (form) {
+				form.addEventListener('submit', async (e) => {
+					e.preventDefault();
+					console.log('📝 Formulário submetido');
+					await this.saveNewUser();
+				});
+			}
+
+			if (avatarImg && fotoFileInput) {
+				console.log('✅ Configurando event listener do arquivo');
+				fotoFileInput.addEventListener('change', (e) => {
+					console.log('📁 Arquivo selecionado:', e.target.files[0]?.name);
+					const file = e.target.files[0];
+					if (file && fileNameDisplay) {
+						const fileName = file.name.length > 30 ? file.name.substring(0, 27) + '...' : file.name;
+						fileNameDisplay.textContent = `Arquivo: ${fileName}`;
+						fileNameDisplay.style.color = '#28a745';
+
+						const reader = new FileReader();
+						reader.onload = (e) => {
+							avatarImg.src = e.target.result;
+							console.log('🖼️ Preview da imagem atualizado');
+						};
+						reader.readAsDataURL(file);
+					}
+				});
+			} else {
+				console.error('❌ Elementos necessários não encontrados');
+			}
+		}, 100);
+	}	async saveNewUser() {
+		const nome = document.getElementById('add-user-nome').value.trim();
+		const email = document.getElementById('add-user-email').value.trim();
+		const senha = document.getElementById('add-user-senha').value;
+		const telefone = document.getElementById('add-user-telefone').value.trim();
+		const endereco = document.getElementById('add-user-endereco').value.trim();
+		const role = document.getElementById('add-user-role').value;
+		const fotoFile = document.getElementById('add-user-foto-file')?.files[0];
+
+		if (!nome || !email || !senha) {
+			alert('Nome, email e senha são obrigatórios!');
+			return;
+		}
+
+		try {
+			let fotoUrl = null;
+
+			// Se uma foto foi selecionada, fazer upload
+			if (fotoFile) {
+				// Validar arquivo
+				if (fotoFile.size > 5 * 1024 * 1024) { // 5MB
+					throw new Error('A imagem deve ter no máximo 5MB');
+				}
+
+				const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+				if (!allowedTypes.includes(fotoFile.type)) {
+					throw new Error('Formato de imagem não suportado. Use JPEG, PNG, GIF ou WebP');
+				}
+
+				try {
+					// Verificar buckets disponíveis (priorizando os que já existem)
+					const { data: buckets, error: listError } = await this.supabase.storage.listBuckets();
+					
+					if (listError) {
+						console.warn('Não foi possível listar buckets, usando fallback base64:', listError.message);
+						// Fallback direto para base64
+						const reader = new FileReader();
+						fotoUrl = await new Promise((resolve, reject) => {
+							reader.onload = () => resolve(reader.result);
+							reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
+							reader.readAsDataURL(fotoFile);
+						});
+					} else {
+						// Priorizar buckets conhecidos que podem já existir
+						const preferredBuckets = ['user-photos', 'uploads', 'fotos-perfil'];
+						let bucketToUse = null;
+						
+						for (const bucketName of preferredBuckets) {
+							if (buckets.some(bucket => bucket.name === bucketName)) {
+								bucketToUse = bucketName;
+								console.log(`✅ Usando bucket existente: ${bucketName}`);
+								break;
+							}
+						}
+						
+						if (!bucketToUse) {
+							console.warn('Nenhum bucket conhecido encontrado, usando fallback base64');
+							// Fallback para base64 se nenhum bucket conhecido existir
+							const reader = new FileReader();
+							fotoUrl = await new Promise((resolve, reject) => {
+								reader.onload = () => resolve(reader.result);
+								reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
+								reader.readAsDataURL(fotoFile);
+							});
+						} else {
+							// Bucket existe, tentar upload
+							const fileExt = fotoFile.name.split('.').pop();
+							const fileName = `new_user_${Date.now()}.${fileExt}`;
+
+							const { data: uploadData, error: uploadError } = await this.supabase.storage
+								.from(bucketToUse)
+								.upload(fileName, fotoFile, {
+									cacheControl: '3600',
+									upsert: false
+								});
+
+							if (uploadError) {
+								console.warn(`Upload falhou no bucket ${bucketToUse}, usando fallback base64:`, uploadError.message);
+								// Fallback para base64 se upload falhar
+								const reader = new FileReader();
+								fotoUrl = await new Promise((resolve, reject) => {
+									reader.onload = () => resolve(reader.result);
+									reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
+									reader.readAsDataURL(fotoFile);
+								});
+							} else {
+								const { data: { publicUrl } } = this.supabase.storage
+									.from(bucketToUse)
+									.getPublicUrl(fileName);
+
+								fotoUrl = publicUrl;
+								console.log(`Upload realizado com sucesso no bucket ${bucketToUse}:`, fotoUrl);
+							}
+						}
+					}
+
+				} catch (uploadError) {
+					console.error('Erro completo no upload:', uploadError);
+					// Fallback final para base64
+					try {
+						const reader = new FileReader();
+						fotoUrl = await new Promise((resolve, reject) => {
+							reader.onload = () => resolve(reader.result);
+							reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
+							reader.readAsDataURL(fotoFile);
+						});
+						console.log('Usando fallback base64 devido a erro no upload');
+					} catch (fallbackError) {
+						console.error('Erro no fallback base64:', fallbackError);
+						alert(`Erro ao processar a foto: ${fallbackError.message}`);
+						throw fallbackError;
+					}
+				}
+			}
+
+			// Criar o usuário no banco
+			const { data, error } = await this.supabase.auth.signUp({
+				email: email,
+				password: senha,
+				options: {
+					data: {
+						nome: nome,
+						telefone: telefone || null,
+						endereco: endereco || null,
+						foto_url: fotoUrl,
+						role: role
+					}
+				}
+			});
+
+			if (error) throw error;
+
+			console.log('Novo usuário criado:', data);
+
+			alert('Usuário criado com sucesso!');
+			closeModal('modal-add-user');
+
+			// Recarregar tabela de usuários se estiver aberta
+			const usuariosModal = document.getElementById('modal-usuarios');
+			if (usuariosModal) {
+				this.loadUsuariosTable(usuariosModal);
+			}
+
+		} catch (error) {
+			console.error('Erro completo ao criar usuário:', error);
+			console.error('Stack trace:', error.stack);
+			alert(`Erro ao criar usuário: ${error.message || 'Erro desconhecido'}`);
+		}
+	}
+
+	async loadUsuariosTable(modal) {
+		try {
+			const { data: usuarios, error } = await this.supabase
+				.from('usuarios')
+				.select('*')
+				.order('nome');
+
+			if (error) throw error;
+
+			const usuariosHtml = usuarios.map(user => `
+				<tr style="border-bottom: 1px solid #eee;">
+					<td style="padding: 0.75rem; text-align: center;">
+						<img src="${user.foto_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.nome)}&background=ff6b9d&color=fff&size=32`}" 
+							 style="width: 32px; height: 32px; border-radius: 50%; border: 2px solid #ff6b9d;">
+					</td>
+					<td style="padding: 0.75rem; font-weight: 600; color: #333;">${user.nome}</td>
+					<td style="padding: 0.75rem; color: #666;">${user.email}</td>
+					<td style="padding: 0.75rem; color: #666;">${user.telefone || '-'}</td>
+					<td style="padding: 0.75rem; text-align: center;">
+						<span style="background: ${user.role === 'admin' ? '#28a745' : user.role === 'vendedor' ? '#ffc107' : '#6c757d'}; color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.8rem; font-weight: 500;">
+							${user.role === 'admin' ? 'Admin' : user.role === 'vendedor' ? 'Vendedor' : 'Usuário'}
+						</span>
+					</td>
+					<td style="padding: 0.75rem; text-align: center; color: #666; font-size: 0.9rem;">
+						${user.created_at ? new Date(user.created_at).toLocaleString('pt-BR', { 
+							day: '2-digit', 
+							month: '2-digit', 
+							year: 'numeric',
+							hour: '2-digit',
+							minute: '2-digit'
+						}) : '-'}
+					</td>
+					<td style="padding: 0.75rem; text-align: center; color: #666; font-size: 0.9rem;">
+						${user.updated_at ? new Date(user.updated_at).toLocaleString('pt-BR', { 
+							day: '2-digit', 
+							month: '2-digit', 
+							year: 'numeric',
+							hour: '2-digit',
+							minute: '2-digit'
+						}) : (user.created_at ? new Date(user.created_at).toLocaleString('pt-BR', { 
+							day: '2-digit', 
+							month: '2-digit', 
+							year: 'numeric',
+							hour: '2-digit',
+							minute: '2-digit'
+						}) : '-')}
+					</td>
+					<td style="padding: 0.75rem; text-align: center;">
+						<button onclick="window.dashboardApp.editUser('${user.id}')" style="padding: 0.4rem 0.6rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;" title="Editar usuário">
+							✏️ Editar
+						</button>
+					</td>
+				</tr>
+			`).join('');
+
+			modal.innerHTML = `
+				<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 1200px; width: 95%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 1.3rem; max-height: 90vh;">
+					<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+						<h3 style="margin: 0; font-size: 1.5rem; color: #333;">👥 Gerenciar Usuários</h3>
+						<button onclick="closeModal('modal-usuarios')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
+					</div>
+
+					<div style="background: #f8f9fa; padding: 1rem; border-radius: 10px; margin-bottom: 1rem;">
+						<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+							<h4 style="margin: 0; font-size: 1.1rem; color: #333;">Lista de Usuários (${usuarios.length})</h4>
+							<div style="display: flex; gap: 0.5rem;">
+								<button onclick="window.dashboardApp.showAddUserModal()" style="padding: 0.5rem 1rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer;">
+									➕ Adicionar
+								</button>
+								<button onclick="window.dashboardApp.showResetPasswordUserModal()" style="padding: 0.5rem 1rem; background: #ffc107; color: white; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer;">
+									🔑 Senha Padrão
+								</button>
+								<button onclick="window.dashboardApp.showDeleteUserModal()" style="padding: 0.5rem 1rem; background: #dc3545; color: white; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer;">
+									🗑️ Excluir
+								</button>
 							</div>
 						</div>
-					`;
-				}
-			});
-		} else {
-			// Categoria selecionada: mostrar só os produtos filtrados
-			const produtosFiltrados = this.products.filter(p => p.categoria === categoriaSelecionada);
-			produtosHtml = `
-				<div class="produtos-marketplace" style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center;">
-					${produtosFiltrados.map(produto => {
-						let fotos = [];
-						if (produto.fotos) {
-							try { fotos = JSON.parse(produto.fotos); } catch {}
-						}
-						return `
-						<div class="card-produto" style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.2rem; max-width: 320px; width: 100%; display: flex; flex-direction: column; align-items: center;" data-descricao="${produto.descricao || ''}">
-							<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
-								<span style="font-size: 1.15rem; font-weight: 700; color: #333;">${produto.nome}</span>
-							</div>
-								<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
-									<div id="market-carousel-${produto.id}" style="display: flex; transition: transform 0.3s ease;">
-										${fotos.map((foto, i) => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: cover;">`).join('')}
-									</div>
-									${fotos.length > 1 ? `
-										<button data-action="prev-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
-										<button data-action="next-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">›</button>
-									` : ''}
-								</div>
-								<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
-									<span style="font-size: 1.2rem; font-weight: 700; color: #ff6b9d;">${this.formatCurrency(produto.preco)}</span>
-								</div>
-								<div style="display: flex; align-items: center; justify-content: center; gap: 1rem; width: 100%; margin-bottom: 0.5rem;">
-									<button data-action="decrement-produto" data-id="${produto.id}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2rem; cursor: pointer;">-</button>
-									<span id="contador-produto-${produto.id}" style="font-size: 1.2rem; font-weight: 600; min-width: 32px; text-align: center;">${this.cart[produto.id]?.quantidade || 0}</span>
-									<button data-action="increment-produto" data-id="${produto.id}" data-preco="${produto.preco}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2rem; cursor: pointer;">+</button>
-								</div>
-								<button data-action="adicionar-carrinho" data-id="${produto.id}" data-preco="${produto.preco}" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 0; font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-bottom: 0.5rem;">Adicionar ao Carrinho</button>
-							</div>
-						`;
-					}).join('')}
-				</div>
-			`;
-		}
 
-		container.innerHTML = `
-			${dropdownHtml}
-			${produtosHtml}
-			${cartMessageHtml}
-		`;
-
-		// Tooltip flutuante que segue o cursor
-		let tooltip = document.getElementById('produto-tooltip-global');
-		if (!tooltip) {
-			tooltip = document.createElement('div');
-			tooltip.id = 'produto-tooltip-global';
-			tooltip.className = 'produto-tooltip-global hidden';
-			document.body.appendChild(tooltip);
-		}
-
-		container.querySelectorAll('.card-produto').forEach(card => {
-			card.addEventListener('mouseenter', function(e) {
-				const descricao = card.getAttribute('data-descricao');
-				if (descricao && descricao.trim()) {
-					tooltip.textContent = descricao;
-					tooltip.classList.remove('hidden');
-					// Remove qualquer font-size inline para garantir o CSS
-					tooltip.style.fontSize = '';
-				}
-			});
-			card.addEventListener('mousemove', function(e) {
-				if (!tooltip.classList.contains('hidden')) {
-					const offset = 18;
-					tooltip.style.left = (e.clientX + offset) + 'px';
-					tooltip.style.top = (e.clientY + offset) + 'px';
-				}
-			});
-			card.addEventListener('mouseleave', function() {
-				tooltip.classList.add('hidden');
-				tooltip.textContent = '';
-			});
-		});
-
-		// Evento do dropdown de categoria
-		const dropdown = container.querySelector('#dropdown-categoria');
-		if (dropdown) {
-			dropdown.onchange = (e) => {
-				this.selectedCategoria = e.target.value;
-				this.renderPedidosPage();
-			};
-		}
-	this.setupPedidosEventDelegation();
-	}
-
-	setupPedidosEventDelegation() {
-		const pedidosContainer = document.getElementById('pedidos-container');
-		if (!pedidosContainer) return;
-		// Remove event listener antigo, se necessário (usando uma flag)
-		if (pedidosContainer._delegationAttached) {
-			pedidosContainer.removeEventListener('click', pedidosContainer._delegationHandler);
-		}
-		const handler = (e) => {
-			const btn = e.target.closest('button[data-action]');
-			if (!btn) return;
-			const action = btn.getAttribute('data-action');
-			const produtoId = btn.getAttribute('data-id');
-			const preco = btn.getAttribute('data-preco');
-			const total = btn.getAttribute('data-total');
-			switch (action) {
-				case 'prev-produto-photo':
-					this.prevProdutoPhoto(produtoId, parseInt(total));
-					break;
-				case 'next-produto-photo':
-					this.nextProdutoPhoto(produtoId, parseInt(total));
-					break;
-				case 'increment-produto':
-					this.incrementProdutoCarrinho(produtoId, parseFloat(preco));
-					break;
-				case 'decrement-produto':
-					this.decrementProdutoCarrinho(produtoId);
-					break;
-				case 'adicionar-carrinho':
-					this.adicionarAoCarrinho(produtoId, parseFloat(preco));
-					break;
-			}
-		};
-		pedidosContainer.addEventListener('click', handler);
-		pedidosContainer._delegationAttached = true;
-		pedidosContainer._delegationHandler = handler;
-	}
-	abrirFinalizarPedidoModal() {
-		// Modal para finalizar pedido com lista de produtos
-		const modal = this.createModal('modal-finalizar-pedido', '🛒 Finalizar Pedido');
-		modal.classList.add('show');
-		Object.assign(modal.style, {
-			display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.4)', zIndex: '2000'
-		});
-		let modalsContainer = document.getElementById('modals-container');
-		if (!modalsContainer) {
-			modalsContainer = document.createElement('div');
-			modalsContainer.id = 'modals-container';
-			document.body.appendChild(modalsContainer);
-		}
-		modalsContainer.appendChild(modal);
-		// Produtos do carrinho
-		const produtosCarrinho = Object.entries(this.cart)
-			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado)
-			.map(([id, item]) => {
-				const produto = this.products.find(p => p.id == id);
-				return produto ? `<tr style="border-bottom:1px solid #eee;">
-					<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#222; font-weight:600;">${produto.nome}</td>
-					<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#764ba2; text-align:right;">${this.formatCurrency(item.preco)}</td>
-					<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#dc3545; text-align:center;">${item.quantidade}</td>
-					<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#28a745; text-align:right; font-weight:600;">${this.formatCurrency(item.preco * item.quantidade)}</td>
-				</tr>` : '';
-			}).join('');
-		// Modal HTML
-		modal.innerHTML = `
-			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 430px; width: 100%; padding: 2.2rem 1.7rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 1.3rem;">
-				<div style="display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.7rem;">
-					<span style="width: 50px; height: 50px; background: linear-gradient(135deg, #ff6b9d, #ffa726); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.7rem;"><i class="fas fa-shopping-cart"></i></span>
-					<span style="font-size: 1.35rem; font-weight: 700; color: #333;">Finalizar Pedido</span>
-					<button onclick="closeModal('modal-finalizar-pedido')" style="margin-left:auto; background:none; border:none; font-size:1.3rem; color:#888; cursor:pointer;">&times;</button>
-				</div>
-				<div style="border-bottom:1px solid #eee; margin-bottom:1rem;"></div>
-				<form id="form-finalizar-pedido" style="display: flex; flex-direction: column; gap: 1.3rem; width: 100%;">
-					<div style="padding: 0.35rem 0.5rem; border-radius: 10px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
-						<h4 style="margin: 0 0 0.08rem 0; font-size: 1.03rem; color: #764ba2;">Produtos no Carrinho</h4>
-						<div class="carrinho-lista" style="width:100%; overflow-x:auto;">
-							<table style="width:100%; border-collapse:collapse; background:#f8f9fa; border-radius:8px;">
-								<thead>
-									<tr style="background:#f5f5f5;">
-										<th style="padding:0.25rem 0.4rem; font-size:0.93rem; color:#333; text-align:left; font-weight:700;">Produto</th>
-										<th style="padding:0.25rem 0.4rem; font-size:0.93rem; color:#333; text-align:right; font-weight:700;">Preço</th>
-										<th style="padding:0.25rem 0.4rem; font-size:0.93rem; color:#333; text-align:center; font-weight:700;">Qtd.</th>
-										<th style="padding:0.25rem 0.4rem; font-size:0.93rem; color:#333; text-align:right; font-weight:700;">Total</th>
+						<div style="overflow-x: auto; max-height: 400px; overflow-y: auto;">
+							<table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+								<thead style="background: linear-gradient(135deg, #667eea, #764ba2); color: white;">
+									<tr>
+										<th style="padding: 1rem 0.75rem; text-align: center; font-weight: 600; font-size: 0.9rem;">Foto</th>
+										<th style="padding: 1rem 0.75rem; text-align: left; font-weight: 600; font-size: 0.9rem;">Nome</th>
+										<th style="padding: 1rem 0.75rem; text-align: left; font-weight: 600; font-size: 0.9rem;">Email</th>
+										<th style="padding: 1rem 0.75rem; text-align: center; font-weight: 600; font-size: 0.9rem;">Telefone</th>
+										<th style="padding: 1rem 0.75rem; text-align: center; font-weight: 600; font-size: 0.9rem;">Função</th>
+										<th style="padding: 1rem 0.75rem; text-align: center; font-weight: 600; font-size: 0.9rem;">Criado em</th>
+										<th style="padding: 1rem 0.75rem; text-align: center; font-weight: 600; font-size: 0.9rem;">Última Atualização</th>
+										<th style="padding: 1rem 0.75rem; text-align: center; font-weight: 600; font-size: 0.9rem;">Ações</th>
 									</tr>
 								</thead>
 								<tbody>
-									${produtosCarrinho}
+									${usuariosHtml}
 								</tbody>
 							</table>
 						</div>
 					</div>
-					<div style="padding: 0.35rem 0.5rem; border-radius: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-						<h4 style="margin: 0 0 0.08rem 0; font-size: 1.03rem;">Selecione o Cliente</h4>
-						<select id="finalizar-cliente" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1.02rem;">
-							<option value="">-- Escolha um cliente --</option>
-							${this.clients.map(c => `<option value="${c.id}">${c.nome} - ${c.telefone}</option>`).join('')}
-						</select>
+				</div>
+			`;
+
+		} catch (error) {
+			console.error('Erro ao carregar usuários:', error);
+			modal.innerHTML = `
+				<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 500px; width: 100%; padding: 2rem 1.5rem;">
+					<div style="text-align: center;">
+						<h3 style="color: #dc3545; margin-bottom: 1rem;">Erro ao carregar usuários</h3>
+						<p style="color: #666; margin-bottom: 1.5rem;">${error.message}</p>
+						<button onclick="closeModal('modal-usuarios')" style="padding: 0.75rem 1.5rem; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer;">Fechar</button>
 					</div>
-					<div style="padding: 0.35rem 0.5rem; border-radius: 10px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
-						<h4 style="margin: 0 0 0.08rem 0; font-size: 1.03rem;">Forma de Pagamento</h4>
-						<select id="finalizar-pagamento" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1.02rem;">
-							<option value="">-- Escolha o pagamento --</option>
-							<option value="dinheiro">Dinheiro</option>
-							<option value="transferencia">Transferência</option>
-						</select>
-						<div style="margin-top: 1rem; text-align: left;">
-							<label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; color: #fff;">
-								<input type="checkbox" id="finalizar-full-payment" checked style="accent-color: #f5576c; width: 18px; height: 18px;"> Pagamento total?
-							</label>
-							<div id="finalizar-sinal-group" style="display: none; margin-top: 0.5rem;">
-								<label for="finalizar-sinal" style="color: #fff; font-weight: 500;">Valor do sinal:</label>
-								<div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
-									<span style="color: #fff; font-weight: 600;">CAD$</span>
-									<input type="text" id="finalizar-sinal" inputmode="decimal" pattern="^\\d+(\\.|\\,)\\d{0,2}$" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none;">
-								</div>
-								<p id="finalizar-restante" style="margin: 0.5rem 0 0 0; color: #fff; font-size: 0.95rem;"></p>
-							</div>
-						</div>
-					</div>
-					<div style="padding: 0.35rem 0.5rem; border-radius: 10px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white;">
-						<h4 style="margin: 0 0 0.08rem 0; font-size: 1.03rem;">Tipo de Entrega</h4>
-						<select id="finalizar-entrega" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1.02rem;">
-							<option value="">-- Escolha a entrega --</option>
-							<option value="retirada">Retirada</option>
-							<option value="entrega">Entrega</option>
-						</select>
-					</div>
-					<div style="width: 100%; text-align: center; margin: 1rem 0 0 0;">
-						<span style="font-size: 1.35rem; font-weight: 700; color: #28a745;">Total do Carrinho: ${this.formatCurrency(Object.entries(this.cart).filter(([_, item]) => item && item.quantidade > 0 && item.adicionado).reduce((acc, [_, item]) => acc + item.preco * item.quantidade, 0))}</span>
-					</div>
-					<button type="submit" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 0; font-size: 1.13rem; font-weight: 700; cursor: pointer; margin-bottom: 0.5rem;">Finalizar Pedido</button>
-				</form>
-			</div>`;
-		// Evento de submit
-		const finalizarForm = document.getElementById('form-finalizar-pedido');
-		if (finalizarForm) {
-			// Pagamento total/sinal
-			const fullPaymentCheckbox = document.getElementById('finalizar-full-payment');
-			const sinalGroup = document.getElementById('finalizar-sinal-group');
-			const sinalInput = document.getElementById('finalizar-sinal');
-			sinalInput.setAttribute('inputmode', 'decimal');
-			sinalInput.setAttribute('pattern', '^\\d+(\\.|\\,)\\d{0,2}$');
-			sinalInput.addEventListener('input', function(e) {
-				let val = e.target.value.replace(',', '.');
-				// Permite apenas números e ponto, e no máximo duas casas decimais
-				val = val.replace(/[^\d.]/g, '');
-				if ((val.match(/\./g) || []).length > 1) {
-					val = val.replace(/\.+$/, '');
+				</div>
+			`;
+		}
+	}
+
+	async resetUserPasswords() {
+		if (!confirm('ATENÇÃO: Esta ação irá resetar a senha de TODOS os usuários (exceto administradores) para "123456".\n\nDeseja continuar?')) {
+			return;
+		}
+
+		try {
+			// Buscar todos os usuários não-admin
+			const { data: usuarios, error: fetchError } = await this.supabase
+				.from('usuarios')
+				.select('id, nome, email')
+				.neq('role', 'admin');
+
+			if (fetchError) throw fetchError;
+
+			let successCount = 0;
+			let errorCount = 0;
+
+			for (const user of usuarios) {
+				try {
+					// Resetar senha diretamente na tabela usuarios (usando hash base64)
+					const hashedPassword = btoa('123456');
+					const { error } = await this.supabase
+						.from('usuarios')
+						.update({ 
+							senha: hashedPassword,
+							updated_at: new Date().toISOString()
+						})
+						.eq('id', user.id);
+
+					if (!error) {
+						successCount++;
+					} else {
+						errorCount++;
+					}
+				} catch (err) {
+					console.error(`Erro ao resetar senha de ${user.nome}:`, err);
+					errorCount++;
 				}
-				if (val.includes('.')) {
-					const [intPart, decPart] = val.split('.');
-					val = intPart + '.' + (decPart ? decPart.slice(0,2) : '');
-				}
-				e.target.value = val;
-			});
-			const restanteLabel = document.getElementById('finalizar-restante');
-			fullPaymentCheckbox.addEventListener('change', () => {
-				if (fullPaymentCheckbox.checked) {
-					sinalGroup.style.display = 'none';
-				} else {
-					sinalGroup.style.display = 'block';
-					updateRestante();
-				}
-			});
-			sinalInput.addEventListener('input', updateRestante);
-			function updateRestante() {
-				const total = Object.entries(window.dashboardApp.cart).filter(([_, item]) => item && item.quantidade > 0 && item.adicionado).reduce((acc, [_, item]) => acc + item.preco * item.quantidade, 0);
-				const sinal = parseFloat(sinalInput.value) || 0;
-				const restante = total - sinal;
-				restanteLabel.textContent = restante > 0 ? `Valor restante na entrega: ${window.dashboardApp.formatCurrency(restante)}` : '';
 			}
-			finalizarForm.addEventListener('submit', async (e) => {
-				e.preventDefault();
-				const clienteId = document.getElementById('finalizar-cliente').value;
-				const pagamento = document.getElementById('finalizar-pagamento').value;
-				const entrega = document.getElementById('finalizar-entrega').value;
-				const fullPayment = document.getElementById('finalizar-full-payment').checked;
-				const sinal = fullPayment ? null : (parseFloat(document.getElementById('finalizar-sinal').value.replace(',', '.')) || 0);
-				const produtos = Object.entries(this.cart)
-					.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado)
-					.map(([id, item]) => ({ produto_id: id, quantidade: item.quantidade, preco_unitario: item.preco }));
-				const valor_total = produtos.reduce((acc, p) => acc + p.preco_unitario * p.quantidade, 0);
-				const valor_pago = fullPayment ? valor_total : sinal || 0;
-				const valor_pendente = valor_total - valor_pago;
-				const cliente = this.clients.find(c => c.id == clienteId);
-				// Gerar número de pedido único
-				const hoje = new Date();
-				const dataStr = hoje.toISOString().slice(0,10).replace(/-/g, '');
-				const randomNum = Math.floor(Math.random() * 9000) + 1000;
-				const numeroPedido = `PED-${dataStr}-${randomNum}`;
 
-				const pedidoData = {
-					numero_pedido: numeroPedido,
-					cliente_id: clienteId,
-					data_pedido: hoje.toISOString(),
-					data_entrega: hoje.toISOString().slice(0,10), // Ajuste conforme campo do formulário
-					valor_total,
-					valor_pago,
-					status: 'pendente',
-					forma_pagamento: pagamento,
-					observacoes: '',
-					idioma: cliente ? cliente.idioma : 'pt',
-				};
-				// Salvar pedido no Supabase
-				const pedidoSalvo = await this.saveToSupabase('pedidos', pedidoData);
-				if (pedidoSalvo && pedidoSalvo.id) {
-					// Salvar itens do pedido
-					for (const item of produtos) {
-						const itemData = {
-							pedido_id: pedidoSalvo.id,
-							produto_id: item.produto_id,
-							quantidade: item.quantidade,
-							preco_unitario: item.preco_unitario,
-							created_at: new Date().toISOString(),
-						};
-						await this.saveToSupabase('pedido_itens', itemData);
-					}
-					// Só criar entrega se selecionado
-					if (entrega === 'entrega') {
-						const entregaData = {
-							pedido_id: pedidoSalvo.id,
-							data_entrega: pedidoData.data_entrega,
-							hora_entrega: null,
-							endereco_entrega: cliente ? cliente.endereco : '',
-							status: 'agendada',
-							created_at: new Date().toISOString(),
-						};
-						await this.saveToSupabase('entregas', entregaData);
-					}
-				}
-				// Atualizar pedidos pendentes
-				await this.loadPedidos();
-				this.renderPedidosPage();
-				// Atualizar entregas só se foi criada
-				if (entrega === 'entrega') {
-					await this.loadEntregas();
-					this.renderEntregasPage();
-				}
-				// Gerar recibo e enviar por e-mail
-				if (cliente && cliente.email) {
-					this.gerarEEnviarRecibo({ ...pedidoData, produtos }, cliente.email);
-				}
-				closeModal('modal-finalizar-pedido');
-				if (document.getElementById('cart-message')) document.getElementById('cart-message').remove();
-				this.cart = {};
+			alert(`Reset de senhas concluído!\n\n✅ Sucesso: ${successCount} usuários\n❌ Erros: ${errorCount} usuários\n\nNova senha: 123456`);
+
+		} catch (error) {
+			console.error('Erro no reset de senhas:', error);
+			alert('Erro ao resetar senhas: ' + error.message);
+		}
+	}
+
+	showDeleteUserModal() {
+		// Verificar se já existe um modal aberto e removê-lo
+		const existingModal = document.getElementById('modal-delete-user');
+		if (existingModal) {
+			existingModal.remove();
+		}
+
+		const modal = this.createModal('modal-delete-user', '🗑️ Excluir Usuário');
+		modal.classList.add('show');
+
+		Object.assign(modal.style, {
+			display: 'flex',
+			justifyContent: 'center',
+			alignItems: 'center',
+			position: 'fixed',
+			top: '0',
+			left: '0',
+			width: '100vw',
+			height: '100vh',
+			background: 'rgba(0,0,0,0.4)',
+			zIndex: '2001'
+		});
+
+		let modalsContainer = document.getElementById('modals-container');
+		if (!modalsContainer) {
+			modalsContainer = document.createElement('div');
+			modalsContainer.id = 'modals-container';
+			document.body.appendChild(modalsContainer);
+		}
+		modalsContainer.appendChild(modal);
+
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 500px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 1.3rem; max-height: 90vh; overflow-y: auto;">
+				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+					<h3 style="margin: 0; font-size: 1.5rem; color: #dc3545;">🗑️ Excluir Usuário</h3>
+					<button onclick="closeModal('modal-delete-user')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
+				</div>
+
+				<div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+					<h4 style="margin: 0 0 0.5rem 0; color: #721c24; font-size: 1rem;">⚠️ ATENÇÃO</h4>
+					<p style="margin: 0; color: #721c24; font-size: 0.9rem;">
+						Esta ação irá excluir permanentemente o usuário selecionado. Todos os dados associados serão perdidos.
+					</p>
+				</div>
+
+				<form id="form-delete-user" style="display: flex; flex-direction: column; gap: 1.2rem;">
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Selecione o usuário *</label>
+						<select id="delete-user-select" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+							<option value="">Selecione um usuário</option>
+						</select>
+					</div>
+
+					<div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 1rem;">
+						<p style="margin: 0; font-size: 0.9rem; color: #856404;">
+							<strong>Nota:</strong> Você não pode excluir sua própria conta ou contas de administradores.
+						</p>
+					</div>
+
+					<div style="display: flex; gap: 1rem; margin-top: 1rem;">
+						<button type="submit" style="flex: 1; padding: 0.75rem; background: #dc3545; color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
+							🗑️ Excluir Usuário
+						</button>
+						<button type="button" onclick="closeModal('modal-delete-user')" style="flex: 1; padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
+							Cancelar
+						</button>
+					</div>
+				</form>
+			</div>
+		`;
+
+		// Carregar lista de usuários
+		this.loadUsersForDeletion();
+
+		// Eventos do formulário
+		const form = modal.querySelector('#form-delete-user');
+		if (form) {
+			form.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				await this.deleteSelectedUser();
 			});
 		}
 	}
-	incrementProdutoCarrinho(produtoId, preco) {
-		if (!this.cart) this.cart = {};
-		if (!this.cart[produtoId]) this.cart[produtoId] = { quantidade: 0, preco };
-		this.cart[produtoId].quantidade++;
-		this.renderPedidosPage();
-	}
 
-	decrementProdutoCarrinho(produtoId) {
-		if (!this.cart || !this.cart[produtoId]) return;
-		if (this.cart[produtoId].quantidade > 0) this.cart[produtoId].quantidade--;
-		this.renderPedidosPage();
-	}
-
-	adicionarAoCarrinho(produtoId, preco) {
-		if (!this.cart) this.cart = {};
-		if (!this.cart[produtoId]) this.cart[produtoId] = { quantidade: 1, preco, adicionado: true };
-		else {
-			this.cart[produtoId].quantidade = Math.max(1, this.cart[produtoId].quantidade);
-			this.cart[produtoId].adicionado = true;
+	showResetPasswordUserModal() {
+		// Verificar se já existe um modal aberto e removê-lo
+		const existingModal = document.getElementById('modal-reset-password-user');
+		if (existingModal) {
+			existingModal.remove();
 		}
-		this.renderPedidosPage();
-	}
 
-	prevProdutoPhoto(produtoId, totalPhotos) {
-		const carousel = document.getElementById(`market-carousel-${produtoId}`);
-		if (!carousel) return;
-		const current = parseInt(carousel.dataset.current || 0);
-		const prev = current === 0 ? totalPhotos - 1 : current - 1;
-	carousel.style.transform = `translateX(-${prev * 100}%)`;
-		carousel.dataset.current = prev;
-	}
+		const modal = this.createModal('modal-reset-password-user', '🔑 Resetar Senha');
+		modal.classList.add('show');
 
-	nextProdutoPhoto(produtoId, totalPhotos) {
-		const carousel = document.getElementById(`market-carousel-${produtoId}`);
-		if (!carousel) return;
-		const current = parseInt(carousel.dataset.current || 0);
-		const next = (current + 1) % totalPhotos;
-	carousel.style.transform = `translateX(-${next * 100}%)`;
-		carousel.dataset.current = next;
-	}
+		Object.assign(modal.style, {
+			display: 'flex',
+			justifyContent: 'center',
+			alignItems: 'center',
+			position: 'fixed',
+			top: '0',
+			left: '0',
+			width: '100vw',
+			height: '100vh',
+			background: 'rgba(0,0,0,0.4)',
+			zIndex: '2001'
+		});
 
-	nextPedidoPhoto(orderId, totalPhotos) {
-		const carousel = document.getElementById(`pedido-carousel-${orderId}`);
-		if (!carousel) return;
-		const current = parseInt(carousel.dataset.current || 0);
-		const next = (current + 1) % totalPhotos;
-	carousel.style.transform = `translateX(-${next * 100}%)`;
-		carousel.dataset.current = next;
-	}
+		let modalsContainer = document.getElementById('modals-container');
+		if (!modalsContainer) {
+			modalsContainer = document.createElement('div');
+			modalsContainer.id = 'modals-container';
+			document.body.appendChild(modalsContainer);
+		}
+		modalsContainer.appendChild(modal);
 
-	prevPedidoPhoto(orderId, totalPhotos) {
-		const carousel = document.getElementById(`pedido-carousel-${orderId}`);
-		if (!carousel) return;
-		const current = parseInt(carousel.dataset.current || 0);
-		const prev = current === 0 ? totalPhotos - 1 : current - 1;
-	carousel.style.transform = `translateX(-${prev * 100}%)`;
-		carousel.dataset.current = prev;
-	}
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 500px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 1.3rem; max-height: 90vh; overflow-y: auto;">
+				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+					<h3 style="margin: 0; font-size: 1.5rem; color: #ffc107;">🔑 Resetar Senha</h3>
+					<button onclick="closeModal('modal-reset-password-user')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
+				</div>
 
-	renderEstoquePage() {
-		const container = document.getElementById('estoque-container');
-		if (!container) return;
+				<div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+					<h4 style="margin: 0 0 0.5rem 0; color: #856404; font-size: 1rem;">⚠️ ATENÇÃO</h4>
+					<p style="margin: 0; color: #856404; font-size: 0.9rem;">
+						Esta ação irá resetar a senha do usuário selecionado para "123456". A senha será alterada imediatamente.
+					</p>
+				</div>
 
-		if (this.products.length === 0) {
-			container.innerHTML = `<p style="text-align: center; padding: 3rem; color: #888;">Nenhum produto cadastrado</p>`;
-		} else {
-			const list = this.products.map(p => {
-				const color = p.estoque > 10 ? '#28a745' : p.estoque > 5 ? '#FFC107' : '#dc3545';
-				const percentage = Math.min((p.estoque / 50) * 100, 100);
-				return `
-				<div style="background: white; padding: 1.25rem; border-radius: 10px; margin-bottom: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-					<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-						<h4 style="margin: 0; color: #333;">${p.nome}</h4>
-						<span style="background: ${color}; color: white; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.9rem; font-weight: 600;">${p.estoque}</span>
+				<form id="form-reset-password-user" style="display: flex; flex-direction: column; gap: 1.2rem;">
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Selecione o usuário *</label>
+						<select id="reset-password-user-select" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+							<option value="">Selecione um usuário</option>
+						</select>
 					</div>
-					<div style="background: #e9ecef; border-radius: 10px; height: 14px; overflow: hidden; margin-bottom: 0.75rem;">
-						<div style="background: ${color}; height: 100%; width: ${percentage}%; transition: width 0.3s ease;"></div>
+
+					<div style="background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 6px; padding: 1rem;">
+						<p style="margin: 0; font-size: 0.9rem; color: #0c5460;">
+							<strong>Nota:</strong> Você não pode resetar a senha de administradores.
+						</p>
 					</div>
-					<button onclick="window.dashboardApp.adjustStock(${p.id})" style="padding: 0.5rem 1rem; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">
-						<i class="fas fa-edit"></i> Ajustar Estoque
+
+					<div style="display: flex; gap: 1rem; margin-top: 1rem;">
+						<button type="submit" style="flex: 1; padding: 0.75rem; background: #ffc107; color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
+							🔑 Resetar Senha
+						</button>
+						<button type="button" onclick="closeModal('modal-reset-password-user')" style="flex: 1; padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
+							Cancelar
+						</button>
+					</div>
+				</form>
+			</div>
+		`;
+
+		// Carregar lista de usuários
+		this.loadUsersForPasswordReset();
+
+		// Eventos do formulário
+		const form = modal.querySelector('#form-reset-password-user');
+		if (form) {
+			form.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				await this.resetSelectedUserPassword();
+			});
+		}
+	}
+
+	async loadUsersForPasswordReset() {
+		try {
+			const { data: usuarios, error } = await this.supabase
+				.from('usuarios')
+				.select('id, nome, email, role')
+				.neq('role', 'admin'); // Não permitir resetar senha de admins
+
+			if (error) throw error;
+
+			const select = document.getElementById('reset-password-user-select');
+			if (select) {
+				select.innerHTML = '<option value="">Selecione um usuário</option>' +
+					usuarios.map(user => `<option value="${user.id}">${user.nome} (${user.email})</option>`).join('');
+			}
+
+		} catch (error) {
+			console.error('Erro ao carregar usuários para reset de senha:', error);
+		}
+	}
+
+	async resetSelectedUserPassword() {
+		const userId = document.getElementById('reset-password-user-select').value;
+		const select = document.getElementById('reset-password-user-select');
+		const userName = select.options[select.selectedIndex].text.split(' (')[0];
+
+		if (!userId) {
+			alert('Selecione um usuário para resetar a senha!');
+			return;
+		}
+
+		if (!confirm(`Tem certeza que deseja resetar a senha do usuário "${userName}" para "123456"?\n\nA senha será alterada imediatamente.`)) {
+			return;
+		}
+
+		try {
+			// Resetar senha diretamente na tabela usuarios (usando hash base64)
+			const hashedPassword = btoa('123456');
+			const { error } = await this.supabase
+				.from('usuarios')
+				.update({ password_hash: hashedPassword })
+				.eq('id', userId);
+
+			if (error) throw error;
+
+			alert(`✅ Senha do usuário "${userName}" foi resetada com sucesso!\n\nNova senha: 123456\n\nO usuário deve alterar a senha no próximo login.`);
+
+			// Fechar modal
+			closeModal('modal-reset-password-user');
+
+			// Recarregar tabela de usuários
+			const usuariosModal = document.getElementById('modal-usuarios');
+			if (usuariosModal) {
+				this.loadUsuariosTable(usuariosModal);
+			}
+
+		} catch (error) {
+			console.error('Erro ao resetar senha:', error);
+			alert('Erro ao resetar senha: ' + error.message);
+		}
+	}
+
+	async loadUsersForDeletion() {
+		try {
+			const { data: usuarios, error } = await this.supabase
+				.from('usuarios')
+				.select('id, nome, email, role')
+				.neq('id', this.currentUser.id) // Não permitir excluir si mesmo
+				.neq('role', 'admin'); // Não permitir excluir outros admins
+
+			if (error) throw error;
+
+			const select = document.getElementById('delete-user-select');
+			if (select) {
+				select.innerHTML = '<option value="">Selecione um usuário</option>' +
+					usuarios.map(user => `<option value="${user.id}">${user.nome} (${user.email})</option>`).join('');
+			}
+
+		} catch (error) {
+			console.error('Erro ao carregar usuários para exclusão:', error);
+		}
+	}
+
+	async deleteSelectedUser() {
+		const userId = document.getElementById('delete-user-select').value;
+		const select = document.getElementById('delete-user-select');
+		const userName = select.options[select.selectedIndex].text.split(' (')[0];
+
+		if (!userId) {
+			alert('Selecione um usuário para excluir!');
+			return;
+		}
+
+		if (!confirm(`Tem certeza que deseja excluir o usuário "${userName}"?\n\nEsta ação não pode ser desfeita!`)) {
+			return;
+		}
+
+		try {
+			// Excluir do banco de dados
+			const { error: dbError } = await this.supabase
+				.from('usuarios')
+				.delete()
+				.eq('id', userId);
+
+			if (dbError) throw dbError;
+
+			// Excluir da autenticação (se possível)
+			try {
+				await this.supabase.auth.admin.deleteUser(userId);
+			} catch (authError) {
+				console.warn('Não foi possível excluir da autenticação:', authError);
+			}
+
+			alert(`Usuário "${userName}" excluído com sucesso!`);
+			closeModal('modal-delete-user');
+			
+			// Recarregar tabela de usuários
+			const usuariosModal = document.getElementById('modal-usuarios');
+			if (usuariosModal) {
+				this.loadUsuariosTable(usuariosModal);
+			}
+
+		} catch (error) {
+			console.error('Erro ao excluir usuário:', error);
+			alert('Erro ao excluir usuário: ' + error.message);
+		}
+	}
+
+	openDespesasModal() {
+		// Verificar se já existe um modal aberto e removê-lo
+		const existingModal = document.getElementById('modal-despesas');
+		if (existingModal) {
+			existingModal.remove();
+		}
+
+		const modal = this.createModal('modal-despesas', '💰 Gerenciar Despesas');
+		modal.classList.add('show');
+
+		Object.assign(modal.style, {
+			display: 'flex',
+			justifyContent: 'center',
+			alignItems: 'center',
+			position: 'fixed',
+			top: '0',
+			left: '0',
+			width: '100vw',
+			height: '100vh',
+			background: 'rgba(0,0,0,0.4)',
+			zIndex: '2000'
+		});
+
+		// Agrupar despesas por categoria
+		const despesasPorCategoria = {};
+		this.despesas.forEach(despesa => {
+			const categoria = despesa.categoria || 'outros';
+			if (!despesasPorCategoria[categoria]) {
+				despesasPorCategoria[categoria] = [];
+			}
+			despesasPorCategoria[categoria].push(despesa);
+		});
+
+		const categorias = Object.keys(despesasPorCategoria);
+		const totalDespesas = this.despesas.reduce((sum, d) => sum + parseFloat(d.valor || 0), 0);
+
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 800px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); max-height: 80vh; overflow-y: auto;">
+				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+					<h3 style="margin: 0; font-size: 1.5rem; color: #333;">💰 Gerenciar Despesas</h3>
+					<button onclick="closeModal('modal-despesas')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
+				</div>
+
+				<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+					<div style="font-size: 1.2rem; font-weight: 600; color: #dc3545;">
+						Total de Despesas: ${this.formatCurrency(totalDespesas)}
+					</div>
+					<button onclick="window.dashboardApp.openAddDespesaModal()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+						<i class="fas fa-plus"></i> Adicionar Despesa
 					</button>
 				</div>
-			`;
-			}).join('');
-			container.innerHTML = list;
-		}
-	}
 
-	async adjustStock(id) {
-		const product = this.products.find(p => p.id === id);
-		if (!product) return;
-
-		const newStock = prompt(
-			`Ajustar estoque de "${product.nome}"\nEstoque atual: ${product.estoque}`,
-			product.estoque
-		);
-
-		if (newStock !== null && !isNaN(newStock) && parseInt(newStock) >= 0) {
-			await this.saveToSupabase('produtos', { estoque: parseInt(newStock) }, id);
-			product.estoque = parseInt(newStock);
-			this.renderEstoquePage();
-			this.renderProdutosPage();
-			this.updateStats();
-		}
-	}
-
-	renderEntregasPage() {
-		const container = document.getElementById('entregas-container');
-		if (!container) return;
-
-		const today = new Date().toISOString().split('T')[0];
-		// Só pedidos do tipo 'entrega' e status 'pendente'
-		const entregas = this.orders.filter(o =>
-			o.data_entrega &&
-			o.tipo_entrega === 'entrega' &&
-			o.status === 'pendente'
-		);
-
-		if (entregas.length === 0) {
-			container.innerHTML = `<p style="text-align: center; padding: 3rem; color: #888;">Nenhuma entrega agendada</p>`;
-		} else {
-			const list = entregas.map(o => {
-				const isToday = o.data_entrega === today;
-				const isPast = o.data_entrega < today;
-				const bgColor = isToday ? '#fff3cd' : isPast ? '#f8d7da' : 'white';
-				const borderColor = isToday ? '#FFC107' : isPast ? '#dc3545' : '#17a2b8';
-				
-				return `
-				<div style="background: ${bgColor}; padding: 1.25rem; border-radius: 10px; margin-bottom: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid ${borderColor};">
-					<div style="display: flex; justify-content: space-between; align-items: start;">
-						<div style="flex: 1;">
-							<h4 style="margin: 0 0 0.75rem 0; color: #333;">
-								🚚 Entrega #${o.id} 
-								${isToday ? '<span style="background: #FFC107; color: white; padding: 0.25rem 0.5rem; border-radius: 8px; font-size: 0.75rem; margin-left: 0.5rem;">HOJE</span>' : ''}
-								${isPast ? '<span style="background: #dc3545; color: white; padding: 0.25rem 0.5rem; border-radius: 8px; font-size: 0.75rem; margin-left: 0.5rem;">ATRASADO</span>' : ''}
-							</h4>
-							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>👤</strong> ${o.cliente_nome}</p>
-							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>📦</strong> ${o.produto_nome}</p>
-							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>📅</strong> ${this.formatDate(o.data_entrega)}</p>
-												<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>🕐</strong> ${o.horario_entrega || 'Não informado'}</p>
-							<p style="margin: 0 0 0.25rem 0; color: #666;"><strong>📍</strong> ${o.endereco_entrega}</p>
-							<span style="display: inline-block; margin-top: 0.5rem; background: ${this.getStatusColor(o.status)}; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem;">${o.status.toUpperCase()}</span>
-						</div>
-						<div style="display: flex; flex-direction: column; gap: 0.5rem;">
-							${o.status !== 'entregue' ? `
-								<button onclick="window.dashboardApp.markAsDelivered(${o.id})" style="padding: 0.5rem 0.75rem; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; white-space: nowrap;">
-									<i class="fas fa-check"></i> Entregue
-								</button>
-							` : ''}
-							<button onclick="window.dashboardApp.viewOrder(${o.id})" style="padding: 0.5rem 0.75rem; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer;">
-								<i class="fas fa-eye"></i> Ver
-							</button>
-						</div>
-					</div>
+				<div style="display: flex; flex-direction: column; gap: 1rem;">
+					${categorias.length === 0 ? 
+						`<div style="text-align: center; padding: 3rem; color: #888;">
+							<i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+							<p>Nenhuma despesa cadastrada</p>
+						</div>` :
+						categorias.map(categoria => {
+							const despesas = despesasPorCategoria[categoria];
+							const totalCategoria = despesas.reduce((sum, d) => sum + parseFloat(d.valor || 0), 0);
+							
+							return `
+								<div style="border: 1px solid #eee; border-radius: 8px; padding: 1rem;">
+									<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+										<h4 style="margin: 0; color: #333; text-transform: capitalize;">${categoria}</h4>
+										<span style="font-weight: 600; color: #dc3545;">${this.formatCurrency(totalCategoria)}</span>
+									</div>
+									<div style="display: flex; flex-direction: column; gap: 0.5rem;">
+										${despesas.map(despesa => `
+											<div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: #f8f9fa; border-radius: 4px;">
+												<div>
+													<strong>${despesa.descricao}</strong>
+													<div style="font-size: 0.8rem; color: #666;">
+														${new Date(despesa.data_despesa).toLocaleDateString('pt-BR')}
+														${despesa.produto_id ? ' (Produto específico)' : ''}
+													</div>
+												</div>
+												<div style="display: flex; align-items: center; gap: 0.5rem;">
+													<span style="font-weight: 600;">${this.formatCurrency(despesa.valor)}</span>
+													<button onclick="window.dashboardApp.deleteDespesa('${despesa.id}')" style="background: #dc3545; color: white; border: none; border-radius: 4px; padding: 0.25rem 0.5rem; cursor: pointer; font-size: 0.8rem;">
+														<i class="fas fa-trash"></i>
+													</button>
+												</div>
+											</div>
+										`).join('')}
+									</div>
+								</div>
+							`;
+						}).join('')
+					}
 				</div>
-			`;
-			}).join('');
-			container.innerHTML = list;
+			</div>
+		`;
+
+		document.getElementById('modals-container').appendChild(modal);
+	}
+
+	openReceitasModal() {
+		// Verificar se já existe um modal aberto e removê-lo
+		const existingModal = document.getElementById('modal-receitas');
+		if (existingModal) {
+			existingModal.remove();
 		}
+
+		const modal = this.createModal('modal-receitas', '💰 Gerenciar Receitas');
+		modal.classList.add('show');
+
+		Object.assign(modal.style, {
+			display: 'flex',
+			justifyContent: 'center',
+			alignItems: 'center',
+			position: 'fixed',
+			top: '0',
+			left: '0',
+			width: '100vw',
+			height: '100vh',
+			background: 'rgba(0,0,0,0.4)',
+			zIndex: '2000'
+		});
+
+		// Agrupar receitas por categoria
+		const receitasPorCategoria = {};
+		this.receitas.forEach(receita => {
+			const categoria = receita.categoria || 'vendas';
+			if (!receitasPorCategoria[categoria]) {
+				receitasPorCategoria[categoria] = [];
+			}
+			receitasPorCategoria[categoria].push(receita);
+		});
+
+		const categorias = Object.keys(receitasPorCategoria);
+		const totalReceitas = this.receitas.reduce((sum, r) => sum + parseFloat(r.valor || 0), 0);
+
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 800px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); max-height: 80vh; overflow-y: auto;">
+				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+					<h3 style="margin: 0; font-size: 1.5rem; color: #333;">💰 Gerenciar Receitas</h3>
+					<button onclick="closeModal('modal-receitas')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
+				</div>
+
+				<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+					<div style="font-size: 1.2rem; font-weight: 600; color: #28a745;">
+						Total de Receitas: ${this.formatCurrency(totalReceitas)}
+					</div>
+					<button onclick="window.dashboardApp.openAddReceitaModal()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #28a745, #20c997); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+						<i class="fas fa-plus"></i> Adicionar Receita
+					</button>
+				</div>
+
+				<div style="display: flex; flex-direction: column; gap: 1rem;">
+					${categorias.length === 0 ? 
+						`<div style="text-align: center; padding: 3rem; color: #888;">
+							<i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+							<p>Nenhuma receita adicional cadastrada</p>
+							<small>As receitas de vendas são calculadas automaticamente</small>
+						</div>` :
+						categorias.map(categoria => {
+							const receitas = receitasPorCategoria[categoria];
+							const totalCategoria = receitas.reduce((sum, r) => sum + parseFloat(r.valor || 0), 0);
+							
+							return `
+								<div style="border: 1px solid #eee; border-radius: 8px; padding: 1rem;">
+									<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+										<h4 style="margin: 0; color: #333; text-transform: capitalize;">${categoria}</h4>
+										<span style="font-weight: 600; color: #28a745;">${this.formatCurrency(totalCategoria)}</span>
+									</div>
+									<div style="display: flex; flex-direction: column; gap: 0.5rem;">
+										${receitas.map(receita => `
+											<div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: #f8f9fa; border-radius: 4px;">
+												<div>
+													<strong>${receita.descricao}</strong>
+													<div style="font-size: 0.8rem; color: #666;">
+														${new Date(receita.data_recebimento).toLocaleDateString('pt-BR')}
+													</div>
+												</div>
+												<div style="display: flex; align-items: center; gap: 0.5rem;">
+													<span style="font-weight: 600;">${this.formatCurrency(receita.valor)}</span>
+													<button onclick="window.dashboardApp.deleteReceita('${receita.id}')" style="background: #dc3545; color: white; border: none; border-radius: 4px; padding: 0.25rem 0.5rem; cursor: pointer; font-size: 0.8rem;">
+														<i class="fas fa-trash"></i>
+													</button>
+												</div>
+											</div>
+										`).join('')}
+									</div>
+								</div>
+							`;
+						}).join('')
+					}
+				</div>
+			</div>
+		`;
+
+		document.getElementById('modals-container').appendChild(modal);
+	}
+
+openAddDespesaModal() {
+		// Verificar se já existe um modal aberto e removê-lo
+		const existingModal = document.getElementById('modal-add-despesa');
+		if (existingModal) {
+			existingModal.remove();
+		}
+
+		const modal = this.createModal('modal-add-despesa', '➕ Adicionar Despesa');
+		modal.classList.add('show');
+
+		Object.assign(modal.style, {
+			display: 'flex',
+			justifyContent: 'center',
+			alignItems: 'center',
+			position: 'fixed',
+			top: '0',
+			left: '0',
+			width: '100vw',
+			height: '100vh',
+			background: 'rgba(0,0,0,0.4)',
+			zIndex: '2000'
+		});
+
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 500px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18);">
+				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+					<h3 style="margin: 0; font-size: 1.5rem; color: #333;">➕ Adicionar Despesa</h3>
+					<button onclick="closeModal('modal-add-despesa')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
+				</div>
+
+				<form id="form-add-despesa" style="display: flex; flex-direction: column; gap: 1.2rem;">
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Descrição *</label>
+						<input type="text" id="despesa-descricao" placeholder="Ex: Transporte, Comissão, etc." required
+							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+					</div>
+
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Valor *</label>
+						<input type="text" id="despesa-valor" placeholder="0.00" required inputmode="decimal"
+							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+					</div>
+
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Categoria *</label>
+						<select id="despesa-categoria" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+							<option value="">Selecione uma categoria</option>
+							<option value="transporte">Transporte</option>
+							<option value="comissao">Comissão</option>
+							<option value="imposto">Imposto</option>
+							<option value="insumos">Insumos</option>
+							<option value="produtos">Produtos</option>
+							<option value="outros">Outros</option>
+						</select>
+					</div>
+
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Tipo *</label>
+						<select id="despesa-tipo" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+							<option value="fixa">Fixa (recorrente)</option>
+							<option value="variavel">Variável (eventual)</option>
+						</select>
+					</div>
+
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Data *</label>
+						<input type="date" id="despesa-data" required value="${new Date().toISOString().split('T')[0]}"
+							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+					</div>
+
+					<div style="display: flex; gap: 1rem; margin-top: 1rem;">
+						<button type="submit" style="flex: 1; padding: 0.75rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
+							💰 Salvar Despesa
+						</button>
+						<button type="button" onclick="closeModal('modal-add-despesa')" style="flex: 1; padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
+							Cancelar
+						</button>
+					</div>
+				</form>
+			</div>
+		`;
+
+		document.getElementById('modals-container').appendChild(modal);
+
+		// Event listener para o formulário
+		const form = modal.querySelector('#form-add-despesa');
+		if (form) {
+			form.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				await this.saveNewDespesa();
+			});
+		}
+
+		// Event listener para formatação do campo valor (mesma lógica do product-preco)
+		const valorInput = modal.querySelector('#despesa-valor');
+		if (valorInput) {
+			valorInput.addEventListener('input', function(e) {
+				let value = e.target.value;
+				
+				// Remove tudo exceto números, vírgula e ponto
+				value = value.replace(/[^\d.,]/g, '');
+				
+				// Substitui vírgula por ponto para padronização
+				value = value.replace(',', '.');
+				
+				// Garante apenas um ponto decimal
+				const parts = value.split('.');
+				if (parts.length > 2) {
+					value = parts[0] + '.' + parts.slice(1).join('');
+				}
+				
+				// Limita a 2 casas decimais
+				if (parts.length === 2 && parts[1].length > 2) {
+					value = parts[0] + '.' + parts[1].substring(0, 2);
+				}
+				
+				e.target.value = value;
+			});
+		}
+	}
+
+	openAddReceitaModal() {
+		// Verificar se já existe um modal aberto e removê-lo
+		const existingModal = document.getElementById('modal-add-receita');
+		if (existingModal) {
+			existingModal.remove();
+		}
+
+		const modal = this.createModal('modal-add-receita', '➕ Adicionar Receita');
+		modal.classList.add('show');
+
+		Object.assign(modal.style, {
+			display: 'flex',
+			justifyContent: 'center',
+			alignItems: 'center',
+			position: 'fixed',
+			top: '0',
+			left: '0',
+			width: '100vw',
+			height: '100vh',
+			background: 'rgba(0,0,0,0.4)',
+			zIndex: '2000'
+		});
+
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 500px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18);">
+				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+					<h3 style="margin: 0; font-size: 1.5rem; color: #333;">➕ Adicionar Receita</h3>
+					<button onclick="closeModal('modal-add-receita')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
+				</div>
+
+				<form id="form-add-receita" style="display: flex; flex-direction: column; gap: 1.2rem;">
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Descrição *</label>
+						<input type="text" id="receita-descricao" placeholder="Ex: Venda de produto avulso, Serviço, etc." required
+							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+					</div>
+
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Valor *</label>
+						<input type="text" id="receita-valor" placeholder="0,00" required inputmode="decimal"
+							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+					</div>
+
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Categoria *</label>
+						<select id="receita-categoria" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+							<option value="">Selecione uma categoria</option>
+							<option value="servicos">Serviços</option>
+							<option value="produtos_avulsos">Produtos Avulsos</option>
+							<option value="consultoria">Consultoria</option>
+							<option value="parcerias">Parcerias</option>
+							<option value="outros">Outros</option>
+						</select>
+					</div>
+
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Tipo *</label>
+						<select id="receita-tipo" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+							<option value="fixa">Fixa (recorrente)</option>
+							<option value="variavel">Variável (eventual)</option>
+						</select>
+					</div>
+
+					<div>
+						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Data *</label>
+						<input type="date" id="receita-data" required value="${new Date().toISOString().split('T')[0]}"
+							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+					</div>
+
+					<div style="display: flex; gap: 1rem; margin-top: 1rem;">
+						<button type="submit" style="flex: 1; padding: 0.75rem; background: linear-gradient(135deg, #28a745, #20c997); color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
+							💰 Salvar Receita
+						</button>
+						<button type="button" onclick="closeModal('modal-add-receita')" style="flex: 1; padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
+							Cancelar
+						</button>
+					</div>
+				</form>
+			</div>
+		`;
+
+		document.getElementById('modals-container').appendChild(modal);
+
+		// Event listener para o formulário
+		const form = modal.querySelector('#form-add-receita');
+		if (form) {
+			form.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				await this.saveNewReceita();
+			});
+		}
+
+		// Event listener para formatação do campo valor
+		const valorInput = modal.querySelector('#receita-valor');
+		if (valorInput) {
+			valorInput.addEventListener('input', function(e) {
+				let value = e.target.value;
+
+				// Permite apenas números, pontos e vírgulas
+				value = value.replace(/[^0-9.,]/g, '');
+
+				// Trata separadores decimais
+				const parts = value.split(/[.,]/);
+				if (parts.length > 2) {
+					// Se há múltiplos separadores, mantém apenas o primeiro
+					value = parts[0] + '.' + parts.slice(1).join('');
+				} else if (parts.length === 2) {
+					// Formata com ponto como separador
+					value = parts[0] + '.' + parts[1];
+				}
+
+				// Limita a 2 casas decimais
+				if (value.includes('.') && value.split('.')[1].length > 2) {
+					const [inteiro, decimal] = value.split('.');
+					value = inteiro + '.' + decimal.substring(0, 2);
+				}
+
+				e.target.value = value;
+			});
+		}
+	}
+
+	async saveNewDespesa() {
+		const descricao = document.getElementById('despesa-descricao').value.trim();
+		const valorStr = document.getElementById('despesa-valor').value.trim().replace(',', '.');
+		const valor = parseFloat(valorStr);
+		const categoria = document.getElementById('despesa-categoria').value;
+		const tipo = document.getElementById('despesa-tipo').value;
+		const data = document.getElementById('despesa-data').value;
+
+		if (!descricao || !valorStr || !categoria || !tipo || !data) {
+			alert('Preencha todos os campos obrigatórios!');
+			return;
+		}
+
+		if (isNaN(valor) || valor <= 0) {
+			alert('Valor deve ser um número positivo válido!');
+			return;
+		}
+
+		try {
+			const despesaData = {
+				descricao,
+				valor,
+				categoria,
+				tipo,
+				data_despesa: data
+			};
+
+			const result = await this.saveToSupabase('despesas', despesaData);
+			if (result) {
+				this.despesas.unshift(result);
+				await this.loadData(); // Recarregar dados para atualizar estatísticas
+				this.createStatsCards();
+				alert('Despesa salva com sucesso!');
+				closeModal('modal-add-despesa');
+				
+				// Reabrir modal de despesas para mostrar a nova despesa
+				this.openDespesasModal();
+			}
+		} catch (error) {
+			console.error('Erro ao salvar despesa:', error);
+			alert('Erro ao salvar despesa: ' + error.message);
+		}
+	}
+
+	async saveNewReceita() {
+		const descricao = document.getElementById('receita-descricao').value.trim();
+		const valorStr = document.getElementById('receita-valor').value.trim().replace(',', '.');
+		const valor = parseFloat(valorStr);
+		const categoria = document.getElementById('receita-categoria').value;
+		const tipo = document.getElementById('receita-tipo').value;
+		const data = document.getElementById('receita-data').value;
+
+		if (!descricao || !valorStr || !categoria || !tipo || !data) {
+			alert('Preencha todos os campos obrigatórios!');
+			return;
+		}
+
+		if (isNaN(valor) || valor <= 0) {
+			alert('Valor deve ser um número positivo válido!');
+			return;
+		}
+
+		try {
+			const { data: novaReceita, error } = await this.supabase
+				.from('receitas')
+				.insert([{
+					descricao: descricao,
+					valor: valor,
+					categoria: categoria,
+					tipo: tipo,
+					data_recebimento: data,
+					created_at: new Date().toISOString()
+				}])
+				.select()
+				.single();
+
+			if (error) throw error;
+
+			// Adicionar à lista local
+			this.receitas.push(novaReceita);
+
+			// Fechar modal de adicionar
+			closeModal('modal-add-receita');
+
+			// Reabrir modal de receitas para mostrar a nova receita
+			this.openReceitasModal();
+		} catch (error) {
+			console.error('Erro ao salvar receita:', error);
+			alert('Erro ao salvar receita: ' + error.message);
+		}
+	}
+
+	async deleteDespesa(despesaId) {
+		if (!confirm('Tem certeza que deseja excluir esta despesa?')) return;
+		
+		const success = await this.deleteFromSupabase('despesas', despesaId);
+		if (success) {
+			this.despesas = this.despesas.filter(d => d.id !== despesaId);
+			this.createStatsCards(); // Atualizar estatísticas
+			this.openDespesasModal(); // Reabrir modal atualizado
+		}
+	}
+
+	async deleteReceita(receitaId) {
+		if (!confirm('Tem certeza que deseja excluir esta receita?')) return;
+		
+		const success = await this.deleteFromSupabase('receitas', receitaId);
+		if (success) {
+			this.receitas = this.receitas.filter(r => r.id !== receitaId);
+			this.createStatsCards(); // Atualizar estatísticas
+			this.openReceitasModal(); // Reabrir modal atualizado
+		}
+	}
+
+	async registrarCustosProdutosVendidos(pedidoId, produtos) {
+		try {
+			for (const item of produtos) {
+				const produto = this.products.find(p => p.id == item.produto_id);
+				if (produto && produto.custo && parseFloat(produto.custo) > 0) {
+					const custoTotal = parseFloat(produto.custo) * item.quantidade;
+					
+					const despesaData = {
+						descricao: `Custo de produção - ${produto.nome} (Pedido #${pedidoId})`,
+						valor: custoTotal,
+						categoria: 'produtos',
+						tipo: 'variavel',
+						data_despesa: new Date().toISOString().split('T')[0],
+						produto_id: produto.id,
+						pedido_id: pedidoId
+					};
+
+					await this.saveToSupabase('despesas', despesaData);
+					console.log(`✅ Custo registrado: ${produto.nome} - ${this.formatCurrency(custoTotal)}`);
+				}
+			}
+		} catch (error) {
+			console.error('Erro ao registrar custos dos produtos:', error);
+		}
+	}
+
+	async saveToSupabase(table, data) {
+		try {
+			const { data: result, error } = await this.supabase
+				.from(table)
+				.insert(data)
+				.select()
+				.single();
+
+			if (error) {
+				console.error(`Erro ao salvar em ${table}:`, error);
+				alert(`Erro ao salvar: ${error.message}`);
+				return null;
+			}
+
+			return result;
+		} catch (error) {
+			console.error(`Erro ao salvar em ${table}:`, error);
+			alert(`Erro ao salvar: ${error.message}`);
+			return null;
+		}
+	}
+
+	async deleteFromSupabase(table, id) {
+		try {
+			const { error } = await this.supabase
+				.from(table)
+				.delete()
+				.eq('id', id);
+
+			if (error) {
+				console.error(`Erro ao excluir de ${table}:`, error);
+				alert(`Erro ao excluir: ${error.message}`);
+				return false;
+			}
+
+			return true;
+		} catch (error) {
+			console.error(`Erro ao excluir de ${table}:`, error);
+			alert(`Erro ao excluir: ${error.message}`);
+			return false;
+		}
+	}
+
+	updateCartBadge() {
+		const badge = document.getElementById('cart-badge');
+		if (!badge) return;
+
+		const totalItems = Object.values(this.cart).reduce((sum, qty) => sum + qty, 0);
+		
+		if (totalItems > 0) {
+			badge.textContent = totalItems;
+			badge.style.display = 'flex';
+			document.getElementById('cart-float')?.classList.add('cart-has-items');
+		} else {
+			badge.style.display = 'none';
+			document.getElementById('cart-float')?.classList.remove('cart-has-items');
+		}
+	}
+
+// MODAIS PARA VENDAS ONLINE
+	openOnlineClientModal() {
+		const modal = this.createModal('modal-online-client', '', false);
+		modal.querySelector('.modal-content-wrapper').innerHTML = `
+			<div style="display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.7rem;">
+				<span style="width: 50px; height: 50px; background: linear-gradient(135deg, #667eea, #6dd5ed); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.7rem;"><i class="fas fa-user"></i></span>
+				<span style="font-size: 1.35rem; font-weight: 700; color: #333;">Cadastro para Pedido</span>
+				<button onclick="closeModal('modal-online-client')" style="margin-left:auto; background:none; border:none; font-size:1.3rem; color:#888; cursor:pointer;">&times;</button>
+			</div>
+			<div style="border-bottom:1px solid #eee; margin-bottom:1rem;"></div>
+			<p style="color: #666; margin-bottom: 1rem; font-size: 0.9rem;">Para finalizar seu pedido, precisamos de algumas informações:</p>
+			<form id="form-online-client" class="form-modal">
+				<div class="form-group">
+					<label for="online-nome">Nome Completo *</label>
+					<input type="text" id="online-nome" required class="form-control" placeholder="Digite seu nome completo">
+				</div>
+				<div class="form-group">
+					<label for="online-telefone">Telefone/WhatsApp *</label>
+					<input type="tel" id="online-telefone" required class="form-control" placeholder="(11) 99999-9999">
+				</div>
+				<div class="form-group">
+					<label for="online-email">Email</label>
+					<input type="email" id="online-email" class="form-control" placeholder="seu@email.com">
+				</div>
+				<div class="form-group">
+					<label for="online-endereco">Endereço de Entrega *</label>
+					<textarea id="online-endereco" required class="form-control" rows="3" placeholder="Rua, número, bairro, cidade"></textarea>
+				</div>
+				<div class="form-group">
+					<label for="online-entrega">Tipo de Entrega *</label>
+					<select id="online-entrega" required class="form-control">
+						<option value="">Selecione...</option>
+						<option value="retirada">Retirada no Local</option>
+						<option value="entrega">Entrega em Domicílio</option>
+					</select>
+				</div>
+				<div class="form-group" id="data-entrega-group" style="display: none;">
+					<label for="online-data-entrega">Data de Entrega *</label>
+					<input type="date" id="online-data-entrega" class="form-control">
+				</div>
+				<div class="modal-actions">
+					<button type="button" onclick="closeModal('modal-online-client')" class="btn btn-secondary">Cancelar</button>
+					<button type="submit" class="btn btn-primary">Finalizar Pedido</button>
+				</div>
+			</form>
+		`;
+
+		document.getElementById('modals-container').appendChild(modal);
+		modal.classList.add('show');
+
+		// Event listener para mostrar/ocultar campo de data
+		const entregaSelect = modal.querySelector('#online-entrega');
+		const dataGroup = modal.querySelector('#data-entrega-group');
+		const dataInput = modal.querySelector('#online-data-entrega');
+
+		entregaSelect.addEventListener('change', (e) => {
+			if (e.target.value === 'entrega') {
+				dataGroup.style.display = 'block';
+				dataInput.required = true;
+				// Set min date to tomorrow
+				const tomorrow = new Date();
+				tomorrow.setDate(tomorrow.getDate() + 1);
+				dataInput.min = tomorrow.toISOString().split('T')[0];
+			} else {
+				dataGroup.style.display = 'none';
+				dataInput.required = false;
+			}
+		});
+
+		modal.querySelector('#form-online-client').addEventListener('submit', async (e) => {
+			e.preventDefault();
+			const nome = modal.querySelector('#online-nome').value.trim();
+			const telefone = modal.querySelector('#online-telefone').value.trim();
+			const email = modal.querySelector('#online-email').value.trim();
+			const endereco = modal.querySelector('#online-endereco').value.trim();
+			const tipoEntrega = modal.querySelector('#online-entrega').value;
+			const dataEntrega = modal.querySelector('#online-data-entrega').value;
+
+			if (!nome || !telefone || !endereco || !tipoEntrega) {
+				alert('Preencha todos os campos obrigatórios');
+				return;
+			}
+
+			if (tipoEntrega === 'entrega' && !dataEntrega) {
+				alert('Selecione a data de entrega');
+				return;
+			}
+
+			// Salvar cliente
+			const clientData = { nome, telefone, email, endereco };
+			const cliente = await this.saveToSupabase('clientes', clientData);
+			
+			if (cliente) {
+				// Criar pedido
+				await this.finalizarPedidoOnline(cliente, tipoEntrega, dataEntrega);
+				closeModal('modal-online-client');
+			}
+		});
+	}
+
+	async finalizarPedidoOnline(cliente, tipoEntrega, dataEntrega) {
+		try {
+			const itens = Object.entries(this.cart).map(([productId, quantidade]) => ({
+				produto_id: productId,
+				quantidade: quantidade,
+				preco_unitario: this.products.find(p => p.id == productId)?.preco || 0
+			}));
+
+			const total = itens.reduce((sum, item) => sum + (item.quantidade * item.preco_unitario), 0);
+
+			// Gerar número do pedido
+			const hoje = new Date();
+			const dataStr = hoje.toISOString().slice(0, 10).replace(/-/g, '');
+			const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+			const numeroPedido = `PED-${dataStr}-${randomNum}`;
+
+			const pedidoData = {
+				numero_pedido: numeroPedido,
+				cliente_id: cliente.id,
+				user_id: this.currentUser?.id, // Adicionar ID do usuário que criou o pedido
+				valor_total: total,
+				valor_pago: 0,
+				status: 'pendente',
+				data_entrega: tipoEntrega === 'entrega' ? dataEntrega : new Date().toISOString().split('T')[0],
+				observacoes: `Pedido online - ${tipoEntrega}`,
+				idioma: cliente?.idioma || 'pt'
+			};
+
+			const pedido = await this.saveToSupabase('pedidos', pedidoData);
+			
+			if (pedido) {
+				alert('Pedido realizado com sucesso! Entraremos em contato em breve.');
+				this.cart = {}; // Limpar carrinho
+				this.updateCartBadge();
+				this.showProdutosPage(); // Voltar para produtos
+			}
+		} catch (error) {
+			console.error('Erro ao finalizar pedido:', error);
+			alert('Erro ao finalizar pedido. Tente novamente.');
+		}
+	}
+
+	showPasswordChangeWarning() {
+		// Criar modal de aviso de senha padrão
+		const modal = this.createModal('modal-password-warning', '🔐 Segurança da Conta');
+		modal.classList.add('show');
+
+		Object.assign(modal.style, {
+			display: 'flex',
+			justifyContent: 'center',
+			alignItems: 'center',
+			position: 'fixed',
+			top: '0',
+			left: '0',
+			width: '100vw',
+			height: '100vh',
+			background: 'rgba(0,0,0,0.6)',
+			zIndex: '3000'
+		});
+
+		let modalsContainer = document.getElementById('modals-container');
+		if (!modalsContainer) {
+			modalsContainer = document.createElement('div');
+			modalsContainer.id = 'modals-container';
+			document.body.appendChild(modalsContainer);
+		}
+		modalsContainer.appendChild(modal);
+
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 500px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 1.3rem; max-height: 90vh; overflow-y: auto;">
+				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+					<h3 style="margin: 0; font-size: 1.5rem; color: #dc3545;">🔐 Segurança da Conta</h3>
+					<button onclick="closeModal('modal-password-warning')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
+				</div>
+
+				<div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
+					<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+						<span style="font-size: 2rem;">⚠️</span>
+						<h4 style="margin: 0; color: #721c24; font-size: 1.1rem;">ATENÇÃO: Senha Padrão Detectada</h4>
+					</div>
+					<p style="margin: 0 0 1rem 0; color: #721c24; font-size: 0.95rem; line-height: 1.5;">
+						<strong>${this.currentUser.nome}</strong>, sua conta ainda está usando a senha padrão do sistema (<strong>"123456"</strong>).
+					</p>
+					<p style="margin: 0; color: #721c24; font-size: 0.95rem; line-height: 1.5;">
+						Por questões de segurança, você deve alterar sua senha imediatamente para proteger sua conta e os dados do sistema.
+					</p>
+				</div>
+
+				<div style="background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+					<h5 style="margin: 0 0 0.5rem 0; color: #0c5460; font-size: 0.9rem;">💡 Dicas para uma senha segura:</h5>
+					<ul style="margin: 0; padding-left: 1.2rem; color: #0c5460; font-size: 0.85rem; line-height: 1.4;">
+						<li>Use pelo menos 8 caracteres</li>
+						<li>Combine letras maiúsculas e minúsculas</li>
+						<li>Inclua números e símbolos</li>
+						<li>Evite usar informações pessoais óbvias</li>
+					</ul>
+				</div>
+
+				<div style="display: flex; gap: 1rem; margin-top: 1rem;">
+					<button onclick="window.dashboardApp.showEditUserModal(); closeModal('modal-password-warning');" style="flex: 1; padding: 0.875rem; background: linear-gradient(135deg, #28a745, #20c997); color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(40,167,69,0.3);">
+						🔑 Alterar Senha Agora
+					</button>
+					<button onclick="closeModal('modal-password-warning')" style="flex: 1; padding: 0.875rem; background: #6c757d; color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer;">
+						Lembrar Depois
+					</button>
+				</div>
+
+				<p style="margin: 0.5rem 0 0 0; font-size: 0.8rem; color: #666; text-align: center;">
+					Este aviso aparecerá toda vez que você fizer login até alterar sua senha.
+				</p>
+			</div>
+		`;
 	}
 }
 
-// ========== INICIALIZAÇÃO ========== 
-
-
+// INICIALIZAÇÃO
 document.addEventListener('DOMContentLoaded', async () => {
 	try {
 		const app = new DashboardApp();
 		const initialized = await app.initialize();
 		if (initialized) {
-            window.dashboardApp = app;
-            window.dashboardApp.editClient = app.editClient.bind(app);
-            window.dashboardApp.deleteClient = app.deleteClient.bind(app);
+			window.dashboardApp = app;
 		}
 	} catch (error) {
 		console.error('Erro ao inicializar aplicação:', error);
 	}
 });
+
+// Funções globais
+function closeModal(modalId) {
+	const modal = document.getElementById(modalId);
+	if (modal) {
+		modal.classList.remove('show');
+		setTimeout(() => modal.remove(), 300);
+	}
+}
+
+function closeModalOverlay(event) {
+	if (event.target.classList.contains('modal-overlay')) {
+		const modalId = event.target.id;
+		closeModal(modalId);
+	}
+}

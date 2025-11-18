@@ -14,7 +14,7 @@ const translations = {
 		'dashboard.estoque': 'Estoque',
 		'dashboard.entregas': 'Entregas Hoje',
 		'dashboard.bem_vindo': 'Bem-vindo(a)',
-		'dashboard.entregas_hoje': 'Entregas de Hoje',
+		'dashboard.entregas_hoje': 'Follow-up de Entregas',
 
 		'nav.dashboard': 'Dashboard',
 		'nav.produtos': 'Produtos',
@@ -124,7 +124,7 @@ const translations = {
 		'dashboard.estoque': 'Stock',
 		'dashboard.entregas': 'Deliveries Today',
 		'dashboard.bem_vindo': 'Welcome',
-		'dashboard.entregas_hoje': 'Today\'s Deliveries',
+		'dashboard.entregas_hoje': 'Delivery Follow-up',
 
 		'nav.dashboard': 'Dashboard',
 		'nav.produtos': 'Products',
