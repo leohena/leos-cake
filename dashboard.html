@@ -267,9 +267,13 @@
                         <i class="fas fa-cog"></i>
                         <span>Configurações</span>
                     </button>
-                    <button id="usuarios-btn" class="user-dropdown-item" style="display:none;border:none;background:none;width:100%;padding-left:2rem;">
+                    <button id="usuarios-btn" class="user-dropdown-item" style="display:block;border:none;background:none;width:100%;padding-left:2rem;">
                         <i class="fas fa-users-cog"></i>
                         <span>Usuários</span>
+                    </button>
+                    <button id="promocoes-btn" class="user-dropdown-item" style="display:block;border:none;background:none;width:100%;padding-left:2rem;">
+                        <i class="fas fa-tags"></i>
+                        <span>Promoções</span>
                     </button>
                     <div style="border-bottom:1px solid #eee;margin:0.5rem 0 0.5rem 0;"></div>
                     <button id="logout-btn" class="user-dropdown-item" style="border:none;background:none;width:100%;">
@@ -308,10 +312,6 @@
             <div id="pedidos-container"></div>
         </section>
 
-        <!-- Estoque Section -->
-        <section id="estoque-section" class="content-section" style="display: none;">
-            <div id="estoque-container"></div>
-        </section>
 
         <!-- Entregas Section -->
         <section id="entregas-section" class="content-section" style="display: none;">
@@ -370,8 +370,26 @@
             const userMenuButton = document.getElementById('user-menu-button');
             const userDropdown = document.getElementById('user-dropdown');
             const usuariosBtn = document.getElementById('usuarios-btn');
+            const promocoesBtn = document.getElementById('promocoes-btn');
             const configBtn = document.getElementById('config-btn');
             const profileBtn = document.getElementById('profile-btn');
+            
+            // Garantir que promocoesBtn existe
+            if (!promocoesBtn && usuariosBtn) {
+                const btn = document.createElement('button');
+                btn.id = 'promocoes-btn';
+                btn.className = 'user-dropdown-item';
+                btn.style.cssText = 'display:none;border:none;background:none;width:100%;padding-left:2rem;';
+                btn.innerHTML = '<i class="fas fa-tags"></i><span>Promoções</span>';
+                usuariosBtn.parentNode.insertBefore(btn, usuariosBtn.nextSibling);
+            }
+            
+            // Re-obter referência
+            const promocoesBtn = document.getElementById('promocoes-btn');
+            
+            // Inicializar displays
+            if (usuariosBtn) usuariosBtn.style.display = 'none';
+            if (promocoesBtn) promocoesBtn.style.display = 'none';
             
             // Toggle do dropdown ao clicar no avatar/menu
             if (userMenuButton && userDropdown) {
@@ -385,8 +403,9 @@
             document.addEventListener('click', function(e) {
                 if (userDropdown && !userMenuButton.contains(e.target) && !userDropdown.contains(e.target)) {
                     userDropdown.classList.remove('show');
-                    // Esconder botão usuários quando fechar
+                    // Esconder botões usuários e promoções quando fechar
                     if (usuariosBtn) usuariosBtn.style.display = 'none';
+                    if (promocoesBtn) promocoesBtn.style.display = 'none';
                 }
             });
             
@@ -394,13 +413,11 @@
             if (configBtn) {
                 configBtn.onclick = function(e) {
                     e.stopPropagation();
-                    // Toggle do botão usuários
-                    if (usuariosBtn && currentUser && currentUser.tipo === 'admin') {
-                        if (usuariosBtn.style.display === 'flex') {
-                            usuariosBtn.style.display = 'none';
-                        } else {
-                            usuariosBtn.style.display = 'flex';
-                        }
+                    // Toggle dos botões usuários e promoções
+                    if (currentUser && currentUser.tipo === 'admin') {
+                        const isVisible = usuariosBtn.style.display === 'block';
+                        usuariosBtn.style.display = isVisible ? 'none' : 'block';
+                        promocoesBtn.style.display = isVisible ? 'none' : 'block';
                     }
                 };
             }
@@ -415,6 +432,19 @@
                     document.getElementById('user-dropdown')?.classList.remove('show');
                     // Esconder o botão usuários
                     usuariosBtn.style.display = 'none';
+                };
+            }
+            
+            // Botão Promoções
+            if (promocoesBtn) {
+                promocoesBtn.onclick = function() {
+                    if (window.dashboardApp && window.dashboardApp.showPromocoesModal) {
+                        window.dashboardApp.showPromocoesModal();
+                    }
+                    // Fechar dropdown após clicar
+                    document.getElementById('user-dropdown')?.classList.remove('show');
+                    // Esconder o botão promoções
+                    promocoesBtn.style.display = 'none';
                 };
             }
             
