@@ -219,6 +219,8 @@ class DashboardApp {
 		this.orders = [];
 		this.despesas = [];
 		this.receitas = [];
+		this.stock = [];
+		this.configuracoes = [];
 		this.initialized = false;
 		this.currentLang = localStorage.getItem('lang') || 'pt-BR';
 		this.supabase = null;
@@ -260,7 +262,59 @@ class DashboardApp {
 			if (!this.isVendasOnline) {
 				this.createStatsCards();
 				this.createDataCards();
-				this.updateFollowUpEntregas();
+				if (document.getElementById('entregas-hoje')) {
+					this.updateFollowUpEntregas();
+				}
+
+				// Subscribe to real-time updates for pedidos
+				let lastPedidoUpdate = 0;
+				this.supabase
+					.channel('pedidos_changes')
+					.on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, async (payload) => {
+						const now = Date.now();
+						if (now - lastPedidoUpdate < 1000) {
+							console.log('⏳ Ignorando atualização de pedido muito próxima');
+							return;
+						}
+						lastPedidoUpdate = now;
+						
+						console.log('Pedido changed:', payload);
+						await this.loadData(); // Reload all data
+						this.loadPedidosStatusList(); // Update orders list
+						if (document.getElementById('entregas-hoje')) {
+							this.updateFollowUpEntregas(); // Update deliveries
+						}
+						this.updateStats(); // Update stats
+						if (this.activeSection === 'entregas') {
+							this.renderEntregasPage(); // Update deliveries page if active
+						}
+					})
+					.subscribe();
+
+				// Subscribe to real-time updates for entregas
+				let lastEntregaUpdate = 0;
+				this.supabase
+					.channel('entregas_changes')
+					.on('postgres_changes', { event: '*', schema: 'public', table: 'entregas' }, async (payload) => {
+						const now = Date.now();
+						if (now - lastEntregaUpdate < 1000) {
+							console.log('⏳ Ignorando atualização de entrega muito próxima');
+							return;
+						}
+						lastEntregaUpdate = now;
+						
+						console.log('Entrega changed:', payload);
+						await this.loadData(); // Reload all data
+						this.loadPedidosStatusList(); // Update orders list
+						if (document.getElementById('entregas-hoje')) {
+							this.updateFollowUpEntregas(); // Update deliveries
+						}
+						this.updateStats(); // Update stats
+						if (this.activeSection === 'entregas') {
+							this.renderEntregasPage(); // Update deliveries page if active
+						}
+					})
+					.subscribe();
 			}
 
 			window.addEventListener('languageChanged', () => this.updateAllTranslations());
@@ -297,7 +351,7 @@ class DashboardApp {
 			// Carregar clientes
 			const { data: clientes, error: clientesError } = await this.supabase
 				.from('clientes')
-				.select('id, nome, telefone, email, endereco, created_at')
+				.select('id, nome, telefone, email, endereco, canal, created_at')
 				.order('created_at', { ascending: false })
 				.limit(200); // Limitar para performance
 			if (clientesError) {
@@ -334,9 +388,10 @@ class DashboardApp {
 					this.products = [];
 				} else {
 					// Carregar apenas campos essenciais primeiro para evitar timeout
+					const selectFields = 'id, nome, preco, status_produto, categoria, descricao, estoque, custo, created_at';
 					const { data: produtosBasicos, error: basicosError } = await this.supabase
 						.from('produtos')
-						.select('id, nome, preco, status_produto, categoria, descricao, estoque, custo, created_at')
+						.select(selectFields)
 						.order('created_at', { ascending: false })
 						.limit(50); // Reduzir limite para evitar timeout
 					
@@ -351,16 +406,18 @@ class DashboardApp {
 						
 						// Carregar fotos separadamente apenas se houver produtos
 						if (this.products.length > 0) {
-							// Para vendas online, carregar fotos imediatamente sem atraso
-							const delay = this.isVendasOnline ? 0 : 1000;
+							// Carregar fotos com atraso
+							const delay = this.isVendasOnline ? 500 : 1000; // Menor delay para vendas online
 							setTimeout(async () => {
 								try {
-									// Para vendas online, carregar todas as fotos de uma vez
-									if (this.isVendasOnline) {
+									// Carregar fotos em lotes menores para evitar timeout
+									const loteSize = 5;
+									for (let i = 0; i < this.products.length; i += loteSize) {
+										const lote = this.products.slice(i, i + loteSize);
 										const { data: fotosData, error: fotosError } = await this.supabase
 											.from('produtos')
 											.select('id, fotos')
-											.in('id', this.products.map(p => p.id));
+											.in('id', lote.map(p => p.id));
 										
 										if (!fotosError && fotosData) {
 											fotosData.forEach(item => {
@@ -369,32 +426,12 @@ class DashboardApp {
 													produto.fotos = item.fotos;
 												}
 											});
-											console.log('📦 Fotos carregadas instantaneamente para vendas online');
 										}
-									} else {
-										// Carregar fotos em lotes menores para evitar timeout (modo dashboard)
-										const loteSize = 5;
-										for (let i = 0; i < this.products.length; i += loteSize) {
-											const lote = this.products.slice(i, i + loteSize);
-											const { data: fotosData, error: fotosError } = await this.supabase
-												.from('produtos')
-												.select('id, fotos')
-												.in('id', lote.map(p => p.id));
-											
-											if (!fotosError && fotosData) {
-												fotosData.forEach(item => {
-													const produto = this.products.find(p => p.id === item.id);
-													if (produto) {
-														produto.fotos = item.fotos;
-													}
-												});
-											}
-											
-											// Pequena pausa entre lotes
-											await new Promise(resolve => setTimeout(resolve, 100));
-										}
-										console.log('📦 Fotos carregadas em lotes');
+										
+										// Pequena pausa entre lotes
+										await new Promise(resolve => setTimeout(resolve, 100));
 									}
+									console.log('📦 Fotos carregadas em lotes');
 									
 									// Atualizar apenas a seção ativa se ela mostrar produtos
 									if (this.activeSection === 'produtos' || this.activeSection === 'pedidos' || this.isVendasOnline) {
@@ -417,6 +454,11 @@ class DashboardApp {
 			} catch (prodError) {
 				console.error('❌ Exceção ao carregar produtos:', prodError);
 				this.products = [];
+			}
+
+			// Carregar promoções ativas para vendas online
+			if (this.isVendasOnline) {
+				this.loadActivePromocoes();
 			}
 
 			// Carregar pedidos - NOTA: Campo vendedor_id não existe no schema atual
@@ -551,7 +593,18 @@ class DashboardApp {
 			} else {
 				this.entregas = Array.isArray(entregas) ? entregas : [];
 				console.log('🚚 Entregas carregadas:', this.entregas.length);
-				console.log('📋 Primeira entrega (exemplo):', this.entregas[0]);
+				// Log dos status das entregas para debug
+				const statusCount = this.entregas.reduce((acc, entrega) => {
+					acc[entrega.status] = (acc[entrega.status] || 0) + 1;
+					return acc;
+				}, {});
+				console.log('📊 Status das entregas:', statusCount);
+				// Log das entregas com status 'entregue' para verificar se estão sendo carregadas
+				const entregues = this.entregas.filter(e => e.status === 'entregue');
+				console.log('✅ Entregas marcadas como entregues:', entregues.length);
+				if (entregues.length > 0) {
+					console.log('📋 Detalhes das entregas entregues:', entregues.map(e => ({ id: e.id, pedido_id: e.pedido_id, status: e.status })));
+				}
 			}
 
 			// Carregar despesas
@@ -583,7 +636,33 @@ class DashboardApp {
 			}
 
 			// Atualizar entregas após carregamento dos dados
-			this.updateFollowUpEntregas();
+			if (document.getElementById('entregas-hoje')) {
+				this.updateFollowUpEntregas();
+			}
+
+			// Carregar estoque
+			const { data: estoque, error: estoqueError } = await this.supabase
+				.from('estoque')
+				.select('*')
+				.order('created_at', { ascending: false });
+			if (estoqueError) {
+				console.error('❌ Erro ao carregar estoque:', estoqueError);
+				this.stock = [];
+			} else {
+				this.stock = estoque || [];
+				console.log('📦 Estoque carregado:', this.stock.length);
+			}
+
+			// Carregar configurações
+			const { data: configuracoes, error: configError } = await this.supabase
+				.from('configuracoes')
+				.select('*');
+			if (configError) {
+				console.error('❌ Erro ao carregar configurações:', configError);
+				this.configuracoes = [];
+			} else {
+				this.configuracoes = configuracoes || [];
+			}
 		} catch (error) {
 			console.error('Erro ao carregar dados:', error);
 		}
@@ -845,9 +924,6 @@ class DashboardApp {
 			if (section === 'pedidos') {
 				this.renderPedidosPage();
 			}
-			if (section === 'estoque') {
-				this.renderEstoquePage();
-			}
 			if (section === 'entregas') {
 				this.renderEntregasPage();
 			}
@@ -867,6 +943,17 @@ class DashboardApp {
 		const date = new Date(dateString + 'T00:00:00');
 		const lang = this.currentLang === 'pt-BR' ? 'pt-BR' : 'en-US';
 		return date.toLocaleDateString(lang, { day: '2-digit', month: 'long', year: 'numeric' });
+	}
+
+	getStockSummary() {
+		const minStock = parseInt(this.configuracoes.find(c => c.chave === 'estoque_minimo_warning')?.valor || 5);
+		const totalStock = this.products.reduce((sum, p) => sum + (p.estoque || 0), 0);
+		const lowStock = this.products.filter(p => (p.estoque || 0) < minStock).length;
+		if (lowStock > 0) {
+			return `${totalStock} ⚠️ ${lowStock} baixo`;
+		} else {
+			return totalStock.toString();
+		}
 	}
 
 	getStatusColor(status) {
@@ -1017,7 +1104,8 @@ class DashboardApp {
 				{ icon: 'fa-money-bill-wave', label: 'Custos', value: this.formatCurrency(totalCustos) },
 				{ icon: 'fa-chart-line', label: 'Receitas', value: this.formatCurrency(totalReceitas), id: 'card-receitas' },
 				{ icon: 'fa-file-invoice-dollar', label: 'Despesas', value: this.formatCurrency(totalDespesas), id: 'card-despesas' },
-				{ icon: 'fa-coins', label: 'Lucro', value: this.formatCurrency(totalReceitas - totalCustos - totalDespesas) }
+				{ icon: 'fa-coins', label: 'Lucro', value: this.formatCurrency(totalReceitas - totalCustos - totalDespesas) },
+				{ icon: 'fa-boxes', label: 'Estoque', value: this.getStockSummary(), id: 'card-estoque' }
 			];
 		}
 
@@ -1139,6 +1227,8 @@ class DashboardApp {
 					self.showReceitasModal();
 				} else if (cardId === 'card-despesas') {
 					self.showDespesasModal();
+				} else if (cardId === 'card-estoque') {
+					self.showEstoqueModal();
 				}
 			});
 			// Cursor pointer para indicar que é clicável
@@ -1573,6 +1663,685 @@ class DashboardApp {
 		}
 	}
 
+	showEstoqueModal() {
+		const modalsContainer = document.getElementById('modals-container');
+		if (!modalsContainer) return;
+		modalsContainer.innerHTML = '';
+		const modalId = 'estoque-modal';
+		const modal = document.createElement('div');
+		modal.id = modalId;
+		modal.className = 'modal-overlay show';
+		modal.onclick = (e) => {
+			if (e.target === modal) closeModal(modalId);
+		};
+
+		const minStock = parseInt(this.configuracoes.find(c => c.chave === 'estoque_minimo_warning')?.valor || 5);
+
+		let tableRows = '';
+		this.products.forEach(p => {
+			const stockEntries = this.stock.filter(s => s.produto_id === p.id);
+			const totalStock = stockEntries.reduce((sum, s) => sum + (s.quantidade_disponivel || 0), 0);
+			const lastCost = stockEntries.length > 0 ? stockEntries[0].preco_custo : p.custo || 0;
+			const low = totalStock < minStock ? '⚠️' : '';
+			tableRows += `
+				<tr>
+					<td>${p.nome}</td>
+					<td>${totalStock} ${low}</td>
+					<td>${this.formatCurrency(lastCost)}</td>
+					<td><button onclick="window.dashboardApp.addStock('${p.id}')">Adicionar</button></td>
+				</tr>
+			`;
+		});
+
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="padding:2rem;max-width:800px;">
+				<h2>Gerenciamento de Estoque</h2>
+				<div style="margin-bottom:2rem; padding:1rem; background:#f9f9f9; border-radius:8px;">
+					<h3>Configurações</h3>
+					<label>Limite Mínimo de Estoque para Warning:</label>
+					<input type="number" id="estoque-minimo" value="${minStock}" min="0" style="margin-left:1rem; width:80px;">
+					<button onclick="window.dashboardApp.saveEstoqueConfig()" style="margin-left:1rem; background:#667eea; color:white; border:none; padding:0.5rem 1rem; border-radius:6px;">Salvar Config</button>
+				</div>
+				<table style="width:100%;border-collapse:collapse;">
+					<thead>
+						<tr style="background:#f5f5f5;">
+							<th style="padding:0.5rem;">Produto</th>
+							<th style="padding:0.5rem;">Quantidade</th>
+							<th style="padding:0.5rem;">Custo</th>
+							<th style="padding:0.5rem;">Ações</th>
+						</tr>
+					</thead>
+					<tbody>
+						${tableRows}
+					</tbody>
+				</table>
+				<div style="margin-top:2rem;">
+					<button onclick="window.dashboardApp.addNewProduct()">Adicionar Novo Produto</button>
+				</div>
+				<div style="display:flex;justify-content:flex-end;gap:1rem;margin-top:2rem;">
+					<button onclick="closeModal('${modalId}')">Fechar</button>
+				</div>
+			</div>
+		`;
+		modalsContainer.appendChild(modal);
+	}
+
+	addStock(productId) {
+		const product = this.products.find(p => p.id === productId);
+		if (!product) return;
+		const modalsContainer = document.getElementById('modals-container');
+		const modalId = 'add-stock-modal';
+		const modal = document.createElement('div');
+		modal.id = modalId;
+		modal.className = 'modal-overlay show';
+		modal.onclick = (e) => { if (e.target === modal) closeModal(modalId); };
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="padding:2rem;max-width:400px;">
+				<h2>Adicionar Estoque - ${product.nome}</h2>
+				<label>Quantidade</label>
+				<input type="number" id="add-quantity" min="1" required>
+				<label>Custo Unitário</label>
+				<input type="number" id="add-cost" step="0.01" min="0" required>
+				<div style="display:flex;justify-content:flex-end;gap:1rem;margin-top:2rem;">
+					<button onclick="closeModal('${modalId}')">Cancelar</button>
+					<button onclick="window.dashboardApp.saveStock('${productId}')">Salvar</button>
+				</div>
+			</div>
+		`;
+		modalsContainer.appendChild(modal);
+	}
+
+	async saveStock(productId) {
+		const quantity = parseInt(document.getElementById('add-quantity').value);
+		const cost = parseFloat(document.getElementById('add-cost').value);
+		if (!quantity || !cost) return;
+		const { error } = await this.supabase
+			.from('estoque')
+			.insert({
+				produto_id: productId,
+				quantidade_disponivel: quantity,
+				preco_custo: cost,
+				quantidade_vendida: 0,
+				data_producao: new Date().toISOString().split('T')[0]
+			});
+		if (error) {
+			alert('Erro: ' + error.message);
+		} else {
+			alert('Estoque adicionado!');
+			closeModal('add-stock-modal');
+			await this.loadData();
+			this.showEstoqueModal();
+		}
+	}
+
+	async saveEstoqueConfig() {
+		const minStock = parseInt(document.getElementById('estoque-minimo').value);
+		if (isNaN(minStock) || minStock < 0) {
+			alert('Valor inválido');
+			return;
+		}
+		const config = this.configuracoes.find(c => c.chave === 'estoque_minimo_warning');
+		try {
+			if (config) {
+				const { error } = await this.supabase
+					.from('configuracoes')
+					.update({ valor: minStock.toString() })
+					.eq('id', config.id);
+				if (error) throw error;
+			} else {
+				const { error } = await this.supabase
+					.from('configuracoes')
+					.insert({
+						chave: 'estoque_minimo_warning',
+						valor: minStock.toString(),
+						descricao: 'Limite mínimo de estoque para warning'
+					});
+				if (error) throw error;
+			}
+			alert('Configuração salva!');
+			await this.loadData();
+			this.showEstoqueModal();
+		} catch (error) {
+			console.error('Erro ao salvar configuração:', error);
+			alert('Erro ao salvar: ' + error.message);
+		}
+	}
+
+	addNewProduct() {
+		const modalsContainer = document.getElementById('modals-container');
+		const modalId = 'add-product-modal';
+		const modal = document.createElement('div');
+		modal.id = modalId;
+		modal.className = 'modal-overlay show';
+		modal.onclick = (e) => { if (e.target === modal) closeModal(modalId); };
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="padding:2rem;max-width:400px;">
+				<h2>Adicionar Novo Produto</h2>
+				<label>Nome</label>
+				<input type="text" id="new-nome" required>
+				<label>Quantidade Inicial</label>
+				<input type="number" id="new-quantity" min="0" required>
+				<label>Custo Unitário</label>
+				<input type="number" id="new-cost" step="0.01" min="0" required>
+				<label>Preço de Venda</label>
+				<input type="number" id="new-preco" step="0.01" min="0" required>
+				<div style="display:flex;justify-content:flex-end;gap:1rem;margin-top:2rem;">
+					<button onclick="closeModal('${modalId}')">Cancelar</button>
+					<button onclick="window.dashboardApp.saveNewProduct()">Salvar</button>
+				</div>
+			</div>
+		`;
+		modalsContainer.appendChild(modal);
+	}
+
+	async saveNewProduct() {
+		const nome = document.getElementById('new-nome').value;
+		const quantity = parseInt(document.getElementById('new-quantity').value);
+		const cost = parseFloat(document.getElementById('new-cost').value);
+		const preco = parseFloat(document.getElementById('new-preco').value);
+		if (!nome || !quantity || !cost || !preco) return;
+		const { data: productData, error: productError } = await this.supabase
+			.from('produtos')
+			.insert({
+				nome,
+				preco,
+				custo: cost,
+				estoque: quantity,
+				categoria: 'Geral',
+				status_produto: 'ativo'
+			})
+			.select()
+			.single();
+		if (productError) {
+			alert('Erro ao criar produto: ' + productError.message);
+			return;
+		}
+		const { error: stockError } = await this.supabase
+			.from('estoque')
+			.insert({
+				produto_id: productData.id,
+				quantidade_disponivel: quantity,
+				preco_custo: cost,
+				quantidade_reservada: 0,
+				quantidade_vendida: 0,
+				data_producao: new Date().toISOString().split('T')[0]
+			});
+		if (stockError) {
+			alert('Erro ao adicionar estoque: ' + stockError.message);
+		} else {
+			alert('Produto e estoque adicionados!');
+			closeModal('add-product-modal');
+			await this.loadData();
+			this.showEstoqueModal();
+		}
+	}
+
+	showConfigModal() {
+		const modalsContainer = document.getElementById('modals-container');
+		const modalId = 'config-modal';
+		const modal = document.createElement('div');
+		modal.id = modalId;
+		modal.className = 'modal-overlay show';
+		modal.onclick = (e) => { if (e.target === modal) closeModal(modalId); };
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="padding:2rem;max-width:800px;">
+				<h2>Configurações</h2>
+				<div style="display:flex;gap:1rem;margin-bottom:2rem;">
+					<button id="config-estoque-btn" class="btn btn-secondary">Estoque</button>
+					<button id="config-promocoes-btn" class="btn btn-primary">Promoções</button>
+					<button id="config-usuarios-btn" class="btn btn-secondary">Usuários</button>
+				</div>
+				<div id="config-content">
+					<!-- Conteúdo será carregado aqui -->
+				</div>
+				<div style="display:flex;justify-content:flex-end;gap:1rem;margin-top:2rem;">
+					<button onclick="closeModal('${modalId}')">Fechar</button>
+				</div>
+			</div>
+		`;
+		modalsContainer.appendChild(modal);
+
+		// Eventos
+		document.getElementById('config-estoque-btn').onclick = () => this.loadConfigEstoque();
+		document.getElementById('config-promocoes-btn').onclick = () => this.loadConfigPromocoes();
+		document.getElementById('config-usuarios-btn').onclick = () => this.loadConfigUsuarios();
+
+		// Carregar promoções por padrão
+		this.loadConfigPromocoes();
+	}
+
+	showPromocoesModal() {
+		const modalsContainer = document.getElementById('modals-container');
+		const modalId = 'promocoes-modal';
+		const modal = document.createElement('div');
+		modal.id = modalId;
+		modal.className = 'modal-overlay show';
+		modal.onclick = (e) => { if (e.target === modal) closeModal(modalId); };
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="padding:2rem;max-width:800px;">
+				<h2>Promoções</h2>
+				<div id="promocoes-content">
+					<!-- Conteúdo será carregado aqui -->
+				</div>
+				<div style="display:flex;justify-content:flex-end;gap:1rem;margin-top:2rem;">
+					<button onclick="closeModal('${modalId}')">Fechar</button>
+				</div>
+			</div>
+		`;
+		modalsContainer.appendChild(modal);
+		this.loadPromocoesContent();
+	}
+
+	async loadPromocoesContent() {
+		const content = document.getElementById('promocoes-content');
+		const { data: promocoes, error } = await this.supabase
+			.from('promocoes')
+			.select('*')
+			.order('data_inicio', { ascending: false });
+
+		let tableRows = '';
+		if (promocoes && promocoes.length) {
+			tableRows = promocoes.map(p => `
+				<tr>
+					<td>${p.nome}</td>
+					<td>${new Date(p.data_inicio).toLocaleDateString('pt-BR')} - ${new Date(p.data_fim).toLocaleDateString('pt-BR')}</td>
+					<td>${p.status}</td>
+					<td>
+						<button onclick="window.dashboardApp.editPromocao('${p.id}')">Editar</button>
+						<button onclick="window.dashboardApp.deletePromocao('${p.id}')">Excluir</button>
+					</td>
+				</tr>
+			`).join('');
+		} else {
+			tableRows = '<tr><td colspan="4" style="text-align:center;">Nenhuma promoção encontrada</td></tr>';
+		}
+
+		content.innerHTML = `
+			<table style="width:100%;border-collapse:collapse;margin-bottom:2rem;">
+				<thead>
+					<tr style="background:#f5f5f5;">
+						<th style="padding:0.5rem;">Nome</th>
+						<th style="padding:0.5rem;">Período</th>
+						<th style="padding:0.5rem;">Status</th>
+						<th style="padding:0.5rem;">Ações</th>
+					</tr>
+				</thead>
+				<tbody>
+					${tableRows}
+				</tbody>
+			</table>
+			<button onclick="window.dashboardApp.addPromocao()">Adicionar Promoção</button>
+		`;
+	}
+
+	loadConfigEstoque() {
+		const content = document.getElementById('config-content');
+		content.innerHTML = `
+			<h3>Configurações de Estoque</h3>
+			<label>Limite Mínimo de Estoque para Warning:</label>
+			<input type="number" id="estoque-minimo" value="${this.estoqueMinimo || 5}" min="0" style="margin-left:1rem; width:80px;">
+			<button onclick="window.dashboardApp.saveEstoqueConfig()" style="margin-left:1rem; background:#667eea; color:white; border:none; padding:0.5rem 1rem; border-radius:6px;">Salvar Config</button>
+		`;
+	}
+
+	async loadConfigUsuarios() {
+		const content = document.getElementById('config-content');
+		const { data: usuarios, error } = await this.supabase
+			.from('usuarios')
+			.select('*')
+			.order('created_at', { ascending: false });
+
+		let rows = '';
+		if (usuarios && usuarios.length) {
+			rows = usuarios.map(u => `
+				<tr>
+					<td style="padding:0.5rem;">${u.nome}</td>
+					<td style="padding:0.5rem;">${u.email}</td>
+					<td style="padding:0.5rem;">${u.tipo}</td>
+					<td style="padding:0.5rem;">
+						<button style="background:#eee;border:none;padding:0.3rem 0.7rem;border-radius:4px;margin-right:0.3rem;" onclick="window.dashboardApp.editUsuario('${u.id}')">Editar</button>
+						<button style="background:#eee;border:none;padding:0.3rem 0.7rem;border-radius:4px;margin-right:0.3rem;" onclick="window.dashboardApp.showResetPasswordModal('${u.id}')">Senha Padrão</button>
+						<button style="background:#ff6b9d;color:white;border:none;padding:0.3rem 0.7rem;border-radius:4px;" onclick="window.dashboardApp.excluirUsuario('${u.id}')">Excluir</button>
+					</td>
+				</tr>
+			`).join('');
+		} else {
+			rows = '<tr><td colspan="4" style="text-align:center;padding:1rem;">Nenhum usuário encontrado</td></tr>';
+		}
+
+		content.innerHTML = `
+			<h3>Usuários</h3>
+			<div style="margin-bottom:2rem;">
+				<table style="width:100%;border-collapse:collapse;">
+					<thead>
+						<tr style="background:#f5f5f5;">
+							<th style="padding:0.5rem;border-bottom:1px solid #eee;">Nome</th>
+							<th style="padding:0.5rem;border-bottom:1px solid #eee;">Email</th>
+							<th style="padding:0.5rem;border-bottom:1px solid #eee;">Tipo</th>
+							<th style="padding:0.5rem;border-bottom:1px solid #eee;">Ações</th>
+						</tr>
+					</thead>
+					<tbody>
+						${rows}
+					</tbody>
+				</table>
+			</div>
+			<button onclick="window.dashboardApp.adicionarUsuario()">Adicionar Usuário</button>
+		`;
+	}
+
+	async loadConfigPromocoes() {
+		const content = document.getElementById('config-content');
+		const { data: promocoes, error } = await this.supabase
+			.from('promocoes')
+			.select('*')
+			.order('data_inicio', { ascending: false });
+
+		let tableRows = '';
+		if (promocoes && promocoes.length) {
+			tableRows = promocoes.map(p => `
+				<tr>
+					<td>${p.nome}</td>
+					<td>${new Date(p.data_inicio).toLocaleDateString('pt-BR')} - ${new Date(p.data_fim).toLocaleDateString('pt-BR')}</td>
+					<td>${p.status}</td>
+					<td>
+						<button onclick="window.dashboardApp.editPromocao('${p.id}')">Editar</button>
+						<button onclick="window.dashboardApp.deletePromocao('${p.id}')">Excluir</button>
+					</td>
+				</tr>
+			`).join('');
+		} else {
+			tableRows = '<tr><td colspan="4" style="text-align:center;">Nenhuma promoção encontrada</td></tr>';
+		}
+
+		content.innerHTML = `
+			<h3>Promoções</h3>
+			<table style="width:100%;border-collapse:collapse;margin-bottom:2rem;">
+				<thead>
+					<tr style="background:#f5f5f5;">
+						<th style="padding:0.5rem;">Nome</th>
+						<th style="padding:0.5rem;">Período</th>
+						<th style="padding:0.5rem;">Status</th>
+						<th style="padding:0.5rem;">Ações</th>
+					</tr>
+				</thead>
+				<tbody>
+					${tableRows}
+				</tbody>
+			</table>
+			<button onclick="window.dashboardApp.addPromocao()">Adicionar Promoção</button>
+		`;
+	}
+
+	addPromocao() {
+		this.showPromocaoModal();
+	}
+
+	editPromocao(id) {
+		this.showPromocaoModal(id);
+	}
+
+	async deletePromocao(id) {
+		if (confirm('Tem certeza que deseja excluir esta promoção?')) {
+			const { error } = await this.supabase
+				.from('promocoes')
+				.delete()
+				.eq('id', id);
+			if (error) {
+				alert('Erro ao excluir promoção: ' + error.message);
+			} else {
+				alert('Promoção excluída!');
+				this.loadConfigPromocoes();
+			}
+		}
+	}
+
+	async showPromocaoModal(id = null) {
+		let promocao = null;
+		if (id) {
+			const { data, error } = await this.supabase
+				.from('promocoes')
+				.select('*')
+				.eq('id', id)
+				.single();
+			if (error) {
+				alert('Erro ao carregar promoção: ' + error.message);
+				return;
+			}
+			promocao = data;
+		}
+
+		const modalsContainer = document.getElementById('modals-container');
+		const modalId = 'promocao-modal';
+		const modal = document.createElement('div');
+		modal.id = modalId;
+		modal.className = 'modal-overlay show';
+		modal.onclick = (e) => { if (e.target === modal) closeModal(modalId); };
+
+		// Opções de produtos
+		let produtoOptions = '<option value="">Todos os produtos</option>';
+		if (this.products) {
+			this.products.forEach(p => {
+				produtoOptions += `<option value="${p.id}" ${promocao && promocao.produto_id === p.id ? 'selected' : ''}>${p.nome}</option>`;
+			});
+		}
+
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="padding:2rem;max-width:600px;">
+				<h2>${id ? 'Editar' : 'Adicionar'} Promoção</h2>
+				<label>Nome da Promoção</label>
+				<input type="text" id="promocao-nome" value="${promocao ? promocao.nome : ''}" required>
+				
+				<label>Data Início</label>
+				<input type="date" id="promocao-data-inicio" value="${promocao ? promocao.data_inicio.split('T')[0] : ''}" required>
+				
+				<label>Data Fim</label>
+				<input type="date" id="promocao-data-fim" value="${promocao ? promocao.data_fim.split('T')[0] : ''}" required>
+				
+				<label>Produto (opcional)</label>
+				<select id="promocao-produto">${produtoOptions}</select>
+				
+				<label>Quantidade Mínima (opcional)</label>
+				<input type="number" id="promocao-quantidade" min="0" value="${promocao ? promocao.quantidade_minima || '' : ''}">
+				
+				<label>Valor Mínimo (opcional)</label>
+				<input type="number" id="promocao-valor" step="0.01" min="0" value="${promocao ? promocao.valor_minimo || '' : ''}">
+				
+				<label>Tipo de Desconto</label>
+				<select id="promocao-desconto-tipo">
+					<option value="percentual" ${promocao && promocao.desconto_tipo === 'percentual' ? 'selected' : ''}>Percentual</option>
+					<option value="valor" ${promocao && promocao.desconto_tipo === 'valor' ? 'selected' : ''}>Valor Fixo</option>
+				</select>
+				
+				<label>Valor do Desconto</label>
+				<input type="number" id="promocao-desconto-valor" step="0.01" min="0" value="${promocao ? promocao.desconto_valor || '' : ''}" required>
+				
+				<label>Frete Grátis</label>
+				<input type="checkbox" id="promocao-frete" ${promocao && promocao.frete_gratis ? 'checked' : ''}>
+				
+				<label>Regiões (separadas por vírgula, opcional)</label>
+				<input type="text" id="promocao-regioes" value="${promocao ? promocao.regioes || '' : ''}" placeholder="Ex: São Paulo, Rio de Janeiro">
+				
+				<label>Status</label>
+				<select id="promocao-status">
+					<option value="ativo" ${promocao && promocao.status === 'ativo' ? 'selected' : ''}>Ativo</option>
+					<option value="inativo" ${promocao && promocao.status === 'inativo' ? 'selected' : ''}>Inativo</option>
+				</select>
+				
+				<div style="display:flex;justify-content:flex-end;gap:1rem;margin-top:2rem;">
+					<button onclick="closeModal('${modalId}')">Cancelar</button>
+					<button onclick="window.dashboardApp.savePromocao('${id}')">Salvar</button>
+				</div>
+			</div>
+		`;
+		modalsContainer.appendChild(modal);
+	}
+
+	async savePromocao(id) {
+		const nome = document.getElementById('promocao-nome').value;
+		const dataInicio = document.getElementById('promocao-data-inicio').value;
+		const dataFim = document.getElementById('promocao-data-fim').value;
+		const produtoId = document.getElementById('promocao-produto').value || null;
+		const quantidadeMinima = parseInt(document.getElementById('promocao-quantidade').value) || null;
+		const valorMinimo = parseFloat(document.getElementById('promocao-valor').value) || null;
+		const descontoTipo = document.getElementById('promocao-desconto-tipo').value;
+		const descontoValor = parseFloat(document.getElementById('promocao-desconto-valor').value);
+		const freteGratis = document.getElementById('promocao-frete').checked;
+		const regioes = document.getElementById('promocao-regioes').value || null;
+		const status = document.getElementById('promocao-status').value;
+
+		if (!nome || !dataInicio || !dataFim || !descontoValor) {
+			alert('Preencha todos os campos obrigatórios!');
+			return;
+		}
+
+		const data = {
+			nome,
+			data_inicio: dataInicio,
+			data_fim: dataFim,
+			produto_id: produtoId,
+			quantidade_minima: quantidadeMinima,
+			valor_minimo: valorMinimo,
+			desconto_tipo: descontoTipo,
+			desconto_valor: descontoValor,
+			frete_gratis: freteGratis,
+			regioes: regioes,
+			status
+		};
+
+		let result;
+		if (id) {
+			result = await this.saveToSupabase('promocoes', { ...data, id });
+		} else {
+			result = await this.saveToSupabase('promocoes', data);
+		}
+
+		if (result) {
+			alert('Promoção salva com sucesso!');
+			closeModal('promocao-modal');
+			this.loadConfigPromocoes();
+		}
+	}
+
+	async loadActivePromocoes() {
+		const today = new Date().toISOString().split('T')[0];
+		const { data: promocoes, error } = await this.supabase
+			.from('promocoes')
+			.select('*')
+			.eq('status', 'ativo')
+			.lte('data_inicio', today)
+			.gte('data_fim', today);
+
+		if (error) {
+			console.error('Erro ao carregar promoções ativas:', error);
+			return;
+		}
+
+		if (promocoes && promocoes.length > 0) {
+			this.showPromocoesPopup(promocoes);
+		}
+	}
+
+	showPromocoesPopup(promocoes) {
+		const modalsContainer = document.getElementById('modals-container');
+		const modalId = 'promocoes-popup';
+		const modal = document.createElement('div');
+		modal.id = modalId;
+		modal.className = 'modal-overlay show';
+		modal.onclick = (e) => { if (e.target === modal) closeModal(modalId); };
+
+		let promocoesHtml = '';
+		promocoes.forEach(p => {
+			let descricao = `${p.nome}`;
+			if (p.produto_id) {
+				const produto = this.products.find(prod => prod.id === p.produto_id);
+				if (produto) descricao += ` em ${produto.nome}`;
+			}
+			if (p.quantidade_minima) descricao += ` - Compre ${p.quantidade_minima} ou mais`;
+			if (p.valor_minimo) descricao += ` - Valor mínimo R$ ${this.formatCurrency(p.valor_minimo)}`;
+			if (p.desconto_valor) {
+				if (p.desconto_tipo === 'percentual') {
+					descricao += ` - ${p.desconto_valor}% de desconto`;
+				} else {
+					descricao += ` - R$ ${this.formatCurrency(p.desconto_valor)} de desconto`;
+				}
+			}
+			if (p.frete_gratis) descricao += ' - Frete grátis';
+			if (p.regioes) descricao += ` - Apenas para: ${p.regioes}`;
+
+			promocoesHtml += `<div style="margin-bottom:1rem; padding:1rem; background:#f9f9f9; border-radius:8px;">${descricao}</div>`;
+		});
+
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="padding:2rem;max-width:500px;">
+				<h2>🎉 Promoções Vigentes!</h2>
+				${promocoesHtml}
+				<div style="display:flex;justify-content:flex-end;gap:1rem;margin-top:2rem;">
+					<button onclick="closeModal('${modalId}')">Fechar</button>
+				</div>
+			</div>
+		`;
+		modalsContainer.appendChild(modal);
+	}
+
+	async updateStockForOrder(action, orderId) {
+		const { data: itens, error } = await this.supabase
+			.from('pedido_itens')
+			.select('produto_id, quantidade')
+			.eq('pedido_id', orderId);
+		if (error) {
+			console.error('Erro ao carregar itens do pedido:', error);
+			return;
+		}
+		for (const item of itens) {
+			const produtoId = item.produto_id;
+			const quantidade = item.quantidade;
+			// Get stock entries for this product, ordered by created_at (FIFO)
+			const { data: stockEntries, error: stockError } = await this.supabase
+				.from('estoque')
+				.select('id, quantidade_disponivel, quantidade_reservada, quantidade_vendida')
+				.eq('produto_id', produtoId)
+				.order('created_at', { ascending: true });
+			if (stockError) {
+				console.error('Erro ao carregar estoque:', stockError);
+				continue;
+			}
+			let remaining = quantidade;
+			for (const entry of stockEntries) {
+				if (remaining <= 0) break;
+				let available;
+				if (action === 'reserve') {
+					available = entry.quantidade_disponivel;
+				} else if (action === 'sell') {
+					available = entry.quantidade_reservada;
+				}
+				const deduct = Math.min(remaining, available);
+				if (action === 'reserve') {
+					const newDisponivel = entry.quantidade_disponivel - deduct;
+					const newReservada = (entry.quantidade_reservada || 0) + deduct;
+					await this.supabase
+						.from('estoque')
+						.update({ quantidade_disponivel: newDisponivel, quantidade_reservada: newReservada })
+						.eq('id', entry.id);
+				} else if (action === 'sell') {
+					const newReservada = entry.quantidade_reservada - deduct;
+					const newVendida = (entry.quantidade_vendida || 0) + deduct;
+					await this.supabase
+						.from('estoque')
+						.update({ quantidade_reservada: newReservada, quantidade_vendida: newVendida })
+						.eq('id', entry.id);
+				}
+				remaining -= deduct;
+			}
+			// Update produtos.estoque to available stock
+			const totalAvailable = stockEntries.reduce((sum, e) => sum + (e.quantidade_disponivel - (e.quantidade_reservada || 0)), 0);
+			await this.supabase
+				.from('produtos')
+				.update({ estoque: Math.max(0, totalAvailable) })
+				.eq('id', produtoId);
+		}
+	}
+
 	loadPedidosStatusList() {
 		const container = document.getElementById('pedidos-status-list');
 		if (!container) return;
@@ -1606,10 +2375,17 @@ class DashboardApp {
 		];
 
 		// Mostrar lista resumida de pedidos com status editável
-		const pedidosList = pedidosFiltrados.slice(0, 10).map(order => `
+		const pedidosList = pedidosFiltrados.slice(0, 10).map(order => {
+			// Verificar se o pedido tem entrega associada
+			const temEntrega = this.entregas.some(entrega => entrega.pedido_id == order.id);
+			const tipoIcon = temEntrega ? '🚚' : '🏪';
+			const tipoLabel = temEntrega ? 'Entrega' : 'Retirada';
+			
+			return `
 			<div class="pedido-item" data-order-id="${order.id}" style="cursor: pointer;">
 				<div class="pedido-info">
 					<strong>#${order.numero_pedido || order.id}</strong>
+					<span class="tipo-entrega" style="font-size: 0.8rem; color: #666; margin-left: 0.5rem;">${tipoIcon} ${tipoLabel}</span>
 					<span>${order.cliente_nome || 'Cliente'}</span>
 					<div class="pedido-valor">R$ ${order.valor_total ? parseFloat(order.valor_total).toFixed(2) : '0.00'}</div>
 				</div>
@@ -1626,23 +2402,34 @@ class DashboardApp {
 					</select>
 				</div>
 			</div>
-		`).join('');
+		`}).join('');
 
 		container.innerHTML = pedidosList || '<p style="text-align: center; color: #666; padding: 2rem;">Nenhum pedido encontrado</p>';
 		
-		// Adicionar event listeners para os pedidos
-		container.querySelectorAll('.pedido-item').forEach(item => {
-			item.addEventListener('click', (e) => {
-				// Não abrir modal se clicar no select de status
-				if (e.target.closest('.status-dropdown')) {
-					return;
-				}
-				const orderId = item.getAttribute('data-order-id');
+		// Usar event delegation para evitar múltiplos listeners
+		// Remover listener anterior se existir
+		const existingListener = container._pedidoClickListener;
+		if (existingListener) {
+			container.removeEventListener('click', existingListener);
+		}
+		
+		// Adicionar listener único ao container
+		container._pedidoClickListener = (e) => {
+			// Não abrir modal se clicar no select de status
+			if (e.target.closest('.status-dropdown')) {
+				return;
+			}
+			
+			const pedidoItem = e.target.closest('.pedido-item');
+			if (pedidoItem) {
+				const orderId = pedidoItem.getAttribute('data-order-id');
 				if (orderId) {
 					this.showOrderDetails(orderId);
 				}
-			});
-		});
+			}
+		};
+		
+		container.addEventListener('click', container._pedidoClickListener);
 	}
 
 	getStatusLabel(status) {
@@ -1658,6 +2445,13 @@ class DashboardApp {
 	}
 
 	async showOrderDetails(orderId) {
+		// Verificar se já há um modal de detalhes aberto
+		const existingDetailsModal = document.getElementById('order-details-modal');
+		if (existingDetailsModal) {
+			console.log('⚠️ Modal de detalhes já está aberto, ignorando clique');
+			return;
+		}
+
 		const order = this.orders.find(o => o.id === orderId);
 		if (!order) {
 			console.error('❌ Pedido não encontrado:', orderId);
@@ -1858,12 +2652,16 @@ class DashboardApp {
 		const orderId = selectElement.getAttribute('data-order-id');
 		const newStatus = selectElement.value;
 
+		console.log(`🔄 updateOrderStatus chamado - Pedido: ${orderId}, Novo status: ${newStatus}`);
+
 		// Encontrar o pedido
 		const order = this.orders.find(o => o.id == orderId);
 		if (!order) {
 			alert('Pedido não encontrado');
 			return;
 		}
+
+		console.log(`📋 Pedido encontrado: ${order.numero_pedido || order.id}, Status atual: ${order.status}`);
 
 		// Verificar se o usuário é administrador
 		const isAdmin = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase() === 'admin';
@@ -1929,6 +2727,73 @@ class DashboardApp {
 				order.valor_pago = updateData.valor_pago;
 			}
 
+			// Atualizar status das entregas relacionadas se necessário
+			if (newStatus === 'entregue' || newStatus === 'cancelado') {
+				console.log(`🔄 CONDIÇÃO ATENDIDA: Atualizando status da entrega para pedido #${orderId} - newStatus: ${newStatus}`);
+
+				try {
+					const entregaStatus = newStatus === 'entregue' ? 'entregue' : 'cancelada';
+
+					// Verificar se existe entrega para este pedido
+					const { data: existingEntrega, error: checkError } = await this.supabase
+						.from('entregas')
+						.select('id, status')
+						.eq('pedido_id', orderId)
+						.single();
+
+					if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = not found
+						console.warn('⚠️ Erro ao verificar entrega existente:', checkError);
+					} else if (existingEntrega) {
+						console.log(`📦 Entrega encontrada: ${existingEntrega.id}, status atual: ${existingEntrega.status}`);
+
+						// Atualizar entrega no banco
+						const { data: entregaData, error: entregaError } = await this.supabase
+							.from('entregas')
+							.update({
+								status: entregaStatus,
+								updated_at: new Date().toISOString()
+							})
+							.eq('pedido_id', orderId)
+							.select();
+
+						if (entregaError) {
+							console.warn('⚠️ Erro ao atualizar status da entrega:', entregaError);
+						} else {
+							console.log(`✅ Status da entrega atualizado para: ${entregaStatus}`, entregaData);
+
+							// Atualizar entrega na memória local imediatamente
+							const entregaIndex = this.entregas.findIndex(e => e.pedido_id == orderId);
+							if (entregaIndex !== -1) {
+								this.entregas[entregaIndex].status = entregaStatus;
+								this.entregas[entregaIndex].updated_at = new Date().toISOString();
+								console.log(`💾 Entrega atualizada na memória: ${entregaStatus}`);
+								console.log(`📊 Array de entregas após atualização:`, this.entregas.filter(e => e.pedido_id == orderId));
+							} else {
+								console.warn(`⚠️ Entrega não encontrada na memória para pedido #${orderId}`);
+								console.log(`📊 Todas as entregas na memória:`, this.entregas.map(e => ({id: e.id, pedido_id: e.pedido_id, status: e.status})));
+							}
+						}
+					} else {
+						console.log(`ℹ️ Não há entrega associada ao pedido #${orderId} (pedido sem entrega ou retirada)`);
+					}
+				} catch (entregaUpdateError) {
+					console.warn('⚠️ Erro ao atualizar entrega:', entregaUpdateError);
+				}
+			} else {
+				console.log(`ℹ️ Status ${newStatus} não requer atualização de entrega`);
+			}
+
+			// Update stock if confirmed or paid (reserve)
+			if (newStatus === 'confirmado' || newStatus === 'pago') {
+				await this.updateStockForOrder('reserve', orderId);
+			}
+
+			// Update stock if delivered
+			if (newStatus === 'entregue') {
+				await this.updateStockForOrder('sell', orderId);
+				await this.loadData(); // Recarregar dados imediatamente após atualizar estoque
+			}
+
 			// Mostrar feedback visual
 			selectElement.style.backgroundColor = '#d4edda';
 			selectElement.style.borderColor = '#c3e6cb';
@@ -1937,13 +2802,31 @@ class DashboardApp {
 				selectElement.style.borderColor = '';
 			}, 1000);
 
-			// Recarregar dados e atualizar estatísticas
-			await this.loadData();
+			// Atualizar telas imediatamente (antes do loadData para evitar conflitos)
 			this.createStatsCards();
-			
-			// Atualizar seções do dashboard
 			this.loadPedidosStatusList(); // Atualizar lista de pedidos no dashboard
-			this.updateFollowUpEntregas(); // Atualizar follow-up de entregas
+			if (document.getElementById('entregas-hoje')) {
+				this.updateFollowUpEntregas(); // Atualizar follow-up de entregas
+			}
+			if (this.activeSection === 'entregas') {
+				this.renderEntregasPage(); // Update deliveries page if active
+			}
+
+			// Recarregar dados em background para manter sincronização
+			this.loadData().then(() => {
+				console.log('🔄 Dados recarregados após atualização de status');
+				// Atualizar telas novamente após recarregar dados
+				this.createStatsCards();
+				this.loadPedidosStatusList();
+				if (document.getElementById('entregas-hoje')) {
+					this.updateFollowUpEntregas();
+				}
+				if (this.activeSection === 'entregas') {
+					this.renderEntregasPage();
+				}
+			}).catch(error => {
+				console.warn('⚠️ Erro ao recarregar dados:', error);
+			});
 
 			console.log(`✅ Status do pedido #${orderId} atualizado para: ${newStatus}`);
 
@@ -1962,7 +2845,6 @@ class DashboardApp {
 	}
 
 	loadEntregasHojeContent() {
-		const container = document.getElementById('entregas-hoje-content');
 		if (!container) return;
 
 		// Verificar role do usuário atual
@@ -2033,7 +2915,7 @@ class DashboardApp {
 		console.log('🔄 updateFollowUpEntregas() chamada');
 		const entregasHoje = document.getElementById('entregas-hoje');
 		if (!entregasHoje) {
-			console.log('❌ Elemento entregas-hoje não encontrado');
+			console.log('ℹ️ Elemento entregas-hoje ainda não existe, pulando atualização');
 			return;
 		}
 
@@ -2043,6 +2925,7 @@ class DashboardApp {
 		const isAdmin = role === 'admin';
 
 		console.log('🔍 Atualizando follow-up de entregas. Total de entregas:', this.entregas?.length || 0);
+		console.log('🔍 Status das entregas:', this.entregas?.map(e => ({id: e.id, pedido_id: e.pedido_id, status: e.status, data_entrega: e.data_entrega})));
 
 		// Filtrar entregas baseado no role do usuário
 		let entregasFiltradas = this.entregas;
@@ -2059,9 +2942,23 @@ class DashboardApp {
 			entregasFiltradas = this.entregas;
 		}
 
-		// Filtrar apenas entregas não canceladas
+		// Filtrar apenas entregas não canceladas e não entregues antigas
+		const hoje = new Date();
+		hoje.setHours(0, 0, 0, 0);
+		const seteDiasAtras = new Date(hoje);
+		seteDiasAtras.setDate(hoje.getDate() - 7);
+
 		const entregasAtivas = entregasFiltradas
-			.filter(entrega => entrega.status !== 'cancelada')
+			.filter(entrega => {
+				// Incluir entregas não canceladas
+				if (entrega.status === 'cancelada') return false;
+				
+				// Incluir todas as entregas não entregues
+				if (entrega.status !== 'entregue') return true;
+				
+				// Para entregas já entregues, não incluir na lista (removidas imediatamente)
+				return false;
+			})
 			.sort((a, b) => {
 				// Primeiro critério: status (priorizar "saiu_entrega" e "agendada" sobre "entregue")
 				const statusPriority = { 'saiu_entrega': 1, 'agendada': 2, 'entregue': 3 };
@@ -2083,8 +2980,10 @@ class DashboardApp {
 			entregasHoje.innerHTML = `
 				<div style="display: flex; flex-direction: column; gap: 0.5rem;">
 					${entregasAtivas.map(entrega => {
-						const pedido = entrega.pedidos || {};
-						const cliente = pedido.clientes || {};
+						// Encontrar o pedido relacionado
+						const pedido = this.orders.find(o => o.id == entrega.pedido_id) || {};
+						// Encontrar o cliente relacionado
+						const cliente = this.clients.find(c => c.id == pedido.cliente_id) || {};
 						const dataEntrega = new Date(entrega.data_entrega);
 						const hoje = new Date();
 						hoje.setHours(0, 0, 0, 0);
@@ -2196,7 +3095,9 @@ class DashboardApp {
 		this.createStatsCards();
 		this.createDataCards();
 		this.updateWelcomeMessage();
-		this.updateFollowUpEntregas();
+		if (document.getElementById('entregas-hoje')) {
+			this.updateFollowUpEntregas();
+		}
 	}
 
 	// PÁGINA DE PEDIDOS - VENDA PRESENCIAL
@@ -2249,11 +3150,12 @@ class DashboardApp {
 		} else {
 			produtosHtml = `
 				<div style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center;">
-					${produtosFiltrados.map(produto => {
+					${produtosFiltrados.map((produto, index) => {
 						let fotos = [];
 						if (produto.fotos) {
 							try { fotos = JSON.parse(produto.fotos); } catch {}
 						}
+						const id = produto.id || `produto-${index}`;
 						return `
 							<div class="card-produto" style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.2rem; max-width: 320px; width: 100%; display: flex; flex-direction: column; align-items: center;" data-descricao="${produto.descricao || ''}">
 								<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
@@ -2263,23 +3165,23 @@ class DashboardApp {
 									</div>
 								</div>
 								<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
-									<div id="market-carousel-${produto.id}" data-current="0" style="display: flex; transition: transform 0.3s ease;">
+									<div id="market-carousel-${id}" data-current="0" style="display: flex; transition: transform 0.3s ease;">
 										${fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;">`).join('')}
 									</div>
 									${fotos.length > 1 ? `
-										<button data-action="prev-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
-										<button data-action="next-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">›</button>
+										<button data-action="prev-produto-photo" data-id="${id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
+										<button data-action="next-produto-photo" data-id="${id}" data-total="${fotos.length}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">›</button>
 									` : ''}
 								</div>
 								<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
 									<span style="font-size: 1.1rem; font-weight: 700; color: #ff6b9d;">${this.formatCurrency(produto.preco)}</span>
 								</div>
 								<div style="display: flex; align-items: center; justify-content: center; gap: 1rem; width: 100%; margin-bottom: 0.5rem;">
-									<button data-action="decrement-produto" data-id="${produto.id}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.1rem; cursor: pointer;">-</button>
-									<span id="contador-produto-${produto.id}" style="font-size: 1.1rem; font-weight: 600; min-width: 32px; text-align: center;">${this.cart[produto.id]?.quantidade || 0}</span>
-									<button data-action="increment-produto" data-id="${produto.id}" data-preco="${produto.preco}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.1rem; cursor: pointer;">+</button>
+									<button data-action="decrement-produto" data-id="${id}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.1rem; cursor: pointer;">-</button>
+									<span id="contador-produto-${id}" style="font-size: 1.1rem; font-weight: 600; min-width: 32px; text-align: center;">${this.cart[id]?.quantidade || 0}</span>
+									<button data-action="increment-produto" data-id="${id}" data-preco="${produto.preco}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.1rem; cursor: pointer;">+</button>
 								</div>
-								<button data-action="adicionar-carrinho" data-id="${produto.id}" data-preco="${produto.preco}" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 0; font-size: 1.1rem; font-weight: 700; cursor: pointer;">Adicionar ao Carrinho</button>
+								<button data-action="adicionar-carrinho" data-id="${id}" data-preco="${produto.preco}" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 0; font-size: 1.1rem; font-weight: 700; cursor: pointer;">Adicionar ao Carrinho</button>
 							</div>
 						`;
 					}).join('')}
@@ -2618,80 +3520,75 @@ class DashboardApp {
 		// Esta função serve para:
 		// 1. Contador visual no mercado (produtos não adicionados)
 		// 2. Editar quantidade de produtos já no carrinho
-		if (!this.cart[produtoId]) {
-			this.cart[produtoId] = { quantidade: 0, preco, adicionado: false };
+		// Incrementa o contador visual
+		const contadorEl = document.getElementById(`contador-produto-${produtoId}`);
+		let quantidadeAtual = 0;
+		if (contadorEl) {
+			quantidadeAtual = parseInt(contadorEl.textContent) || 0;
+			quantidadeAtual++;
+			contadorEl.textContent = quantidadeAtual;
 		}
-		
-		if (this.cart[produtoId].adicionado) {
-			// Se já está no carrinho, editar quantidade diretamente
-			this.cart[produtoId].quantidade++;
+		// Se o produto já está no carrinho, atualiza a quantidade
+		if (this.cart[produtoId] && this.cart[produtoId].adicionado) {
+			this.cart[produtoId].quantidade = quantidadeAtual;
 			this.updateCartHeader();
 			if (this.activeSection === 'pedidos' || this.isVendasOnline) {
 				this.updatePedidosCartTotal();
 			}
-		} else {
-			// Se não está no carrinho, apenas atualizar contador visual
-			this.cart[produtoId].quantidade++;
 		}
-		
-		document.getElementById(`contador-produto-${produtoId}`).textContent = this.cart[produtoId].quantidade;
 		this.updateCartBadge();
 	}
 
 	decrementProdutoCarrinho(produtoId) {
-		// Esta função serve para:
-		// 1. Contador visual no mercado (produtos não adicionados)
-		// 2. Editar quantidade de produtos já no carrinho
-		if (!this.cart[produtoId] || this.cart[produtoId].quantidade === 0) return;
-		
-		if (this.cart[produtoId].adicionado) {
-			// Se já está no carrinho, editar quantidade diretamente
-			this.cart[produtoId].quantidade--;
-			
-			if (this.cart[produtoId].quantidade > 0) {
-				// Ainda há quantidade, apenas atualizar
-				this.updateCartHeader();
-				if (this.activeSection === 'pedidos' || this.isVendasOnline) {
-					this.updatePedidosCartTotal();
-				}
-			} else {
-				// Quantidade chegou a 0, remover completamente do carrinho
-				delete this.cart[produtoId];
-				// Resetar contador visual quando remover do carrinho
-				const contadorEl = document.getElementById(`contador-produto-${produtoId}`);
-				if (contadorEl) {
-					contadorEl.textContent = '0';
-				}
-				this.updateCartHeader();
-				if (this.activeSection === 'pedidos' || this.isVendasOnline) {
-					this.updatePedidosCartTotal();
-				}
+		// Decrementa o contador visual
+		const contadorEl = document.getElementById(`contador-produto-${produtoId}`);
+		let quantidadeAtual = 0;
+		if (contadorEl) {
+			quantidadeAtual = parseInt(contadorEl.textContent) || 0;
+			if (quantidadeAtual > 0) {
+				quantidadeAtual--;
+				contadorEl.textContent = quantidadeAtual;
 			}
-		} else {
-			// Se não está no carrinho, apenas atualizar contador visual
-			this.cart[produtoId].quantidade--;
 		}
-		
-		document.getElementById(`contador-produto-${produtoId}`).textContent = this.cart[produtoId].quantidade;
+		// Se o produto já está no carrinho, atualiza a quantidade ou remove se chegar a zero
+		if (this.cart[produtoId] && this.cart[produtoId].adicionado) {
+			if (quantidadeAtual > 0) {
+				this.cart[produtoId].quantidade = quantidadeAtual;
+			} else {
+				delete this.cart[produtoId];
+			}
+			this.updateCartHeader();
+			if (this.activeSection === 'pedidos' || this.isVendasOnline) {
+				this.updatePedidosCartTotal();
+			}
+		}
 		this.updateCartBadge();
 	}
 
 	adicionarAoCarrinho(produtoId, preco) {
+		console.log('Adicionando ao carrinho:', produtoId, preco);
+		
 		// Se o produto já está no carrinho, apenas incrementa a quantidade
 		if (this.cart[produtoId] && this.cart[produtoId].adicionado) {
-			this.cart[produtoId].quantidade += Math.max(1, this.cart[produtoId].quantidade || 0);
+			this.cart[produtoId].quantidade++;
 		} else {
-			// Se não está no carrinho, adiciona com a quantidade do contador (mínimo 1)
-			const quantidadeAtual = this.cart[produtoId]?.quantidade || 0;
+			// Se não está no carrinho, adiciona com a quantidade do contador visual (mínimo 1)
+			const contadorEl = document.getElementById(`contador-produto-${produtoId}`);
+			let quantidadeAtual = 1;
+			if (contadorEl) {
+				quantidadeAtual = parseInt(contadorEl.textContent) || 1;
+			}
 			this.cart[produtoId] = { 
-				quantidade: Math.max(1, quantidadeAtual), 
+				quantidade: quantidadeAtual, 
 				preco, 
 				adicionado: true 
 			};
 		}
-		
-		// NÃO resetar o contador visual - manter a quantidade para futuras adições
-		
+		// Atualizar contador visual
+		const contadorEl = document.getElementById(`contador-produto-${produtoId}`);
+		if (contadorEl) {
+			contadorEl.textContent = this.cart[produtoId].quantidade;
+		}
 		// Atualizar carrinho no topo
 		this.updateCartHeader();
 		// Atualizar total do carrinho na página de pedidos
@@ -2768,7 +3665,7 @@ class DashboardApp {
 				e.preventDefault();
 				e.stopPropagation();
 				if (this.isVendasOnline) {
-					this.abrirCadastroClienteModal();
+					this.abrirVerificacaoClienteModal();
 				} else {
 					this.abrirFinalizarPedidoModal();
 				}
@@ -3203,7 +4100,7 @@ class DashboardApp {
 					<div style="background: #f8f9fa; padding: 1rem; border-radius: 10px;">
 						<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
 							<h4 style="margin: 0; font-size: 1.05rem; color: #764ba2;">Produtos</h4>
-							<button onclick="window.dashboardApp.limparCarrinho()" style="background: #dc3545; color: white; border: none; border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.8rem; cursor: pointer;">Limpar Carrinho</button>
+							<button type="button" onclick="window.dashboardApp.limparCarrinho()" style="background: #dc3545; color: white; border: none; border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.8rem; cursor: pointer;">Limpar Carrinho</button>
 						</div>
 						<div class="produtos-tabela-container" style="overflow-x: auto;">
 							<table style="width:100%; border-collapse:collapse;">
@@ -3240,7 +4137,7 @@ class DashboardApp {
 						
 						<div id="finalizar-sinal-group" style="display: none; margin-top: 0.75rem;">
 							<label style="display: block; margin-bottom: 0.25rem;">Valor do sinal (CAD$):</label>
-							<input type="number" id="finalizar-sinal" min="0" step="0.01" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none;">
+							<input type="text" id="finalizar-sinal" placeholder="0.00" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none;">
 							<p id="finalizar-restante" style="margin: 0.5rem 0 0 0; font-size: 0.9rem;"></p>
 						</div>
 					</div>
@@ -3258,7 +4155,22 @@ class DashboardApp {
 							<input type="date" id="finalizar-data-entrega" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none; margin-bottom: 0.5rem;">
 							
 							<label style="display: block; margin-bottom: 0.25rem;">Horário:</label>
-							<input type="time" id="finalizar-horario-entrega" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none; margin-bottom: 0.5rem;">
+							<select id="finalizar-horario-entrega" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none; margin-bottom: 0.5rem;">
+								<option value="">Selecione um horário...</option>
+								<option value="08:00">08:00 - Manhã</option>
+								<option value="09:00">09:00 - Manhã</option>
+								<option value="10:00">10:00 - Manhã</option>
+								<option value="11:00">11:00 - Manhã</option>
+								<option value="12:00">12:00 - Meio-dia</option>
+								<option value="13:00">13:00 - Tarde</option>
+								<option value="14:00">14:00 - Tarde</option>
+								<option value="15:00">15:00 - Tarde</option>
+								<option value="16:00">16:00 - Tarde</option>
+								<option value="17:00">17:00 - Tarde</option>
+								<option value="18:00">18:00 - Noite</option>
+								<option value="19:00">19:00 - Noite</option>
+								<option value="20:00">20:00 - Noite</option>
+							</select>
 							
 							<!-- Opções de endereço -->
 							<div id="endereco-options" style="margin-top: 0.75rem;">
@@ -3371,7 +4283,26 @@ class DashboardApp {
 			updateRestante();
 		});
 
-		sinalInput.addEventListener('input', updateRestante);
+		sinalInput.addEventListener('input', (e) => {
+			// Formatar valor enquanto digita
+			let value = e.target.value.replace(/[^0-9.,]/g, ''); // Permitir apenas números, ponto e vírgula
+			
+			// Substituir vírgula por ponto para cálculo
+			value = value.replace(',', '.');
+			
+			// Limitar a 2 casas decimais
+			const parts = value.split('.');
+			if (parts.length > 1) {
+				parts[1] = parts[1].substring(0, 2);
+				value = parts.join('.');
+			}
+			
+			// Atualizar o valor no campo
+			e.target.value = value;
+			
+			// Atualizar cálculo do restante
+			updateRestante();
+		});
 
 		function updateRestante() {
 			const sinal = parseFloat(sinalInput.value) || 0;
@@ -3539,22 +4470,366 @@ class DashboardApp {
 			this.cart = {};
 			this.updateCartBadge(); // Atualizar badge do carrinho
 			
+			closeModal('modal-finalizar-pedido'); // Fechar modal ANTES das atualizações
+			
 			// Recarregar dados
 			await this.loadData();
 			
 			// Atualizar seções do dashboard ANTES de renderizar a página
 			this.loadPedidosStatusList(); // Atualizar lista de pedidos no dashboard
-			this.updateFollowUpEntregas(); // Atualizar follow-up de entregas
+			if (document.getElementById('entregas-hoje')) {
+				this.updateFollowUpEntregas(); // Atualizar follow-up de entregas
+			}
 			this.updateStats(); // Atualizar estatísticas
 			
 			this.renderPedidosPage(); // Mostrar página de pedidos após venda
 			
-			closeModal('modal-finalizar-pedido');
 			alert('Venda finalizada com sucesso!');
 		}
 	}
 
-	abrirCadastroClienteModal() {
+	abrirVerificacaoClienteModal() {
+		// Verificar se há produtos no carrinho
+		const produtosNoCarrinho = Object.entries(this.cart)
+			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado);
+
+		if (produtosNoCarrinho.length === 0) {
+			alert('Seu carrinho está vazio!');
+			return;
+		}
+
+		const modalId = 'modal-verificacao-cliente';
+		document.querySelectorAll('.modal-overlay').forEach(modal => modal.remove());
+		const existingModal = document.getElementById(modalId);
+		if (existingModal) existingModal.remove();
+
+		const modal = document.createElement('div');
+		modal.id = modalId;
+		modal.className = 'modal-overlay show';
+		modal.style.zIndex = '2000';
+
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="max-width: 500px;">
+				<div class="modal-content">
+					<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+						<h3 style="margin: 0; color: #333;">🔍 Verificar Cliente Existente</h3>
+						<button onclick="closeModal('${modalId}')" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #888; line-height: 1;">&times;</button>
+					</div>
+					<p style="margin-bottom: 1rem; color: #666;">Já é nosso cliente? Informe seu e-mail ou telefone para carregar seus dados automaticamente.</p>
+					<form id="form-verificacao-cliente">
+						<div class="form-group">
+							<label for="cliente-contato">E-mail ou Telefone *</label>
+							<input type="text" id="cliente-contato" required placeholder="exemplo@email.com ou 416 123 4567" style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem;">
+						</div>
+						<div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+							<button type="submit" class="btn btn-primary" style="flex: 1;">Verificar</button>
+							<button type="button" onclick="closeModal('${modalId}'); window.dashboardApp.abrirCadastroClienteModal();" class="btn btn-secondary" style="flex: 1;">Novo Cliente</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		`;
+
+		document.getElementById('modals-container').appendChild(modal);
+		modal.classList.add('show');
+
+		document.getElementById('form-verificacao-cliente').addEventListener('submit', async (e) => {
+			e.preventDefault();
+			let contato = document.getElementById('cliente-contato').value.trim();
+			if (!contato) return;
+
+			// Normalizar contato: remover espaços, hífens, parênteses
+			contato = contato.replace(/[\s\-\(\)]/g, '');
+
+			// Determinar se é e-mail ou telefone
+			const isEmail = contato.includes('@');
+
+			// Se for telefone e tiver 10 dígitos, formatar
+			if (!isEmail && contato.length === 10) {
+				contato = this.formatarTelefone(contato);
+			}
+
+			const searchField = isEmail ? 'email' : 'telefone';
+
+			// Buscar cliente
+			const { data: cliente, error } = await this.supabase
+				.from('clientes')
+				.select('*')
+				.eq(searchField, contato)
+				.single();
+
+			if (error || !cliente) {
+				alert('Cliente não encontrado. Você será direcionado para o cadastro.');
+				closeModal(modalId);
+				this.abrirCadastroClienteModal();
+				return;
+			}
+
+			// Cliente encontrado, iniciar verificação
+			closeModal(modalId);
+			this.iniciarVerificacaoCliente(cliente, isEmail);
+		});
+	}
+
+	iniciarVerificacaoCliente(cliente, inputFoiEmail) {
+		let tentativas = 0;
+		const maxTentativas = 2;
+
+		// Se input foi e-mail, verificar telefone primeiro; senão, verificar e-mail primeiro
+		const verificarTelefonePrimeiro = inputFoiEmail;
+
+		const self = this;
+
+		function mostrarVerificacaoEmail() {
+			const emails = self.gerarOpcoesEmail(cliente.email);
+			const modalId = 'modal-verificacao-email';
+			document.querySelectorAll('.modal-overlay').forEach(modal => modal.remove());
+			const modal = document.createElement('div');
+			modal.id = modalId;
+			modal.className = 'modal-overlay show';
+			modal.style.zIndex = '2000';
+
+			modal.innerHTML = `
+				<div class="modal-content-wrapper" style="max-width: 500px;">
+					<div class="modal-content">
+						<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+							<h3 style="margin: 0; color: #333;">📧 Verificação de Segurança</h3>
+							<button onclick="closeModal('${modalId}')" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #888; line-height: 1;">&times;</button>
+						</div>
+						<p style="margin-bottom: 1rem; color: #666;">Selecione seu e-mail correto:</p>
+						<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+							${emails.map((email, index) => `
+								<button class="opcao-verificacao" data-index="${index}" style="padding: 1rem; border: 2px solid #ddd; border-radius: 8px; background: white; cursor: pointer; text-align: center; font-size: 1rem; transition: all 0.2s;">
+									${email}
+								</button>
+							`).join('')}
+						</div>
+						<p style="font-size: 0.9rem; color: #888;">Tentativa ${tentativas + 1} de ${maxTentativas}</p>
+					</div>
+				</div>
+			`;
+
+			document.getElementById('modals-container').appendChild(modal);
+			modal.classList.add('show');
+
+			document.querySelectorAll('.opcao-verificacao').forEach(btn => {
+				btn.addEventListener('click', (e) => {
+					const index = parseInt(e.target.dataset.index);
+					if (emails[index] === cliente.email) {
+						// Correto, próxima verificação
+						closeModal(modalId);
+						mostrarVerificacaoEndereco();
+					} else {
+						tentativas++;
+						if (tentativas >= maxTentativas) {
+							alert('E-mail incorreto. Você excedeu o limite de tentativas. Será direcionado para o cadastro.');
+							closeModal(modalId);
+							self.abrirCadastroClienteModal();
+						} else {
+							alert('E-mail incorreto. Tente novamente.');
+							closeModal(modalId);
+							mostrarVerificacaoEmail();
+						}
+					}
+				});
+			});
+		}
+
+		function mostrarVerificacaoTelefone() {
+			const telefones = self.gerarOpcoesTelefone(self.formatarTelefone(cliente.telefone));
+			const modalId = 'modal-verificacao-telefone';
+			document.querySelectorAll('.modal-overlay').forEach(modal => modal.remove());
+			const modal = document.createElement('div');
+			modal.id = modalId;
+			modal.className = 'modal-overlay show';
+			modal.style.zIndex = '2000';
+
+			modal.innerHTML = `
+				<div class="modal-content-wrapper" style="max-width: 500px;">
+					<div class="modal-content">
+						<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+							<h3 style="margin: 0; color: #333;">📱 Verificação de Segurança</h3>
+							<button onclick="closeModal('${modalId}')" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #888; line-height: 1;">&times;</button>
+						</div>
+						<p style="margin-bottom: 1rem; color: #666;">Selecione seu número de telefone correto:</p>
+						<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+							${telefones.map((tel, index) => `
+								<button class="opcao-verificacao" data-index="${index}" style="padding: 1rem; border: 2px solid #ddd; border-radius: 8px; background: white; cursor: pointer; text-align: center; font-size: 1rem; transition: all 0.2s;">
+									${tel}
+								</button>
+							`).join('')}
+						</div>
+						<p style="font-size: 0.9rem; color: #888;">Tentativa ${tentativas + 1} de ${maxTentativas}</p>
+					</div>
+				</div>
+			`;
+
+			document.getElementById('modals-container').appendChild(modal);
+			modal.classList.add('show');
+
+			document.querySelectorAll('.opcao-verificacao').forEach(btn => {
+				btn.addEventListener('click', (e) => {
+					const index = parseInt(e.target.dataset.index);
+					if (telefones[index] === self.formatarTelefone(cliente.telefone)) {
+						// Correto, próxima verificação
+						closeModal(modalId);
+						mostrarVerificacaoEndereco();
+					} else {
+						tentativas++;
+						if (tentativas >= maxTentativas) {
+							alert('Número incorreto. Você excedeu o limite de tentativas. Será direcionado para o cadastro.');
+							closeModal(modalId);
+							self.abrirCadastroClienteModal();
+						} else {
+							alert('Número incorreto. Tente novamente.');
+							closeModal(modalId);
+							mostrarVerificacaoTelefone();
+						}
+					}
+				});
+			});
+		}
+
+		function mostrarVerificacaoEndereco() {
+			const enderecos = self.gerarOpcoesEndereco(cliente.endereco);
+			const modalId = 'modal-verificacao-endereco';
+			document.querySelectorAll('.modal-overlay').forEach(modal => modal.remove());
+			const modal = document.createElement('div');
+			modal.id = modalId;
+			modal.className = 'modal-overlay show';
+			modal.style.zIndex = '2000';
+
+			modal.innerHTML = `
+				<div class="modal-content-wrapper" style="max-width: 500px;">
+					<div class="modal-content">
+						<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+							<h3 style="margin: 0; color: #333;">🏠 Verificação Final</h3>
+							<button onclick="closeModal('${modalId}')" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #888; line-height: 1;">&times;</button>
+						</div>
+						<p style="margin-bottom: 1rem; color: #666;">Selecione seu endereço correto:</p>
+						<div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;">
+							${enderecos.map((end, index) => `
+								<button class="opcao-verificacao" data-index="${index}" style="padding: 1rem; border: 2px solid #ddd; border-radius: 8px; background: white; cursor: pointer; text-align: left; font-size: 1rem; transition: all 0.2s;">
+									${end}
+								</button>
+							`).join('')}
+						</div>
+						<p style="font-size: 0.9rem; color: #888;">Tentativa ${tentativas + 1} de ${maxTentativas}</p>
+					</div>
+				</div>
+			`;
+
+			document.getElementById('modals-container').appendChild(modal);
+			modal.classList.add('show');
+
+			document.querySelectorAll('.opcao-verificacao').forEach(btn => {
+				btn.addEventListener('click', (e) => {
+					const index = parseInt(e.target.dataset.index);
+					if (enderecos[index] === cliente.endereco) {
+						// Cliente verificado com sucesso - ir direto para finalização
+						closeModal(modalId);
+						self.abrirFinalizarPedidoModal(cliente);
+					} else {
+						tentativas++;
+						if (tentativas >= maxTentativas) {
+							alert('Endereço incorreto. Você excedeu o limite de tentativas. Será direcionado para o cadastro.');
+							closeModal(modalId);
+							self.abrirCadastroClienteModal();
+						} else {
+							alert('Endereço incorreto. Tente novamente.');
+							closeModal(modalId);
+							if (verificarTelefonePrimeiro) {
+								mostrarVerificacaoTelefone();
+							} else {
+								mostrarVerificacaoEmail();
+							}
+						}
+					}
+				});
+			});
+		};
+
+		// Iniciar verificação baseada no input
+		if (verificarTelefonePrimeiro) {
+			mostrarVerificacaoTelefone();
+		} else {
+			mostrarVerificacaoEmail();
+		}
+	}
+
+	formatarTelefone(telefoneNumerico) {
+		// Remove qualquer formatação existente
+		const numeroLimpo = telefoneNumerico.toString().replace(/[\s\-\(\)]/g, '');
+		if (numeroLimpo.length !== 10) {
+			return numeroLimpo; // Retorna como está se não for 10 dígitos
+		}
+		return `${numeroLimpo.slice(0, 3)} ${numeroLimpo.slice(3, 6)} ${numeroLimpo.slice(6)}`;
+	}
+
+	gerarOpcoesTelefone(telefoneCorreto) {
+		const opcoes = [telefoneCorreto];
+		while (opcoes.length < 4) {
+			const area = Math.floor(Math.random() * 800) + 200; // 200-999
+			const prefixo = Math.floor(Math.random() * 800) + 200; // 200-999
+			const linha = Math.floor(Math.random() * 10000); // 0000-9999
+			const telefoneFalso = `${area} ${prefixo} ${linha.toString().padStart(4, '0')}`;
+			if (!opcoes.includes(telefoneFalso)) {
+				opcoes.push(telefoneFalso);
+			}
+		}
+		// Embaralhar
+		for (let i = opcoes.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[opcoes[i], opcoes[j]] = [opcoes[j], opcoes[i]];
+		}
+		return opcoes;
+	}
+
+	gerarOpcoesEmail(emailCorreto) {
+		const opcoes = [emailCorreto];
+		const dominios = ['gmail.com', 'hotmail.com', 'yahoo.com', 'outlook.com'];
+		const nomes = ['usuario', 'cliente', 'comprador', 'visitante'];
+		while (opcoes.length < 4) {
+			const nome = nomes[Math.floor(Math.random() * nomes.length)];
+			const numero = Math.floor(Math.random() * 999) + 1;
+			const dominio = dominios[Math.floor(Math.random() * dominios.length)];
+			const emailFalso = `${nome}${numero}@${dominio}`;
+			if (!opcoes.includes(emailFalso)) {
+				opcoes.push(emailFalso);
+			}
+		}
+		// Embaralhar
+		for (let i = opcoes.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[opcoes[i], opcoes[j]] = [opcoes[j], opcoes[i]];
+		}
+		return opcoes;
+	}
+
+	gerarOpcoesEndereco(enderecoCorreto) {
+		const opcoes = [enderecoCorreto];
+		const ruas = ['Main Street', 'King Street', 'Queen Street', 'Yonge Street', 'Bay Street', 'Bloor Street', 'Dundas Street', 'Richmond Street'];
+		const cidades = ['Toronto', 'Vancouver', 'Montreal', 'Calgary', 'Ottawa', 'Edmonton', 'Winnipeg', 'Quebec City'];
+		const provincias = ['ON', 'BC', 'QC', 'AB', 'MB', 'SK', 'NS', 'NB'];
+		while (opcoes.length < 4) {
+			const rua = ruas[Math.floor(Math.random() * ruas.length)];
+			const numero = Math.floor(Math.random() * 9999) + 1;
+			const cidade = cidades[Math.floor(Math.random() * cidades.length)];
+			const provincia = provincias[Math.floor(Math.random() * provincias.length)];
+			const enderecoFalso = `${numero} ${rua}, ${cidade}, ${provincia}`;
+			if (!opcoes.includes(enderecoFalso)) {
+				opcoes.push(enderecoFalso);
+			}
+		}
+		// Embaralhar
+		for (let i = opcoes.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[opcoes[i], opcoes[j]] = [opcoes[j], opcoes[i]];
+		}
+		return opcoes;
+	}
+
+	abrirCadastroClienteModal(clienteExistente = null) {
 		// Verificar se há produtos no carrinho
 		const produtosNoCarrinho = Object.entries(this.cart)
 			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado);
@@ -3589,7 +4864,7 @@ class DashboardApp {
 			<div class="modal-content-wrapper" style="max-width: 500px;">
 				<div class="modal-content">
 					<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-						<h3 style="margin: 0; color: #333;">📝 Cadastro para Finalizar Compra</h3>
+						<h3 style="margin: 0; color: #333;">${clienteExistente ? '✅ Dados do Cliente Carregados' : '📝 Cadastro para Finalizar Compra'}</h3>
 						<button onclick="closeModal('${modalId}')" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #888; line-height: 1;">&times;</button>
 					</div>
 
@@ -3678,6 +4953,16 @@ class DashboardApp {
 
 		atualizarContador();
 		countdownInterval = setInterval(atualizarContador, 1000);
+
+		// Preencher campos se cliente existente
+		if (clienteExistente) {
+			setTimeout(() => {
+				document.getElementById('cliente-nome').value = clienteExistente.nome || '';
+				document.getElementById('cliente-telefone').value = clienteExistente.telefone || '';
+				document.getElementById('cliente-email').value = clienteExistente.email || '';
+				document.getElementById('cliente-endereco').value = clienteExistente.endereco || '';
+			}, 100);
+		}
 
 		// Event listener para o formulário
 		const form = document.getElementById('cadastro-cliente-form');
@@ -3795,6 +5080,13 @@ class DashboardApp {
 			.catch(err => console.error('❌ Erro ao enviar confirmação:', err));
 	}
 
+	// PÁGINA DE ESTOQUE
+	renderEstoquePage() {
+		const container = document.getElementById('estoque-container');
+		if (!container) return;
+		container.innerHTML = '<p>Estoque gerenciado via card no dashboard.</p>';
+	}
+
 	// PÁGINA DE ENTREGAS
 	renderEntregasPage() {
 		const container = document.getElementById('entregas-container');
@@ -3831,8 +5123,10 @@ class DashboardApp {
 		today.setHours(0, 0, 0, 0);
 
 		const list = entregas.map(entrega => {
-			const pedido = entrega.pedidos || {};
-			const cliente = pedido.clientes || {};
+			// Encontrar o pedido relacionado
+			const pedido = this.orders.find(o => o.id == entrega.pedido_id) || {};
+			// Encontrar o cliente relacionado
+			const cliente = this.clients.find(c => c.id == pedido.cliente_id) || {};
 			const dataEntrega = new Date(entrega.data_entrega);
 			dataEntrega.setHours(0, 0, 0, 0);
 			
@@ -3928,7 +5222,7 @@ class DashboardApp {
 					<div style="background: linear-gradient(135deg, #667eea, #6dd5ed); border-radius: 8px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
 						<i class="fas fa-user" style="color: #fff; font-size: 1.5rem;"></i>
 					</div>
-					<h4 style="margin: 0; color: #333; font-size: 1.15rem; font-weight: 700;">${escapeHtml(c.nome)}</h4>
+					<h4 style="margin: 0; color: #333; font-size: 1.15rem; font-weight: 700;">${escapeHtml(c.nome)} <span style="font-size: 0.8rem; font-weight: 400; color: #666; background: ${c.canal === 'online' ? '#e8f5e8' : c.canal === 'fisico' ? '#fff3cd' : '#f8f9fa'}; padding: 0.2rem 0.5rem; border-radius: 4px; margin-left: 0.5rem;">${c.canal === 'online' ? 'Online' : c.canal === 'fisico' ? 'Loja Física' : 'Não informado'}</span></h4>
 				</div>
 				<div style="display: flex; justify-content: space-between; align-items: flex-start;">
 					<div style="flex: 1;">
@@ -4076,7 +5370,7 @@ class DashboardApp {
 				return;
 			}
 
-			const clientData = { nome, telefone, email, endereco };
+			const clientData = { nome, telefone, email, endereco, canal: 'fisico' };
 			const result = await this.saveToSupabase('clientes', clientData);
 			if (result) this.clients.unshift(result);
 			await this.loadData();
@@ -6446,6 +7740,16 @@ openAddDespesaModal() {
 
 	async saveToSupabase(table, data) {
 		try {
+			if (!this.supabase) {
+				console.error('Supabase não inicializado - tentando inicializar...');
+				this.supabase = window.supabaseClient;
+			}
+			
+			if (!this.supabase) {
+				alert('Erro: Sistema de banco de dados não inicializado. Recarregue a página.');
+				return null;
+			}
+			
 			const { data: result, error } = await this.supabase
 				.from(table)
 				.insert(data)
@@ -6453,11 +7757,13 @@ openAddDespesaModal() {
 				.single();
 
 			if (error) {
-				console.error(`Erro ao salvar em ${table}:`, error);
-				alert(`Erro ao salvar: ${error.message}`);
+				console.error(`❌ Erro ao salvar em ${table}:`, error);
+				console.error('📋 Dados que estavam sendo salvos:', data);
+				alert(`Erro ao salvar em ${table}: ${error.message}`);
 				return null;
 			}
 
+			console.log(`✅ Dados salvos com sucesso em ${table}:`, result);
 			return result;
 		} catch (error) {
 			console.error(`Erro ao salvar em ${table}:`, error);
@@ -6488,18 +7794,37 @@ openAddDespesaModal() {
 	}
 
 	updateCartBadge() {
-		const badge = document.getElementById('cart-badge');
-		if (!badge) return;
-
-		const totalItems = Object.values(this.cart).reduce((sum, qty) => sum + qty, 0);
+		const totalItems = Object.values(this.cart).reduce((sum, item) => sum + (item.quantidade || 0), 0);
 		
-		if (totalItems > 0) {
-			badge.textContent = totalItems;
-			badge.style.display = 'flex';
-			document.getElementById('cart-float')?.classList.add('cart-has-items');
-		} else {
-			badge.style.display = 'none';
-			document.getElementById('cart-float')?.classList.remove('cart-has-items');
+		// Atualizar badge no header (head-cart)
+		const headCart = document.getElementById('head-cart');
+		if (headCart) {
+			const badgeSpan = headCart.querySelector('span');
+			if (badgeSpan) {
+				if (totalItems > 0) {
+					badgeSpan.textContent = totalItems;
+					badgeSpan.style.display = 'flex';
+					headCart.style.display = 'flex';
+				} else {
+					headCart.style.display = 'none';
+				}
+			}
+		}
+
+		// Atualizar badge flutuante (cart-float) se existir
+		const cartFloat = document.getElementById('cart-float');
+		if (cartFloat) {
+			const badge = cartFloat.querySelector('#cart-badge');
+			if (badge) {
+				if (totalItems > 0) {
+					badge.textContent = totalItems;
+					badge.style.display = 'flex';
+					cartFloat.classList.add('cart-has-items');
+				} else {
+					badge.style.display = 'none';
+					cartFloat.classList.remove('cart-has-items');
+				}
+			}
 		}
 	}
 
@@ -6617,7 +7942,8 @@ openAddDespesaModal() {
 					nome: cliente.nome,
 					telefone: cliente.telefone,
 					email: cliente.email,
-					endereco: cliente.endereco
+					endereco: cliente.endereco,
+					canal: 'online'
 				});
 				if (clienteSalvo && clienteSalvo.id) {
 					clienteId = clienteSalvo.id;
@@ -6626,6 +7952,7 @@ openAddDespesaModal() {
 					return;
 				}
 			}
+			
 			const itens = Object.entries(this.cart).map(([productId, quantidade]) => ({
 				produto_id: productId,
 				quantidade: quantidade.quantidade,
@@ -6633,6 +7960,13 @@ openAddDespesaModal() {
 			}));
 
 			const total = itens.reduce((sum, item) => sum + (item.quantidade * item.preco_unitario), 0);
+
+			// Processar sinal e status de pagamento
+			const fullPayment = document.getElementById('finalizar-full-payment').checked;
+			const sinal = fullPayment ? 0 : (parseFloat(document.getElementById('finalizar-sinal').value) || 0);
+			const valor_pago = fullPayment ? total : sinal;
+			const status = fullPayment ? (formaPagamento === 'dinheiro' ? 'pago' : 'pago') : 
+							(sinal > 0 ? 'confirmado' : 'pendente');
 
 			// Gerar número do pedido
 			const hoje = new Date();
@@ -6650,43 +7984,92 @@ openAddDespesaModal() {
 				cliente_id: clienteId,
 				user_id: this.currentUser?.id, // Adicionar ID do usuário que criou o pedido
 				valor_total: total,
-				valor_pago: formaPagamento === 'dinheiro' ? total : 0, // Assumir pago se dinheiro, senão 0
-				status: formaPagamento === 'dinheiro' ? 'pago' : 'pendente',
+				valor_pago: valor_pago,
+				status: status,
 				data_entrega: dataEntrega || new Date().toISOString().split('T')[0],
 				observacoes: observacoes,
 				idioma: cliente?.idioma || 'pt'
 			};
+			
+			const pedido = await this.saveToSupabase('pedidos', pedidoData);
+			
+			if (!pedido || !pedido.id) {
+				throw new Error('Falha ao salvar o pedido principal');
+			}
 
-			if (pedido) {
-				// Salvar itens do pedido
-				let itensSalvos = 0;
-				for (const item of itens) {
-					try {
-						const itemData = {
-							pedido_id: pedido.id,
-							produto_id: item.produto_id,
-							quantidade: item.quantidade,
-							preco_unitario: item.preco_unitario
-						};
-						await this.saveToSupabase('pedido_itens', itemData);
+			// Salvar itens do pedido
+			let itensSalvos = 0;
+			for (const item of itens) {
+				try {
+					const itemData = {
+						pedido_id: pedido.id,
+						produto_id: item.produto_id,
+						quantidade: item.quantidade,
+						preco_unitario: item.preco_unitario,
+						created_at: new Date().toISOString()
+					};
+					const itemSalvo = await this.saveToSupabase('pedido_itens', itemData);
+					if (itemSalvo) {
 						itensSalvos++;
-					} catch (itemError) {
-						console.error('Erro ao salvar item do pedido:', itemError);
 					}
+				} catch (itemError) {
+					console.error('Erro ao salvar item do pedido:', itemError);
 				}
+			}
 
-				if (itensSalvos === itens.length) {
-					alert('Pedido realizado com sucesso! Entraremos em contato em breve.');
-					closeModal('modal-finalizar-pedido'); // Fechar modal
+			// Reservar estoque se o pedido foi confirmado ou pago
+			if (status === 'confirmado' || status === 'pago') {
+				await this.updateStockForOrder('reserve', pedido.id);
+			}
+
+			// Criar entrega se necessário (apenas para entregas, não para retirada)
+			if (tipoEntrega === 'entrega') {
+				try {
+					console.log('📦 Criando entrega para pedido online:', pedido.id);
+					const entregaData = {
+						pedido_id: pedido.id,
+						data_entrega: dataEntrega || new Date().toISOString().split('T')[0],
+						hora_entrega: null, // Pedidos online não têm horário específico
+						endereco_entrega: enderecoEntrega,
+						status: 'agendada',
+						created_at: new Date().toISOString()
+					};
+					const entregaSalva = await this.saveToSupabase('entregas', entregaData);
+					if (entregaSalva) {
+						console.log('✅ Entrega criada com sucesso:', entregaSalva.id);
+					} else {
+						console.warn('⚠️ Falha ao criar entrega para pedido online');
+					}
+				} catch (entregaError) {
+					console.error('❌ Erro ao criar entrega:', entregaError);
+				}
+			} else {
+				console.log('ℹ️ Pedido online sem entrega (retirada no local)');
+			}
+
+			if (itensSalvos === itens.length) {
+				alert('Pedido realizado com sucesso! Entraremos em contato em breve.');
+				try {
+					if (typeof closeModal === 'function') {
+						closeModal('modal-finalizar-pedido'); // Fechar modal
+					}
 					this.cart = {}; // Limpar carrinho
 					this.updateCartBadge();
-					this.showProdutosPage(); // Voltar para produtos
-				} else {
-					alert('Pedido salvo, mas houve erro ao salvar alguns itens. Entre em contato conosco.');
-					closeModal('modal-finalizar-pedido');
+					this.renderVendasOnlinePage(); // Voltar para produtos e resetar contadores
+				} catch (uiError) {
+					console.error('Erro na interface após salvar pedido:', uiError);
+				}
+			} else {
+				alert('Pedido salvo, mas houve erro ao salvar alguns itens. Entre em contato conosco.');
+				try {
+					if (typeof closeModal === 'function') {
+						closeModal('modal-finalizar-pedido');
+					}
 					this.cart = {};
 					this.updateCartBadge();
-					this.showProdutosPage();
+					this.renderVendasOnlinePage();
+				} catch (uiError) {
+					console.error('Erro na interface após salvar pedido parcial:', uiError);
 				}
 			}
 		} catch (error) {
