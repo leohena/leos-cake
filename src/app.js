@@ -221,6 +221,7 @@ class DashboardApp {
 		this.receitas = [];
 		this.stock = [];
 		this.configuracoes = [];
+		this.entregas = []; // Adicionado para evitar erro de undefined
 		this.initialized = false;
 		this.currentLang = localStorage.getItem('lang') || 'pt-BR';
 		this.supabase = null;
@@ -249,7 +250,21 @@ class DashboardApp {
 			if (!this.isVendasOnline) {
 				this.currentUser = await window.authSystem.getCurrentUser();
 			}
-			this.supabase = window.supabaseClient;
+			
+			// Aguardar inicialização do Supabase
+			let supabaseAttempts = 0;
+			while (!window.supabaseClient && supabaseAttempts < 50) {
+				console.log('⏳ Aguardando inicialização do Supabase...');
+				await new Promise(resolve => setTimeout(resolve, 100));
+				supabaseAttempts++;
+			}
+			
+			if (!window.supabaseClient) {
+				console.warn('⚠️ Supabase não inicializado, pulando real-time updates');
+				this.supabase = null;
+			} else {
+				this.supabase = window.supabaseClient;
+			}
 
 			// Carregar dados
 			await this.loadData();
@@ -262,23 +277,22 @@ class DashboardApp {
 			if (!this.isVendasOnline) {
 				this.createStatsCards();
 				this.createDataCards();
-				if (document.getElementById('entregas-hoje')) {
-					this.updateFollowUpEntregas();
-				}
+				// Removida chamada precoce de updateFollowUpEntregas() - será chamada após carregamento dos dados
 
-				// Subscribe to real-time updates for pedidos
-				let lastPedidoUpdate = 0;
-				this.supabase
-					.channel('pedidos_changes')
-					.on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, async (payload) => {
-						const now = Date.now();
-						if (now - lastPedidoUpdate < 1000) {
-							console.log('⏳ Ignorando atualização de pedido muito próxima');
-							return;
-						}
-						lastPedidoUpdate = now;
-						
-						console.log('Pedido changed:', payload);
+				// Subscribe to real-time updates (apenas se Supabase estiver disponível)
+				if (this.supabase) {
+					let lastPedidoUpdate = 0;
+					this.supabase
+						.channel('pedidos_changes')
+						.on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, async (payload) => {
+							const now = Date.now();
+							if (now - lastPedidoUpdate < 1000) {
+								console.log('⏳ Ignorando atualização de pedido muito próxima');
+								return;
+							}
+							lastPedidoUpdate = now;
+							
+							console.log('Pedido changed:', payload);
 						await this.loadData(); // Reload all data
 						this.loadPedidosStatusList(); // Update orders list
 						if (document.getElementById('entregas-hoje')) {
@@ -315,6 +329,7 @@ class DashboardApp {
 						}
 					})
 					.subscribe();
+			}
 			}
 
 			window.addEventListener('languageChanged', () => this.updateAllTranslations());
@@ -406,42 +421,48 @@ class DashboardApp {
 						
 						// Carregar fotos separadamente apenas se houver produtos
 						if (this.products.length > 0) {
-							// Carregar fotos com atraso
-							const delay = this.isVendasOnline ? 500 : 1000; // Menor delay para vendas online
+							// Carregar fotos com atraso maior
+							const delay = this.isVendasOnline ? 2000 : 3000; // Delay ainda maior
 							setTimeout(async () => {
 								try {
-									// Carregar fotos em lotes menores para evitar timeout
-									const loteSize = 5;
+									// Carregar fotos em lotes de 1 produto por vez para evitar timeout
+									const loteSize = 1; // Apenas 1 por vez para máxima segurança
 									for (let i = 0; i < this.products.length; i += loteSize) {
 										const lote = this.products.slice(i, i + loteSize);
 										const { data: fotosData, error: fotosError } = await this.supabase
 											.from('produtos')
 											.select('id, fotos')
-											.in('id', lote.map(p => p.id));
-										
-										if (!fotosError && fotosData) {
-											fotosData.forEach(item => {
-												const produto = this.products.find(p => p.id === item.id);
-												if (produto) {
-													produto.fotos = item.fotos;
-												}
-											});
+											.in('id', lote.map(p => p.id))
+											.single(); // Usar .single() para lote de 1
+
+										if (fotosError) {
+											console.error('❌ Erro ao carregar fotos do lote:', lote.map(p => p.id), fotosError);
+											// Continuar sem as fotos ao invés de parar tudo
+											continue;
 										}
-										
-										// Pequena pausa entre lotes
-										await new Promise(resolve => setTimeout(resolve, 100));
+
+										if (fotosData) {
+											const produto = this.products.find(p => p.id === fotosData.id);
+											if (produto) {
+												produto.fotos = fotosData.fotos;
+												console.log(`✅ Foto carregada para produto: ${produto.nome}`);
+											}
+										}
+
+										// Pausa maior entre lotes para evitar sobrecarga do servidor
+										await new Promise(resolve => setTimeout(resolve, 500)); // 500ms entre cada foto
 									}
-									console.log('📦 Fotos carregadas em lotes');
-									
+									console.log('📦 Fotos carregadas em lotes menores');
+
 									// Atualizar apenas a seção ativa se ela mostrar produtos
 									if (this.activeSection === 'produtos' || this.activeSection === 'pedidos' || this.isVendasOnline) {
 										// Em vez de re-renderizar completamente, apenas atualizar as imagens
 										this.updateProductImages();
-										
+
 										// Para vendas online, também re-renderizar a página para garantir que tudo apareça
 										if (this.isVendasOnline) {
 											console.log('🔄 Re-renderizando página de vendas online após carregamento de fotos');
-											this.renderVendasOnlinePage();
+											await this.renderVendasOnlinePage();
 										}
 									}
 								} catch (error) {
@@ -1734,7 +1755,15 @@ class DashboardApp {
 		const modal = document.createElement('div');
 		modal.id = modalId;
 		modal.className = 'modal-overlay show';
-		modal.onclick = (e) => { if (e.target === modal) closeModal(modalId); };
+
+		// Adicionar event listener após o modal ser inserido no DOM
+		const handleModalClick = (e) => {
+			if (e.target === modal) {
+				closeModal(modalId);
+			}
+		};
+
+		modal.addEventListener('click', handleModalClick);
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="padding:2rem;max-width:400px;">
 				<h2>Adicionar Estoque - ${product.nome}</h2>
@@ -1813,7 +1842,15 @@ class DashboardApp {
 		const modal = document.createElement('div');
 		modal.id = modalId;
 		modal.className = 'modal-overlay show';
-		modal.onclick = (e) => { if (e.target === modal) closeModal(modalId); };
+
+		// Adicionar event listener após o modal ser inserido no DOM
+		const handleModalClick = (e) => {
+			if (e.target === modal) {
+				closeModal(modalId);
+			}
+		};
+
+		modal.addEventListener('click', handleModalClick);
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="padding:2rem;max-width:400px;">
 				<h2>Adicionar Novo Produto</h2>
@@ -1840,7 +1877,7 @@ class DashboardApp {
 		const cost = parseFloat(document.getElementById('new-cost').value);
 		const preco = parseFloat(document.getElementById('new-preco').value);
 		if (!nome || !quantity || !cost || !preco) return;
-		const { data: productData, error: productError } = await this.supabase
+		const { error: productError } = await this.supabase
 			.from('produtos')
 			.insert({
 				nome,
@@ -1849,31 +1886,18 @@ class DashboardApp {
 				estoque: quantity,
 				categoria: 'Geral',
 				status_produto: 'ativo'
-			})
-			.select()
-			.single();
+			});
 		if (productError) {
 			alert('Erro ao criar produto: ' + productError.message);
 			return;
 		}
-		const { error: stockError } = await this.supabase
-			.from('estoque')
-			.insert({
-				produto_id: productData.id,
-				quantidade_disponivel: quantity,
-				preco_custo: cost,
-				quantidade_reservada: 0,
-				quantidade_vendida: 0,
-				data_producao: new Date().toISOString().split('T')[0]
-			});
-		if (stockError) {
-			alert('Erro ao adicionar estoque: ' + stockError.message);
-		} else {
-			alert('Produto e estoque adicionados!');
-			closeModal('add-product-modal');
-			await this.loadData();
-			this.showEstoqueModal();
-		}
+		// Estoque será criado automaticamente pelo trigger no banco
+		alert('Produto adicionado com sucesso!');
+		closeModal('add-product-modal');
+		// REABILITADO - necessário para manter a lista atualizada
+		await this.loadData();
+		console.log('✅ Dados recarregados após criação de produto');
+		this.showEstoqueModal();
 	}
 
 	showConfigModal() {
@@ -1882,7 +1906,15 @@ class DashboardApp {
 		const modal = document.createElement('div');
 		modal.id = modalId;
 		modal.className = 'modal-overlay show';
-		modal.onclick = (e) => { if (e.target === modal) closeModal(modalId); };
+
+		// Adicionar event listener após o modal ser inserido no DOM
+		const handleModalClick = (e) => {
+			if (e.target === modal) {
+				closeModal(modalId);
+			}
+		};
+
+		modal.addEventListener('click', handleModalClick);
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="padding:2rem;max-width:800px;">
 				<h2>Configurações</h2>
@@ -1913,22 +1945,51 @@ class DashboardApp {
 	showPromocoesModal() {
 		const modalsContainer = document.getElementById('modals-container');
 		const modalId = 'promocoes-modal';
+
+		// Remover modal existente se já estiver aberto (importante para evitar camadas)
+		const existingModal = document.getElementById(modalId);
+		if (existingModal) {
+			console.log('🧹 Removendo modal existente:', modalId);
+			existingModal.remove();
+		}
+
 		const modal = document.createElement('div');
 		modal.id = modalId;
 		modal.className = 'modal-overlay show';
-		modal.onclick = (e) => { if (e.target === modal) closeModal(modalId); };
+
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="padding:2rem;max-width:800px;">
-				<h2>Promoções</h2>
+				<h2 data-i18n="modal.promocoes">Promoções</h2>
 				<div id="promocoes-content">
 					<!-- Conteúdo será carregado aqui -->
 				</div>
 				<div style="display:flex;justify-content:flex-end;gap:1rem;margin-top:2rem;">
-					<button onclick="closeModal('${modalId}')">Fechar</button>
+					<button id="close-promocoes-btn" data-i18n="btn.fechar">Fechar</button>
 				</div>
 			</div>
 		`;
+
 		modalsContainer.appendChild(modal);
+
+		// Adicionar event listeners após o modal ser inserido no DOM
+		// Usar uma função nomeada para poder removê-la depois se necessário
+		const handleModalClick = (e) => {
+			if (e.target === modal) {
+				closeModal(modalId);
+			}
+		};
+
+		const handleCloseBtnClick = () => {
+			closeModal(modalId);
+		};
+
+		modal.addEventListener('click', handleModalClick);
+
+		const closeBtn = modal.querySelector('#close-promocoes-btn');
+		if (closeBtn) {
+			closeBtn.addEventListener('click', handleCloseBtnClick);
+		}
+
 		this.loadPromocoesContent();
 	}
 
@@ -2032,6 +2093,10 @@ class DashboardApp {
 
 	async loadConfigPromocoes() {
 		const content = document.getElementById('config-content');
+		if (!content) {
+			console.warn('Elemento config-content não encontrado');
+			return;
+		}
 		const { data: promocoes, error } = await this.supabase
 			.from('promocoes')
 			.select('*')
@@ -2043,6 +2108,7 @@ class DashboardApp {
 				<tr>
 					<td>${p.nome}</td>
 					<td>${new Date(p.data_inicio).toLocaleDateString('pt-BR')} - ${new Date(p.data_fim).toLocaleDateString('pt-BR')}</td>
+					<td>${p.canal || 'Todos'}</td>
 					<td>${p.status}</td>
 					<td>
 						<button onclick="window.dashboardApp.editPromocao('${p.id}')">Editar</button>
@@ -2051,7 +2117,7 @@ class DashboardApp {
 				</tr>
 			`).join('');
 		} else {
-			tableRows = '<tr><td colspan="4" style="text-align:center;">Nenhuma promoção encontrada</td></tr>';
+			tableRows = '<tr><td colspan="5" style="text-align:center;">Nenhuma promoção encontrada</td></tr>';
 		}
 
 		content.innerHTML = `
@@ -2061,6 +2127,7 @@ class DashboardApp {
 					<tr style="background:#f5f5f5;">
 						<th style="padding:0.5rem;">Nome</th>
 						<th style="padding:0.5rem;">Período</th>
+						<th style="padding:0.5rem;">Canal</th>
 						<th style="padding:0.5rem;">Status</th>
 						<th style="padding:0.5rem;">Ações</th>
 					</tr>
@@ -2074,10 +2141,14 @@ class DashboardApp {
 	}
 
 	addPromocao() {
+		// Fechar modal de configurações antes de abrir modal de promoção
+		closeModal('config-modal');
 		this.showPromocaoModal();
 	}
 
 	editPromocao(id) {
+		// Fechar modal de configurações antes de abrir modal de promoção
+		closeModal('config-modal');
 		this.showPromocaoModal(id);
 	}
 
@@ -2116,10 +2187,19 @@ class DashboardApp {
 		const modal = document.createElement('div');
 		modal.id = modalId;
 		modal.className = 'modal-overlay show';
-		modal.onclick = (e) => { if (e.target === modal) closeModal(modalId); };
+
+		// Adicionar event listeners após o modal ser inserido no DOM
+		// Usar uma função nomeada para poder removê-la depois se necessário
+		const handleModalClick = (e) => {
+			if (e.target === modal) {
+				closeModal(modalId);
+			}
+		};
+
+		modal.addEventListener('click', handleModalClick);
 
 		// Opções de produtos
-		let produtoOptions = '<option value="">Todos os produtos</option>';
+		let produtoOptions = `<option value="" ${!promocao || !promocao.produto_id ? 'selected' : ''}>Todos os produtos</option>`;
 		if (this.products) {
 			this.products.forEach(p => {
 				produtoOptions += `<option value="${p.id}" ${promocao && promocao.produto_id === p.id ? 'selected' : ''}>${p.nome}</option>`;
@@ -2127,54 +2207,247 @@ class DashboardApp {
 		}
 
 		modal.innerHTML = `
-			<div class="modal-content-wrapper" style="padding:2rem;max-width:600px;">
+			<div class="modal-content-wrapper" style="padding:2rem;max-width:900px;max-height:90vh;overflow-y:auto;">
 				<h2>${id ? 'Editar' : 'Adicionar'} Promoção</h2>
-				<label>Nome da Promoção</label>
-				<input type="text" id="promocao-nome" value="${promocao ? promocao.nome : ''}" required>
-				
-				<label>Data Início</label>
-				<input type="date" id="promocao-data-inicio" value="${promocao ? promocao.data_inicio.split('T')[0] : ''}" required>
-				
-				<label>Data Fim</label>
-				<input type="date" id="promocao-data-fim" value="${promocao ? promocao.data_fim.split('T')[0] : ''}" required>
-				
-				<label>Produto (opcional)</label>
-				<select id="promocao-produto">${produtoOptions}</select>
-				
-				<label>Quantidade Mínima (opcional)</label>
-				<input type="number" id="promocao-quantidade" min="0" value="${promocao ? promocao.quantidade_minima || '' : ''}">
-				
-				<label>Valor Mínimo (opcional)</label>
-				<input type="number" id="promocao-valor" step="0.01" min="0" value="${promocao ? promocao.valor_minimo || '' : ''}">
-				
-				<label>Tipo de Desconto</label>
-				<select id="promocao-desconto-tipo">
-					<option value="percentual" ${promocao && promocao.desconto_tipo === 'percentual' ? 'selected' : ''}>Percentual</option>
-					<option value="valor" ${promocao && promocao.desconto_tipo === 'valor' ? 'selected' : ''}>Valor Fixo</option>
-				</select>
-				
-				<label>Valor do Desconto</label>
-				<input type="number" id="promocao-desconto-valor" step="0.01" min="0" value="${promocao ? promocao.desconto_valor || '' : ''}" required>
-				
-				<label>Frete Grátis</label>
-				<input type="checkbox" id="promocao-frete" ${promocao && promocao.frete_gratis ? 'checked' : ''}>
-				
-				<label>Regiões (separadas por vírgula, opcional)</label>
-				<input type="text" id="promocao-regioes" value="${promocao ? promocao.regioes || '' : ''}" placeholder="Ex: São Paulo, Rio de Janeiro">
-				
-				<label>Status</label>
-				<select id="promocao-status">
-					<option value="ativo" ${promocao && promocao.status === 'ativo' ? 'selected' : ''}>Ativo</option>
-					<option value="inativo" ${promocao && promocao.status === 'inativo' ? 'selected' : ''}>Inativo</option>
-				</select>
-				
-				<div style="display:flex;justify-content:flex-end;gap:1rem;margin-top:2rem;">
+
+				<div style="display:flex;gap:2rem;">
+					<!-- Formulário -->
+					<div style="flex:1;">
+						<h3>Configurações da Promoção</h3>
+
+						<label>Nome da Promoção <span style="color:red;">*</span></label>
+						<input type="text" id="promocao-nome" value="${promocao ? promocao.nome : ''}" required style="width:100%;margin-bottom:1rem;">
+
+						<div style="display:flex;gap:1rem;margin-bottom:1rem;">
+							<div style="flex:1;">
+								<label>Data Início <span style="color:red;">*</span></label>
+								<input type="date" id="promocao-data-inicio" value="${promocao ? promocao.data_inicio.split('T')[0] : ''}" required style="width:100%;">
+							</div>
+							<div style="flex:1;">
+								<label>Data Fim <span style="color:red;">*</span></label>
+								<input type="date" id="promocao-data-fim" value="${promocao ? promocao.data_fim.split('T')[0] : ''}" required style="width:100%;">
+							</div>
+						</div>
+
+						<label>Status</label>
+						<select id="promocao-status" style="width:100%;margin-bottom:1rem;">
+							<option value="ativo" ${promocao && promocao.status === 'ativo' ? 'selected' : ''}>Ativo</option>
+							<option value="inativo" ${promocao && promocao.status === 'inativo' ? 'selected' : ''}>Inativo</option>
+						</select>
+
+						<label>Canal de Venda</label>
+						<select id="promocao-canal" style="width:100%;margin-bottom:1rem;">
+							<option value="ambos" ${promocao && (!promocao.canal || promocao.canal === 'ambos') ? 'selected' : ''}>Ambos (Físico e Online)</option>
+							<option value="fisico" ${promocao && promocao.canal === 'fisico' ? 'selected' : ''}>Apenas Vendas Físicas</option>
+							<option value="online" ${promocao && promocao.canal === 'online' ? 'selected' : ''}>Apenas Vendas Online</option>
+						</select>
+
+						<hr style="margin:1.5rem 0;border:none;border-top:1px solid #eee;">
+
+						<h4>Condições da Promoção <small style="color:#666;">(pelo menos uma)</small></h4>
+
+						<label>Produto Específico (opcional)</label>
+						<select id="promocao-produto" style="width:100%;margin-bottom:1rem;">${produtoOptions}</select>
+
+						<div style="display:flex;gap:1rem;margin-bottom:1rem;">
+							<div style="flex:1;">
+								<label>Quantidade Mínima</label>
+								<input type="number" id="promocao-quantidade" min="1" value="${promocao ? promocao.quantidade_minima || '' : ''}" placeholder="Ex: 3" style="width:100;">
+								<small style="color:#666;">Deixe vazio se usar Valor Mínimo</small>
+							</div>
+							<div style="flex:1;">
+								<label>Valor Mínimo (R$)</label>
+								<input type="number" id="promocao-valor" step="0.01" min="0.01" value="${promocao ? promocao.valor_minimo || '' : ''}" placeholder="Ex: 50.00" style="width:100;">
+								<small style="color:#666;">Deixe vazio se usar Quantidade Mínima</small>
+							</div>
+						</div>
+
+						<label>Regiões (separadas por vírgula, opcional)</label>
+						<input type="text" id="promocao-regioes" value="${promocao ? promocao.regioes || '' : ''}" placeholder="Ex: São Paulo, Rio de Janeiro" style="width:100%;margin-bottom:1rem;">
+
+						<hr style="margin:1.5rem 0;border:none;border-top:1px solid #eee;">
+
+						<h4>Benefícios da Promoção <small style="color:#666;">(pelo menos um)</small></h4>
+
+						<div style="display:flex;gap:1rem;margin-bottom:1rem;">
+							<div style="flex:1;">
+								<label>Tipo de Desconto</label>
+								<select id="promocao-desconto-tipo" style="width:100%;">
+									<option value="percentual" ${promocao && promocao.desconto_tipo === 'percentual' ? 'selected' : ''}>Percentual (%)</option>
+									<option value="valor" ${promocao && promocao.desconto_tipo === 'valor' ? 'selected' : ''}>Valor Fixo (R$)</option>
+								</select>
+							</div>
+							<div style="flex:1;">
+								<label>Valor do Desconto</label>
+								<input type="number" id="promocao-desconto-valor" step="0.01" min="0.01" value="${promocao ? promocao.desconto_valor || '' : ''}" style="width:100;">
+								<small style="color:#666;">Deixe vazio se usar apenas Frete Grátis</small>
+							</div>
+						</div>
+
+						<label style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;">
+							<input type="checkbox" id="promocao-frete" ${promocao && promocao.frete_gratis ? 'checked' : ''}>
+							Frete Grátis
+							<small style="color:#666;">(pode ser usado junto com desconto)</small>
+						</label>
+					</div>
+
+					<!-- Visualizador -->
+					<div style="flex:1;">
+						<h3>Visualização do Banner</h3>
+						<div id="promocao-preview" style="border:2px dashed #ddd;border-radius:8px;padding:1rem;background:#f9f9f9;min-height:300px;">
+							<div style="text-align:center;color:#888;margin-top:100px;">
+								<i class="fas fa-eye" style="font-size:2rem;margin-bottom:0.5rem;"></i>
+								<p>Preencha os campos para ver a prévia</p>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<hr style="margin:1.5rem 0;border:none;border-top:1px solid #eee;">
+
+				<label>Informações Adicionais (opcional)</label>
+				<textarea id="promocao-observacoes" rows="3" placeholder="Adicione informações adicionais sobre a promoção..." style="width:100%;margin-bottom:1rem;padding:0.5rem;border:1px solid #ddd;border-radius:4px;resize:vertical;">${promocao ? promocao.observacoes || '' : ''}</textarea>
+
+				<div style="display:flex;justify-content:flex-end;gap:1rem;margin-top:2rem;border-top:1px solid #eee;padding-top:1rem;">
 					<button onclick="closeModal('${modalId}')">Cancelar</button>
-					<button onclick="window.dashboardApp.savePromocao('${id}')">Salvar</button>
+					<button onclick="window.dashboardApp.savePromocao(${id ? `'${id}'` : 'null'})" style="background:#28a745;color:white;">Salvar Promoção</button>
 				</div>
 			</div>
 		`;
 		modalsContainer.appendChild(modal);
+
+		// Adicionar event listeners para atualizar preview em tempo real
+		this.setupPromocaoPreview();
+	}
+
+	setupPromocaoPreview() {
+		const fields = [
+			'promocao-nome', 'promocao-data-inicio', 'promocao-data-fim',
+			'promocao-produto', 'promocao-quantidade', 'promocao-valor',
+			'promocao-desconto-tipo', 'promocao-desconto-valor',
+			'promocao-frete', 'promocao-regioes', 'promocao-status',
+			'promocao-observacoes'
+		];
+
+		fields.forEach(fieldId => {
+			const element = document.getElementById(fieldId);
+			if (element) {
+				element.addEventListener('input', () => this.updatePromocaoPreview());
+				element.addEventListener('change', () => this.updatePromocaoPreview());
+			}
+		});
+
+		// Atualizar preview inicial
+		this.updatePromocaoPreview();
+	}
+
+	updatePromocaoPreview() {
+		const nome = document.getElementById('promocao-nome')?.value || '';
+		const dataInicio = document.getElementById('promocao-data-inicio')?.value || '';
+		const dataFim = document.getElementById('promocao-data-fim')?.value || '';
+		const produtoId = document.getElementById('promocao-produto')?.value || '';
+		const quantidade = document.getElementById('promocao-quantidade')?.value || '';
+		const valor = document.getElementById('promocao-valor')?.value || '';
+		const descontoTipo = document.getElementById('promocao-desconto-tipo')?.value || 'percentual';
+		const descontoValor = document.getElementById('promocao-desconto-valor')?.value || '';
+		const freteGratis = document.getElementById('promocao-frete')?.checked || false;
+		const regioes = document.getElementById('promocao-regioes')?.value || '';
+		const status = document.getElementById('promocao-status')?.value || 'ativo';
+		const observacoes = document.getElementById('promocao-observacoes')?.value || '';
+
+		const preview = document.getElementById('promocao-preview');
+
+		if (!nome && !dataInicio && !dataFim) {
+			preview.innerHTML = `
+				<div style="text-align:center;color:#888;margin-top:100px;">
+					<i class="fas fa-eye" style="font-size:2rem;margin-bottom:0.5rem;"></i>
+					<p>Preencha os campos para ver a prévia</p>
+				</div>
+			`;
+			return;
+		}
+
+		// Construir descrição da promoção
+		let titulo = nome || 'Nome da Promoção';
+		let descricao = '';
+
+		// Condições (apenas as que foram preenchidas)
+		let condicoes = [];
+		if (produtoId) {
+			const produto = this.products?.find(p => p.id === produtoId);
+			if (produto) condicoes.push(`Produto: ${produto.nome}`);
+		}
+		if (quantidade && parseInt(quantidade) > 0) condicoes.push(`Quantidade mínima: ${quantidade}`);
+		if (valor && parseFloat(valor) > 0) condicoes.push(`Valor mínimo: R$ ${this.formatCurrency(parseFloat(valor))}`);
+		if (regioes.trim()) condicoes.push(`Regiões: ${regioes.trim()}`);
+
+		// Benefícios (apenas os que foram preenchidos)
+		let beneficios = [];
+		if (descontoValor && parseFloat(descontoValor) > 0) {
+			if (descontoTipo === 'percentual') {
+				beneficios.push(`${descontoValor}% de desconto`);
+			} else {
+				beneficios.push(`R$ ${this.formatCurrency(parseFloat(descontoValor))} de desconto`);
+			}
+		}
+		if (freteGratis) beneficios.push('Frete grátis');
+
+		// Status
+		const statusColor = status === 'ativo' ? '#28a745' : '#6c757d';
+		const statusText = status === 'ativo' ? 'ATIVA' : 'INATIVA';
+
+		// Datas
+		let periodo = '';
+		if (dataInicio && dataFim) {
+			const inicio = new Date(dataInicio).toLocaleDateString('pt-BR');
+			const fim = new Date(dataFim).toLocaleDateString('pt-BR');
+			periodo = `${inicio} até ${fim}`;
+		}
+
+		preview.innerHTML = `
+			<div style="background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+				<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+					<div>
+						<h3 style="margin: 0 0 0.5rem 0; font-size: 1.4rem; font-weight: 700;">🎉 ${titulo}</h3>
+						${periodo ? `<div style="font-size: 0.9rem; opacity: 0.9;">📅 ${periodo}</div>` : ''}
+					</div>
+					<div style="background: ${statusColor}; color: white; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
+						${statusText}
+					</div>
+				</div>
+
+				${condicoes.length > 0 ? `
+					<div style="margin-bottom: 1rem;">
+						<h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; opacity: 0.9;">📋 Condições:</h4>
+						<ul style="margin: 0; padding-left: 1.2rem; font-size: 0.9rem;">
+							${condicoes.map(c => `<li>${c}</li>`).join('')}
+						</ul>
+					</div>
+				` : ''}
+
+				${beneficios.length > 0 ? `
+					<div style="margin-bottom: 1rem;">
+						<h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; opacity: 0.9;">🎁 Benefícios:</h4>
+						<ul style="margin: 0; padding-left: 1.2rem; font-size: 0.9rem;">
+							${beneficios.map(b => `<li style="color: #fff3cd; font-weight: 600;">${b}</li>`).join('')}
+						</ul>
+					</div>
+				` : ''}
+
+				${observacoes.trim() ? `
+					<div style="margin-bottom: 1rem;">
+						<h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; opacity: 0.9;">ℹ️ Informações:</h4>
+						<p style="margin: 0; font-size: 0.9rem; font-style: italic; opacity: 0.9;">${observacoes.trim()}</p>
+					</div>
+				` : ''}
+
+				<div style="text-align: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.3);">
+					<button style="background: white; color: #ff6b9d; border: none; padding: 0.8rem 2rem; border-radius: 25px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+						🛒 APROVEITAR OFERTA
+					</button>
+				</div>
+			</div>
+		`;
 	}
 
 	async savePromocao(id) {
@@ -2185,52 +2458,115 @@ class DashboardApp {
 		const quantidadeMinima = parseInt(document.getElementById('promocao-quantidade').value) || null;
 		const valorMinimo = parseFloat(document.getElementById('promocao-valor').value) || null;
 		const descontoTipo = document.getElementById('promocao-desconto-tipo').value;
-		const descontoValor = parseFloat(document.getElementById('promocao-desconto-valor').value);
+		const descontoValor = parseFloat(document.getElementById('promocao-desconto-valor').value) || null;
 		const freteGratis = document.getElementById('promocao-frete').checked;
-		const regioes = document.getElementById('promocao-regioes').value || null;
+		const regioes = document.getElementById('promocao-regioes').value.trim() || null;
 		const status = document.getElementById('promocao-status').value;
+		const canal = document.getElementById('promocao-canal').value;
+		const observacoes = document.getElementById('promocao-observacoes').value.trim() || null;
 
-		if (!nome || !dataInicio || !dataFim || !descontoValor) {
-			alert('Preencha todos os campos obrigatórios!');
+		// Validações inteligentes
+		const erros = [];
+
+		// Campos obrigatórios básicos
+		if (!nome.trim()) erros.push('Nome da promoção é obrigatório');
+		if (!dataInicio) erros.push('Data de início é obrigatória');
+		if (!dataFim) erros.push('Data de fim é obrigatória');
+
+		// Pelo menos uma condição deve ser especificada
+		if (!quantidadeMinima && !valorMinimo) {
+			erros.push('Especifique pelo menos uma condição: Quantidade Mínima OU Valor Mínimo');
+		}
+
+		// Pelo menos um benefício deve ser especificado
+		if (!descontoValor && !freteGratis) {
+			erros.push('Especifique pelo menos um benefício: Desconto OU Frete Grátis');
+		}
+
+		// Se especificou desconto, o valor deve ser válido
+		if (descontoValor !== null && descontoValor <= 0) {
+			erros.push('Valor do desconto deve ser maior que zero');
+		}
+
+		// Se especificou quantidade, deve ser válida
+		if (quantidadeMinima !== null && quantidadeMinima <= 0) {
+			erros.push('Quantidade mínima deve ser maior que zero');
+		}
+
+		// Se especificou valor mínimo, deve ser válido
+		if (valorMinimo !== null && valorMinimo <= 0) {
+			erros.push('Valor mínimo deve ser maior que zero');
+		}
+
+		// Validar período
+		if (dataInicio && dataFim && new Date(dataInicio) > new Date(dataFim)) {
+			erros.push('Data de início deve ser anterior à data de fim');
+		}
+
+		if (erros.length > 0) {
+			alert('Erros encontrados:\n\n' + erros.join('\n'));
 			return;
 		}
 
+		// Preparar dados para salvar
 		const data = {
-			nome,
+			nome: nome.trim(),
 			data_inicio: dataInicio,
 			data_fim: dataFim,
-			produto_id: produtoId,
 			quantidade_minima: quantidadeMinima,
 			valor_minimo: valorMinimo,
 			desconto_tipo: descontoTipo,
-			desconto_valor: descontoValor,
+			desconto_valor: descontoValor !== null ? descontoValor : 0, // Sempre definir valor, nunca null
 			frete_gratis: freteGratis,
 			regioes: regioes,
-			status
+			status,
+			canal: canal,
+			observacoes: observacoes
 		};
 
-		let result;
-		if (id) {
-			result = await this.saveToSupabase('promocoes', { ...data, id });
-		} else {
-			result = await this.saveToSupabase('promocoes', data);
+		// Adicionar produto_id apenas se foi selecionado
+		if (produtoId && produtoId !== '' && produtoId !== 'null') {
+			data.produto_id = produtoId;
 		}
 
-		if (result) {
-			alert('Promoção salva com sucesso!');
-			closeModal('promocao-modal');
-			this.loadConfigPromocoes();
+		let result;
+		try {
+			if (id) {
+				result = await this.saveToSupabase('promocoes', data, id);
+			} else {
+				result = await this.saveToSupabase('promocoes', data);
+			}
+
+			if (result) {
+				alert('Promoção salva com sucesso!');
+				closeModal('promocao-modal');
+				this.loadConfigPromocoes();
+			} else {
+				alert('Erro ao salvar promoção. Verifique os dados e tente novamente.');
+			}
+		} catch (error) {
+			console.error('Erro ao salvar promoção:', error);
+			alert('Erro ao salvar promoção: ' + (error.message || 'Erro desconhecido'));
 		}
 	}
 
 	async loadActivePromocoes() {
 		const today = new Date().toISOString().split('T')[0];
-		const { data: promocoes, error } = await this.supabase
+		let query = this.supabase
 			.from('promocoes')
 			.select('*')
 			.eq('status', 'ativo')
 			.lte('data_inicio', today)
 			.gte('data_fim', today);
+
+		// Filtrar por canal se não for admin (no dashboard)
+		if (!this.isVendasOnline && !this.isAdmin) {
+			query = query.or('canal.eq.ambos,canal.eq.fisico');
+		} else if (this.isVendasOnline) {
+			query = query.or('canal.eq.ambos,canal.eq.online');
+		}
+
+		const { data: promocoes, error } = await query;
 
 		if (error) {
 			console.error('Erro ao carregar promoções ativas:', error);
@@ -2238,8 +2574,65 @@ class DashboardApp {
 		}
 
 		if (promocoes && promocoes.length > 0) {
+			this.activePromocoes = promocoes; // Armazenar promoções ativas
 			this.showPromocoesPopup(promocoes);
+		} else {
+			this.activePromocoes = [];
 		}
+	}
+
+	// Verificar se o carrinho atual é elegível a promoções
+	checkCartPromocoes(cartTotal, cartItems) {
+		if (!this.activePromocoes || this.activePromocoes.length === 0) {
+			return null;
+		}
+
+		// Verificar cada promoção
+		for (const promocao of this.activePromocoes) {
+			// Verificar se a promoção é aplicável ao canal atual
+			const canalAtual = this.isVendasOnline ? 'online' : 'fisico';
+			if (promocao.canal && promocao.canal !== 'ambos' && promocao.canal !== canalAtual) {
+				continue; // Pular promoções que não são para este canal
+			}
+
+			let elegivel = false;
+
+			// Verificar condições da promoção
+			if (promocao.produto_id) {
+				// Promoção específica para um produto
+				elegivel = produtosNoCarrinho.has(promocao.produto_id);
+			} else {
+				// Promoção geral - verificar quantidade ou valor mínimo
+				if (promocao.quantidade_minima && totalItens >= promocao.quantidade_minima) {
+					elegivel = true;
+				} else if (promocao.valor_minimo && totalValor >= promocao.valor_minimo) {
+					elegivel = true;
+				}
+			}
+
+			if (elegivel) {
+				// Retornar os benefícios da promoção
+				let beneficios = [];
+				if (promocao.desconto_valor) {
+					if (promocao.desconto_tipo === 'percentual') {
+						beneficios.push(`${promocao.desconto_valor}% de desconto`);
+					} else {
+						beneficios.push(`R$ ${this.formatCurrency(promocao.desconto_valor)} de desconto`);
+					}
+				}
+				if (promocao.frete_gratis) {
+					beneficios.push('Frete grátis');
+				}
+
+				return {
+					nome: promocao.nome,
+					beneficios: beneficios,
+					tipo: promocao.produto_id ? 'produto' : 'geral'
+				};
+			}
+		}
+
+		return null;
 	}
 
 	showPromocoesPopup(promocoes) {
@@ -2248,36 +2641,124 @@ class DashboardApp {
 		const modal = document.createElement('div');
 		modal.id = modalId;
 		modal.className = 'modal-overlay show';
-		modal.onclick = (e) => { if (e.target === modal) closeModal(modalId); };
+		modal.style.cssText = `
+			position: fixed;
+			z-index: 10000;
+			left: 0;
+			top: 0;
+			width: 100%;
+			height: 100%;
+			background: rgba(0,0,0,0.7);
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			animation: fadeIn 0.3s ease-out;
+		`;
+
+		// Adicionar event listener após o modal ser inserido no DOM
+		const handleModalClick = (e) => {
+			if (e.target === modal) {
+				closeModal(modalId);
+			}
+		};
+
+		modal.addEventListener('click', handleModalClick);
 
 		let promocoesHtml = '';
 		promocoes.forEach(p => {
-			let descricao = `${p.nome}`;
+			let condicoes = [];
 			if (p.produto_id) {
-				const produto = this.products.find(prod => prod.id === p.produto_id);
-				if (produto) descricao += ` em ${produto.nome}`;
+				const produto = this.products?.find(prod => prod.id === p.produto_id);
+				if (produto) condicoes.push(`${t('promocoes.produto')} ${produto.nome}`);
 			}
-			if (p.quantidade_minima) descricao += ` - Compre ${p.quantidade_minima} ou mais`;
-			if (p.valor_minimo) descricao += ` - Valor mínimo R$ ${this.formatCurrency(p.valor_minimo)}`;
+			if (p.quantidade_minima) condicoes.push(`${t('promocoes.quantidade_minima')} ${p.quantidade_minima}`);
+			if (p.valor_minimo) condicoes.push(`${t('promocoes.valor_minimo')} R$ ${this.formatCurrency(p.valor_minimo)}`);
+			if (p.regioes) condicoes.push(`${t('promocoes.regioes')} ${p.regioes}`);
+
+			let beneficios = [];
 			if (p.desconto_valor) {
 				if (p.desconto_tipo === 'percentual') {
-					descricao += ` - ${p.desconto_valor}% de desconto`;
+					beneficios.push(`${p.desconto_valor}${t('promocoes.desconto_percentual')}`);
 				} else {
-					descricao += ` - R$ ${this.formatCurrency(p.desconto_valor)} de desconto`;
+					beneficios.push(`R$ ${this.formatCurrency(p.desconto_valor)} ${t('promocoes.desconto_valor')}`);
 				}
 			}
-			if (p.frete_gratis) descricao += ' - Frete grátis';
-			if (p.regioes) descricao += ` - Apenas para: ${p.regioes}`;
+			if (p.frete_gratis) beneficios.push(t('promocoes.frete_gratis'));
 
-			promocoesHtml += `<div style="margin-bottom:1rem; padding:1rem; background:#f9f9f9; border-radius:8px;">${descricao}</div>`;
+			promocoesHtml += `
+				<div style="background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 1rem; position: relative; overflow: hidden;">
+					${p.produto_id ? (() => {
+						try {
+							const produto = this.products?.find(prod => prod.id === p.produto_id);
+							if (produto && produto.fotos && produto.fotos.length > 0) {
+								let fotosArray;
+								try {
+									fotosArray = JSON.parse(produto.fotos);
+								} catch (e) {
+									console.warn('Erro ao fazer parse das fotos do produto:', produto.fotos);
+									return '';
+								}
+								if (fotosArray && fotosArray.length > 0) {
+									return `<div style="position: absolute; top: 0; right: 0; width: 100px; height: 100px; border-radius: 0 12px 0 50px; overflow: hidden; opacity: 0.8;">
+										<img src="${fotosArray[0]}" alt="${produto.nome}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'">
+									</div>`;
+								}
+							}
+						} catch (error) {
+							console.warn('Erro ao processar foto do produto:', error);
+						}
+						return '';
+					})() : ''}
+					<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; ${p.produto_id ? 'margin-right: 80px;' : ''}">
+						<div>
+							<h3 style="margin: 0 0 0.5rem 0; font-size: 1.3rem; font-weight: 700;">🎉 ${p.nome}</h3>
+							${p.produto_id ? (() => {
+								const produto = this.products?.find(prod => prod.id === p.produto_id);
+								return produto ? `<div style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem;">🍰 ${produto.nome}</div>` : '';
+							})() : ''}
+						</div>
+						<div style="background: #28a745; color: white; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
+							${t('promocoes.ativa')}
+						</div>
+					</div>
+
+					${condicoes.length > 0 ? `
+						<div style="margin-bottom: 1rem;">
+							<h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; opacity: 0.9;">📋 ${t('promocoes.condicoes')}</h4>
+							<ul style="margin: 0; padding-left: 1.2rem; font-size: 0.9rem;">
+								${condicoes.map(c => `<li>${c}</li>`).join('')}
+							</ul>
+						</div>
+					` : ''}
+
+					${beneficios.length > 0 ? `
+						<div style="margin-bottom: 1rem;">
+							<h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; opacity: 0.9;">🎁 ${t('promocoes.beneficios')}</h4>
+							<ul style="margin: 0; padding-left: 1.2rem; font-size: 0.9rem;">
+								${beneficios.map(b => `<li style="color: #fff3cd; font-weight: 600;">${b}</li>`).join('')}
+							</ul>
+						</div>
+					` : ''}
+
+					${p.observacoes && p.observacoes.trim() ? `
+						<div style="margin-bottom: 1rem;">
+							<h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; opacity: 0.9;">📝 ${t('promocoes.observacoes')}</h4>
+							<p style="margin: 0; font-size: 0.9rem; font-style: italic; opacity: 0.9;">${p.observacoes.trim()}</p>
+						</div>
+					` : ''}
+				</div>
+			`;
 		});
 
 		modal.innerHTML = `
-			<div class="modal-content-wrapper" style="padding:2rem;max-width:500px;">
-				<h2>🎉 Promoções Vigentes!</h2>
+			<div class="modal-content-wrapper" style="padding:2rem;max-width:600px;max-height:80vh;overflow-y:auto;border-radius:16px;">
+				<div style="text-align: center; margin-bottom: 2rem;">
+					<h2 style="margin: 0; color: #ff6b9d; font-size: 2rem;">🎉 ${t('promocoes.titulo')}</h2>
+					<p style="margin: 0.5rem 0 0 0; color: #666;">${t('promocoes.descricao')}</p>
+				</div>
 				${promocoesHtml}
-				<div style="display:flex;justify-content:flex-end;gap:1rem;margin-top:2rem;">
-					<button onclick="closeModal('${modalId}')">Fechar</button>
+				<div style="display:flex;justify-content:center;margin-top:2rem;">
+					<button onclick="closeModal('${modalId}')" style="background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; padding: 1rem 3rem; border-radius: 25px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(255,107,157,0.3);" data-i18n="promocoes.fechar"></button>
 				</div>
 			</div>
 		`;
@@ -3115,6 +3596,9 @@ class DashboardApp {
 			}
 		});
 
+		// Não carregar promoções na página de pedidos (apenas vendas online)
+		let promocoesBanner = '';
+
 		// Dropdown de categorias + Botão Cliente + Total Carrinho
 		const categorias = [...new Set(this.products.map(p => p.categoria).filter(Boolean))];
 		let categoriaSelecionada = this.selectedCategoria || '';
@@ -3122,19 +3606,19 @@ class DashboardApp {
 		const topBar = `
 			<div style="width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
 				<button onclick="window.dashboardApp.openQuickAddClientModal()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; box-shadow: 0 4px 12px rgba(102,126,234,0.3); display: flex; align-items: center; gap: 0.5rem;">
-					<i class="fas fa-user-plus"></i> Adicionar Cliente
+					<i class="fas fa-user-plus"></i> <span data-i18n="vendas_online.adicionar_cliente"></span>
 				</button>
 				
 				<div style="display: flex; align-items: center; gap: 0.5rem;">
-					<label for="dropdown-categoria" style="font-weight: 600;">Filtrar:</label>
+					<label for="dropdown-categoria" style="font-weight: 600;" data-i18n="vendas_online.filtrar"></label>
 					<select id="dropdown-categoria" style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid #eee; font-size: 1rem;">
-						<option value="">Todas Categorias</option>
+						<option value="" data-i18n="vendas_online.todas_categorias"></option>
 						${categorias.map(cat => `<option value="${cat}" ${cat === categoriaSelecionada ? 'selected' : ''}>${cat}</option>`).join('')}
 					</select>
 				</div>
 				
 				<div style="font-size: 1.15rem; font-weight: 700; color: #28a745; background: #f8f9fa; border-radius: 8px; padding: 0.5rem 1.2rem;">
-					Total: <span class="pedidos-cart-total">${this.formatCurrency(cartTotal)}</span>
+					<span data-i18n="vendas_online.total"></span> <span class="pedidos-cart-total">${this.formatCurrency(cartTotal)}</span>
 				</div>
 			</div>
 		`;
@@ -3161,7 +3645,7 @@ class DashboardApp {
 								<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
 									<span style="font-size: 1.0rem; font-weight: 700; color: #333;">${produto.nome}</span>
 									<div style="margin-top: 0.5rem;">
-										<span style="background: ${produto.status_produto === 'pronta_entrega' ? '#28a745' : '#ff6b9d'}; color: white; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.7rem; font-weight: 600;">${produto.status_produto === 'pronta_entrega' ? 'Pronta Entrega' : 'Sob Encomenda'}</span>
+										<span style="background: ${produto.status_produto === 'pronta_entrega' ? '#28a745' : '#ff6b9d'}; color: white; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.7rem; font-weight: 600;">${produto.status_produto === 'pronta_entrega' ? t('vendas_online.pronta_entrega') : t('vendas_online.sob_encomenda')}</span>
 									</div>
 								</div>
 								<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
@@ -3181,7 +3665,7 @@ class DashboardApp {
 									<span id="contador-produto-${id}" style="font-size: 1.1rem; font-weight: 600; min-width: 32px; text-align: center;">${this.cart[id]?.quantidade || 0}</span>
 									<button data-action="increment-produto" data-id="${id}" data-preco="${produto.preco}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.1rem; cursor: pointer;">+</button>
 								</div>
-								<button data-action="adicionar-carrinho" data-id="${id}" data-preco="${produto.preco}" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 0; font-size: 1.1rem; font-weight: 700; cursor: pointer;">Adicionar ao Carrinho</button>
+								<button data-action="adicionar-carrinho" data-id="${id}" data-preco="${produto.preco}" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 0; font-size: 1.1rem; font-weight: 700; cursor: pointer;" data-i18n="vendas_online.adicionar_carrinho"></button>
 							</div>
 						`;
 					}).join('')}
@@ -3207,10 +3691,13 @@ class DashboardApp {
 		this.setupPedidosEventDelegation();
 		// Atualizar valor total do carrinho no topo
 		this.updatePedidosCartTotal();
+
+		// Aplicar traduções aos elementos recém-criados
+		setTimeout(() => applyTranslations(), 100);
 	}
 
 	// PÁGINA DE VENDAS ONLINE
-	renderVendasOnlinePage() {
+	async renderVendasOnlinePage() {
 		console.log('🎨 Iniciando renderVendasOnlinePage()');
 		console.log('📊 Produtos disponíveis:', this.products?.length || 0);
 		console.log('📊 Primeiro produto:', this.products?.[0]);
@@ -3232,6 +3719,104 @@ class DashboardApp {
 				cartTotal += item.quantidade * item.preco;
 			}
 		});
+
+		// Carregar promoções ativas para banner
+		let promocoesBanner = '';
+		try {
+			const today = new Date().toISOString().split('T')[0];
+			const { data: promocoesAtivas, error } = await this.supabase
+				.from('promocoes')
+				.select('id, nome, data_inicio, data_fim, status, produto_id, quantidade_minima, valor_minimo, desconto_valor, desconto_tipo, frete_gratis, regioes, canal, observacoes')
+				.eq('status', 'ativo')
+				.lte('data_inicio', today)
+				.gte('data_fim', today)
+				.limit(3); // Limitar a 3 promoções no banner
+
+			if (!error && promocoesAtivas && promocoesAtivas.length > 0) {
+				// Filtrar promoções por canal (Vendas Online ou Todos ou sem canal definido)
+				const promocoesFiltradas = promocoesAtivas.filter(p =>
+					!p.canal || p.canal === 'Vendas Online' || p.canal === 'Todos'
+				);
+
+				if (promocoesFiltradas.length > 0) {
+					// Criar pop-up flutuante para promoções
+					setTimeout(() => {
+						this.showPromocoesPopup(promocoesFiltradas.slice(0, 3));
+					}, 2000); // Aparecer após 2 segundos
+				}
+			}
+							let condicoes = [];
+							if (p.produto_id) {
+								const produto = this.products?.find(prod => prod.id === p.produto_id);
+								if (produto) condicoes.push(`${t('promocoes.produto')} ${produto.nome}`);
+							}
+							if (p.quantidade_minima) condicoes.push(`${t('promocoes.quantidade_minima')} ${p.quantidade_minima}`);
+							if (p.valor_minimo) condicoes.push(`${t('promocoes.valor_minimo')} R$ ${this.formatCurrency(p.valor_minimo)}`);
+							if (p.regioes) condicoes.push(`${t('promocoes.regioes')} ${p.regioes}`);
+
+							let beneficios = [];
+							if (p.desconto_valor) {
+								if (p.desconto_tipo === 'percentual') {
+									beneficios.push(`${p.desconto_valor}${t('promocoes.desconto_percentual')}`);
+								} else {
+									beneficios.push(`R$ ${this.formatCurrency(p.desconto_valor)} ${t('promocoes.desconto_valor')}`);
+								}
+							}
+							if (p.frete_gratis) beneficios.push(t('promocoes.frete_gratis'));
+
+							return `
+								<div style="background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 1rem; position: relative; overflow: hidden;">
+									${p.produto_id ? (() => {
+										const produto = this.products?.find(prod => prod.id === p.produto_id);
+										if (produto && produto.fotos && produto.fotos.length > 0) {
+											const primeiraFoto = JSON.parse(produto.fotos)[0];
+											return `<div style="position: absolute; top: 0; right: 0; width: 120px; height: 120px; border-radius: 0 12px 0 50px; overflow: hidden; opacity: 0.8;">
+												<img src="${primeiraFoto}" alt="${produto.nome}" style="width: 100%; height: 100%; object-fit: cover;">
+											</div>`;
+										}
+										return '';
+									})() : ''}
+									<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; ${p.produto_id ? 'margin-right: 100px;' : ''}">
+										<div>
+											<h3 style="margin: 0 0 0.5rem 0; font-size: 1.4rem; font-weight: 700;">🎉 ${p.nome}</h3>
+											${p.produto_id ? (() => {
+												const produto = this.products?.find(prod => prod.id === p.produto_id);
+												return produto ? `<div style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem;">🍰 ${produto.nome}</div>` : '';
+											})() : ''}
+										</div>
+										<div style="background: #28a745; color: white; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
+											ATIVA
+										</div>
+									</div>
+
+									${condicoes.length > 0 ? `
+										<div style="margin-bottom: 1rem;">
+											<h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; opacity: 0.9;">📋 Condições:</h4>
+											<ul style="margin: 0; padding-left: 1.2rem; font-size: 0.9rem;">
+												${condicoes.map(c => `<li>${c}</li>`).join('')}
+											</ul>
+										</div>
+									` : ''}
+
+									${beneficios.length > 0 ? `
+										<div style="margin-bottom: 1rem;">
+											<h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; opacity: 0.9;">🎁 Benefícios:</h4>
+											<ul style="margin: 0; padding-left: 1.2rem; font-size: 0.9rem;">
+												${beneficios.map(b => `<li style="color: #fff3cd; font-weight: 600;">${b}</li>`).join('')}
+											</ul>
+										</div>
+									` : ''}
+
+									<div style="text-align: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.3);">
+										<button style="background: white; color: #ff6b9d; border: none; padding: 0.8rem 2rem; border-radius: 25px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2);" onclick="window.dashboardApp.showPromocoesPopup()">
+											🛒 VER DETALHES
+										</button>
+									</div>
+								</div>
+							`;
+		} catch (error) {
+			console.warn('Erro ao carregar promoções para pop-up:', error);
+		}
 
 		// Dropdown de categorias + Total Carrinho (mesmo layout da página de pedidos)
 		const categorias = [...new Set(this.products.map(p => p.categoria).filter(Boolean))];
@@ -3277,7 +3862,7 @@ class DashboardApp {
 								<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
 									<span style="font-size: 1.0rem; font-weight: 700; color: #333;">${produto.nome}</span>
 									<div style="margin-top: 0.5rem;">
-										<span style="background: ${produto.status_produto === 'pronta_entrega' ? '#28a745' : '#ff6b9d'}; color: white; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.7rem; font-weight: 600;">${produto.status_produto === 'pronta_entrega' ? 'Pronta Entrega' : 'Sob Encomenda'}</span>
+										<span style="background: ${produto.status_produto === 'pronta_entrega' ? '#28a745' : '#ff6b9d'}; color: white; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.7rem; font-weight: 600;">${produto.status_produto === 'pronta_entrega' ? t('vendas_online.pronta_entrega') : t('vendas_online.sob_encomenda')}</span>
 									</div>
 								</div>
 								<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
@@ -3300,7 +3885,7 @@ class DashboardApp {
 									<span id="contador-produto-${produto.id}" style="font-size: 1.1rem; font-weight: 600; min-width: 32px; text-align: center;">${this.cart[produto.id]?.quantidade || 0}</span>
 									<button data-action="increment-produto" data-id="${produto.id}" data-preco="${produto.preco}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.1rem; cursor: pointer;">+</button>
 								</div>
-								<button data-action="adicionar-carrinho" data-id="${produto.id}" data-preco="${produto.preco}" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 0; font-size: 1.1rem; font-weight: 700; cursor: pointer;">Adicionar ao Carrinho</button>
+								<button data-action="adicionar-carrinho" data-id="${produto.id}" data-preco="${produto.preco}" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 0; font-size: 1.1rem; font-weight: 700; cursor: pointer;" data-i18n="vendas_online.adicionar_carrinho"></button>
 							</div>
 						`;
 					}).join('')}
@@ -3326,6 +3911,9 @@ class DashboardApp {
 		this.setupVendasOnlineEventDelegation();
 		// Atualizar valor total do carrinho no topo
 		this.updatePedidosCartTotal();
+
+		// Aplicar traduções aos elementos recém-criados
+		setTimeout(() => applyTranslations(), 100);
 
 		console.log('✅ renderVendasOnlinePage() concluído');
 	}
@@ -3967,7 +4555,7 @@ class DashboardApp {
 			}
 
 			const clientData = { nome, telefone, email, endereco };
-			const result = await this.saveToSupabase('clientes', clientData);
+			const result = await this.saveToSupabaseInsert('clientes', clientData);
 			
 			if (result) {
 				this.clients.unshift(result);
@@ -4102,6 +4690,23 @@ class DashboardApp {
 							<h4 style="margin: 0; font-size: 1.05rem; color: #764ba2;">Produtos</h4>
 							<button type="button" onclick="window.dashboardApp.limparCarrinho()" style="background: #dc3545; color: white; border: none; border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.8rem; cursor: pointer;">Limpar Carrinho</button>
 						</div>
+
+						${(() => {
+							// Verificar promoções elegíveis
+							const promocaoElegivel = this.checkCartPromocoes(cartTotal, this.cart);
+							if (promocaoElegivel) {
+								return `
+									<div style="background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; padding: 0.8rem; border-radius: 8px; margin-bottom: 1rem; text-align: center;">
+										<div style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.3rem;">🎉 ${promocaoElegivel.nome}</div>
+										<div style="font-size: 0.8rem; opacity: 0.9;">
+											Promoção: ${promocaoElegivel.beneficios.join(' + ')}
+										</div>
+									</div>
+								`;
+							}
+							return '';
+						})()}
+
 						<div class="produtos-tabela-container" style="overflow-x: auto;">
 							<table style="width:100%; border-collapse:collapse;">
 								<thead>
@@ -4424,7 +5029,7 @@ class DashboardApp {
 		};
 
 		// Salvar pedido
-		const pedidoSalvo = await this.saveToSupabase('pedidos', pedidoData);
+		const pedidoSalvo = await this.saveToSupabaseInsert('pedidos', pedidoData);
 		
 		if (pedidoSalvo && pedidoSalvo.id) {
 			// Salvar itens do pedido
@@ -4436,7 +5041,7 @@ class DashboardApp {
 					preco_unitario: item.preco_unitario,
 					created_at: new Date().toISOString()
 				};
-				await this.saveToSupabase('pedido_itens', itemData);
+				await this.saveToSupabaseInsert('pedido_itens', itemData);
 			}
 
 			// Criar entrega se necessário
@@ -4449,7 +5054,7 @@ class DashboardApp {
 					status: 'agendada',
 					created_at: new Date().toISOString()
 				};
-				await this.saveToSupabase('entregas', entregaData);
+				await this.saveToSupabaseInsert('entregas', entregaData);
 			}
 
 			// Registrar custos automaticamente dos produtos vendidos
@@ -4990,7 +5595,7 @@ class DashboardApp {
 						created_at: new Date().toISOString()
 					};
 
-					const clienteSalvo = await this.saveToSupabase('clientes', clienteData);
+					const clienteSalvo = await this.saveToSupabaseInsert('clientes', clienteData);
 					
 					if (!clienteSalvo || !clienteSalvo.id) {
 						alert('Erro ao salvar cliente. Verifique sua conexão com a internet e tente novamente.');
@@ -5371,7 +5976,7 @@ class DashboardApp {
 			}
 
 			const clientData = { nome, telefone, email, endereco, canal: 'fisico' };
-			const result = await this.saveToSupabase('clientes', clientData);
+			const result = await this.saveToSupabaseInsert('clientes', clientData);
 			if (result) this.clients.unshift(result);
 			await this.loadData();
 			this.renderClientesPage();
@@ -5417,7 +6022,17 @@ class DashboardApp {
 				${this.products.map(p => {
 					let fotos = [];
 					if (p.fotos) {
-						try { fotos = JSON.parse(p.fotos); } catch {}
+						try { 
+							fotos = JSON.parse(p.fotos);
+							console.log('📸 Produto', p.id, 'tem', fotos.length, 'fotos');
+							if (fotos.length > 0) {
+								console.log('📸 Primeira foto:', fotos[0].substring(0, 100) + '...');
+							}
+						} catch (e) {
+							console.error('❌ Erro ao parsear fotos do produto', p.id, ':', e);
+						}
+					} else {
+						console.log('📸 Produto', p.id, 'não tem fotos (p.fotos é null/undefined)');
 					}
 					
 					return `
@@ -5425,7 +6040,7 @@ class DashboardApp {
 							<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
 								<span style="font-size: 1.0rem; font-weight: 700; color: #333;">${p.nome}</span>
 								<div style="margin-top: 0.5rem;">
-									<span style="background: ${p.status_produto === 'pronta_entrega' ? '#28a745' : '#ff6b9d'}; color: white; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.7rem; font-weight: 600;">${p.status_produto === 'pronta_entrega' ? 'Pronta Entrega' : 'Sob Encomenda'}</span>
+									<span style="background: ${p.status_produto === 'pronta_entrega' ? '#28a745' : '#ff6b9d'}; color: white; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.7rem; font-weight: 600;">${p.status_produto === 'pronta_entrega' ? t('vendas_online.pronta_entrega') : t('vendas_online.sob_encomenda')}</span>
 								</div>
 							</div>
 							<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
@@ -5444,14 +6059,17 @@ class DashboardApp {
 								${p.descricao ? `<p style="margin: 0.5rem 0 0 0; color: #888; font-size: 0.8rem; line-height: 1.3; text-align: center;">${p.descricao}</p>` : ''}
 							</div>
 							<div style="display: flex; gap: 0.5rem; align-items: center; width: 100%; justify-content: center;">
-								${isAdmin ? `
-									<button data-action="edit-product" data-id="${p.id}" style="padding: 0.5rem 0.75rem; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;">
-										<i class="fas fa-edit"></i>
-									</button>
-									<button data-action="delete-product" data-id="${p.id}" style="padding: 0.5rem 0.75rem; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;">
-										<i class="fas fa-trash"></i>
-									</button>
-								` : ''}
+								${(() => {
+									console.log('🎨 Renderizando botões para produto:', p.id, p.nome, 'tipo:', typeof p.id);
+									return isAdmin ? `
+										<button data-action="edit-product" data-id="${p.id}" style="padding: 0.5rem 0.75rem; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;">
+											<i class="fas fa-edit"></i>
+										</button>
+										<button data-action="delete-product" data-id="${p.id}" style="padding: 0.5rem 0.75rem; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;">
+											<i class="fas fa-trash"></i>
+										</button>
+									` : '';
+								})()}
 							</div>
 						</div>
 					`;
@@ -5470,6 +6088,10 @@ class DashboardApp {
 			const preco = parseFloat(btn.getAttribute('data-preco'));
 			const total = parseInt(btn.getAttribute('data-total'));
 			
+			console.log('🎯 Botão clicado:', action, 'id:', id, 'id length:', id ? id.length : 'null', 'id type:', typeof id);
+			console.log('🎯 Elemento botão:', btn);
+			console.log('🎯 data-id attribute:', btn.getAttribute('data-id'));
+			
 			switch (action) {
 				case 'prev-photo':
 					this.prevPhoto(id, total);
@@ -5478,6 +6100,8 @@ class DashboardApp {
 					this.nextPhoto(id, total);
 					break;
 				case 'edit-product':
+					console.log('📝 Chamando editProduct com id:', id);
+					console.log('📝 ID antes de chamar editProduct:', id, 'tipo:', typeof id);
 					this.editProduct(id);
 					break;
 				case 'delete-product':
@@ -5499,6 +6123,15 @@ class DashboardApp {
 	}
 
 	async editProduct(id) {
+		console.log('🎯 editProduct chamado com id:', id, typeof id);
+		
+		// Não converter para number, manter como string (UUID)
+		// id = parseInt(id, 10);
+		console.log('🎯 ID mantido como string:', id, typeof id);
+		
+		// Log de todos os produtos para debug
+		console.log('📋 Lista de produtos disponíveis:', this.products.map(p => ({id: p.id, nome: p.nome, tipo: typeof p.id})));
+		
 		// Verificar se o usuário é admin
 		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
 		const isAdmin = role === 'admin';
@@ -5508,11 +6141,25 @@ class DashboardApp {
 			return;
 		}
 
-		const product = this.products.find(p => p.id == id);
-		if (!product) return;
+		const product = this.products.find(p => {
+			const pId = String(p.id);
+			const searchId = String(id);
+			const match = pId === searchId;
+			console.log(`🔍 Comparando produto ${pId} (tipo: ${typeof p.id}) com ${searchId} (tipo: ${typeof id}) - match: ${match}`);
+			return match;
+		});
+		
+		console.log('📦 Produto encontrado:', product);
+		
+		if (!product) {
+			console.error('❌ Produto não encontrado com id:', id, 'em produtos:', this.products.map(p => ({id: p.id, nome: p.nome, tipo: typeof p.id})));
+			alert('Produto não encontrado.');
+			return;
+		}
 
 		console.log('Produto encontrado:', product);
 		console.log('Custo do produto:', product.custo, typeof product.custo);
+		console.log('📝 Nome do produto no modal:', product.nome);
 
 		const modal = this.createModal('modal-edit-product', '✏️ Editar Produto');
 		modal.classList.add('show');
@@ -5522,11 +6169,11 @@ class DashboardApp {
 			<form id="form-edit-product" class="form-modal">
 				<div class="form-group">
 					<label for="edit-nome">Nome *</label>
-					<input type="text" id="edit-nome" required value="${product.nome}" class="form-control">
+					<input type="text" id="edit-nome" required value="${product.nome.replace(/"/g, '&quot;')}" class="form-control">
 				</div>
 				<div class="form-group">
 					<label for="edit-categoria">Categoria *</label>
-					<input type="text" id="edit-categoria" required value="${product.categoria}" class="form-control">
+					<input type="text" id="edit-categoria" required value="${product.categoria.replace(/"/g, '&quot;')}" class="form-control">
 				</div>
 				<div class="form-group">
 					<label for="edit-preco">Preço *</label>
@@ -5561,14 +6208,14 @@ class DashboardApp {
 							}
 							return fotos.map((foto, index) => `
 								<div style="position: relative; display: inline-block;">
-									<img src="${foto}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;">
+									<img src="${foto}" data-existing="true" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;">
 									<button type="button" onclick="this.parentElement.remove()" data-foto-index="${index}" style="position: absolute; top: -5px; right: -5px; background: #dc3545; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer;">×</button>
 								</div>
 							`).join('');
 						})()}
 					</div>
 					<input type="file" id="edit-fotos-upload" multiple accept="image/*" style="margin-bottom: 0.5rem;">
-					<small style="color: #666; font-size: 0.8rem;">Selecione uma ou mais imagens para adicionar (PNG, JPG, JPEG)</small>
+					<small style="color: #666; font-size: 0.8rem;">Selecione uma ou mais imagens para adicionar (PNG, JPG, JPEG) - Máximo 10MB cada (serão comprimidas automaticamente para ≤5MB)</small>
 				</div>
 				<div class="modal-actions">
 					<button type="button" onclick="closeModal('modal-edit-product')" class="btn btn-secondary">Cancelar</button>
@@ -5579,14 +6226,27 @@ class DashboardApp {
 
 		document.getElementById('modals-container').appendChild(modal);
 
+		// Verificar se o campo nome foi preenchido corretamente
+		setTimeout(() => {
+			const nomeField = modal.querySelector('#edit-nome');
+			console.log('🔍 Campo nome após modal aberto:', nomeField.value);
+			console.log('🔍 Campo nome esperado:', product.nome);
+		}, 100);
+
 		// Preview de novas imagens no upload
 		const fileInput = modal.querySelector('#edit-fotos-upload');
 		const previewContainer = modal.querySelector('#edit-fotos-preview');
 		
 		fileInput.addEventListener('change', function(e) {
-			// Adicionar preview das novas imagens (apenas as do upload, mantendo as existentes)
+			// Limpar previews anteriores das novas imagens
+			const existingPreviews = previewContainer.querySelectorAll('img:not([data-existing])');
+			existingPreviews.forEach(img => img.remove());
+			
+			// Adicionar preview das novas imagens (apenas as que serão processadas)
+			const maxPreviewImages = 5;
 			if (this.files && this.files.length > 0) {
-				Array.from(this.files).forEach(file => {
+				const filesToPreview = Array.from(this.files).slice(0, maxPreviewImages);
+				filesToPreview.forEach(file => {
 					const reader = new FileReader();
 					reader.onload = function(e) {
 						const img = document.createElement('img');
@@ -5606,6 +6266,8 @@ class DashboardApp {
 		modal.querySelector('#form-edit-product').addEventListener('submit', async (e) => {
 			e.preventDefault();
 			const nome = modal.querySelector('#edit-nome').value.trim();
+			console.log('📝 Nome capturado do formulário:', nome);
+			console.log('📝 Nome original do produto:', product.nome);
 			const categoria = modal.querySelector('#edit-categoria').value.trim();
 			let precoStr = modal.querySelector('#edit-preco').value.trim().replace(',', '.');
 			const preco = parseFloat(precoStr);
@@ -5628,26 +6290,110 @@ class DashboardApp {
 			
 			// Remover fotos que foram clicadas para deletar
 			const previewContainer = modal.querySelector('#edit-fotos-preview');
-			const remainingImages = previewContainer.querySelectorAll('img');
+			const remainingImages = previewContainer.querySelectorAll('img[data-existing="true"]');
+			const allPreviewImages = previewContainer.querySelectorAll('img');
+			console.log('📸 Total de imagens no preview:', allPreviewImages.length, '(existentes + novas)');
+			console.log('📸 Imagens existentes mantidas:', remainingImages.length);
 			fotos = Array.from(remainingImages).map(img => img.src);
+			console.log('📸 Fotos existentes após remoção:', fotos.length, 'fotos');
 
 			// Adicionar novas fotos do upload
 			const fileInput = modal.querySelector('#edit-fotos-upload');
 			if (fileInput.files && fileInput.files.length > 0) {
-				for (let file of fileInput.files) {
-					const base64 = await this.fileToBase64(file);
-					fotos.push(base64);
+				console.log(`📸 Processando ${fileInput.files.length} novas imagens...`);
+				console.log(`📸 Fotos no array antes do processamento: ${fotos.length}`);
+				
+				// Limitar número de imagens para evitar timeout (aumentado para 5)
+				const maxImages = 5;
+				const filesToProcess = Array.from(fileInput.files);
+				const totalFotosAposProcessamento = fotos.length + filesToProcess.length;
+				
+				if (totalFotosAposProcessamento > maxImages) {
+					const fotosPermitidas = maxImages - fotos.length;
+					alert(`Produto já tem ${fotos.length} fotos. Apenas ${fotosPermitidas} novas imagens serão processadas (máximo total: ${maxImages}).`);
+					filesToProcess.splice(fotosPermitidas);
+				}
+				
+				const filesToProcessFinal = filesToProcess.slice(0, maxImages - fotos.length);
+				
+				if (fileInput.files.length > maxImages - fotos.length) {
+					alert(`Apenas as primeiras ${maxImages - fotos.length} imagens serão processadas para evitar timeout.`);
+				}
+				
+				for (let i = 0; i < filesToProcessFinal.length; i++) {
+					const file = filesToProcessFinal[i];
+					console.log(`📸 Processando imagem ${i + 1}/${filesToProcessFinal.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+					
+					// Verificar tamanho do arquivo (máximo 10MB na entrada, será comprimido)
+					if (file.size > 10 * 1024 * 1024) {
+						alert(`Imagem ${file.name} é muito grande (${(file.size / 1024 / 1024).toFixed(2)}MB). Máximo 10MB (será comprimida automaticamente).`);
+						continue;
+					}
+					
+					try {
+						const base64 = await this.fileToBase64(file);
+						// Comprimir base64 com limite máximo de 5MB
+						const compressed = await this.compressBase64Image(base64, 5, 800); // Máximo 5MB, resolução máxima 800px
+						fotos.push(compressed);
+						console.log(`✅ Imagem ${i + 1} comprimida: ${(base64.length / 1024 / 1024).toFixed(2)}MB → ${(compressed.length / 1024 / 1024).toFixed(2)}MB`);
+					} catch (error) {
+						console.error(`❌ Erro ao processar imagem ${file.name}:`, error);
+						alert(`Erro ao processar imagem ${file.name}`);
+					}
 				}
 			}
 
 			const productData = { nome, categoria, preco, custo, estoque, status_produto, fotos: JSON.stringify(fotos), descricao };
+			console.log('📦 Dados preparados para salvar:', productData);
+			console.log('🖼️ Total de fotos a salvar:', fotos.length);
+			console.log('🖼️ Detalhes das fotos:', fotos.map((f, i) => `Foto ${i+1}: ${f.substring(0, 50)}... (${f.length} chars)`));
+			
+			// Verificar se há duplicatas
+			const uniqueFotos = [...new Set(fotos)];
+			if (uniqueFotos.length !== fotos.length) {
+				console.warn('⚠️ Detectadas fotos duplicadas!', {
+					original: fotos.length,
+					unicas: uniqueFotos.length,
+					duplicadas: fotos.length - uniqueFotos.length
+				});
+			}
+			console.log('🆔 ID do produto sendo editado (antes do save):', id, 'tipo:', typeof id);
+			console.log('🔍 ID é válido? (antes do save)', id !== null && id !== undefined && id !== '');
+			
 			const result = await this.saveToSupabase('produtos', productData, id);
 			
 			if (result) {
+				console.log('✅ Produto salvo com sucesso, atualizando dados locais...');
 				const idx = this.products.findIndex(p => p.id == id);
-				if (idx !== -1) this.products[idx] = { ...this.products[idx], ...productData };
+				if (idx !== -1) {
+					const produtoAntes = this.products[idx];
+					console.log('📦 Produto antes da atualização:', { id: produtoAntes.id, fotosCount: produtoAntes.fotos ? JSON.parse(produtoAntes.fotos).length : 0 });
+					
+					// Atualizar apenas os campos que foram modificados, mantendo a estrutura original
+					this.products[idx] = { 
+						...this.products[idx], 
+						nome: productData.nome,
+						categoria: productData.categoria,
+						preco: productData.preco,
+						custo: productData.custo,
+						estoque: productData.estoque,
+						status_produto: productData.status_produto,
+						fotos: productData.fotos, // Já vem como JSON string
+						descricao: productData.descricao
+					};
+					
+					const produtoDepois = this.products[idx];
+					console.log('📦 Produto após atualização:', { id: produtoDepois.id, fotosCount: produtoDepois.fotos ? JSON.parse(produtoDepois.fotos).length : 0 });
+				}
+				
+				// REABILITADO - necessário para manter a lista atualizada
 				this.renderProdutosPage();
 				this.updateStats();
+				console.log('✅ Interface atualizada após edição');
+				
+				alert('Produto atualizado com sucesso!');
+			} else {
+				alert('Erro ao atualizar produto');
 			}
 			closeModal('modal-edit-product');
 		});
@@ -5725,7 +6471,7 @@ class DashboardApp {
 					<label for="product-fotos">Fotos do Produto</label>
 					<div id="product-fotos-preview" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem;"></div>
 					<input type="file" id="product-fotos-upload" multiple accept="image/*" style="margin-bottom: 0.5rem;">
-					<small style="color: #666; font-size: 0.8rem;">Selecione uma ou mais imagens (PNG, JPG, JPEG)</small>
+					<small style="color: #666; font-size: 0.8rem;">Selecione até 5 imagens (PNG, JPG, JPEG) - Máximo 10MB cada (serão comprimidas automaticamente para ≤5MB)</small>
 				</div>
 				<div class="modal-actions">
 					<button type="button" onclick="closeModal('modal-add-product')" class="btn btn-secondary">Cancelar</button>
@@ -5744,7 +6490,9 @@ class DashboardApp {
 		fileInput.addEventListener('change', function(e) {
 			previewContainer.innerHTML = '';
 			if (this.files && this.files.length > 0) {
-				Array.from(this.files).forEach(file => {
+				const maxPreviewImages = 5;
+				const filesToPreview = Array.from(this.files).slice(0, maxPreviewImages);
+				filesToPreview.forEach(file => {
 					const reader = new FileReader();
 					reader.onload = function(e) {
 						const img = document.createElement('img');
@@ -5782,14 +6530,41 @@ class DashboardApp {
 			let fotos = [];
 			const fileInput = modal.querySelector('#product-fotos-upload');
 			if (fileInput.files && fileInput.files.length > 0) {
-				for (let file of fileInput.files) {
-					const base64 = await this.fileToBase64(file);
-					fotos.push(base64);
+				console.log(`📸 Processando ${fileInput.files.length} novas imagens para novo produto...`);
+				
+				// Limitar número de imagens para evitar timeout (máximo 5)
+				const maxImages = 5;
+				const filesToProcess = Array.from(fileInput.files).slice(0, maxImages);
+				
+				if (fileInput.files.length > maxImages) {
+					alert(`Apenas as primeiras ${maxImages} imagens serão processadas para evitar timeout.`);
+				}
+				
+				for (let i = 0; i < filesToProcess.length; i++) {
+					const file = filesToProcess[i];
+					console.log(`📸 Processando imagem ${i + 1}/${filesToProcess.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+					
+					// Verificar tamanho do arquivo (máximo 10MB na entrada, será comprimido)
+					if (file.size > 10 * 1024 * 1024) {
+						alert(`Imagem ${file.name} é muito grande (${(file.size / 1024 / 1024).toFixed(2)}MB). Máximo 10MB (será comprimida automaticamente).`);
+						continue;
+					}
+					
+					try {
+						const base64 = await this.fileToBase64(file);
+						// Comprimir base64 com limite máximo de 5MB
+						const compressed = await this.compressBase64Image(base64, 5, 800); // Máximo 5MB, resolução máxima 800px
+						fotos.push(compressed);
+						console.log(`✅ Imagem ${i + 1} comprimida: ${(base64.length / 1024 / 1024).toFixed(2)}MB → ${(compressed.length / 1024 / 1024).toFixed(2)}MB`);
+					} catch (error) {
+						console.error(`❌ Erro ao processar imagem ${file.name}:`, error);
+						alert(`Erro ao processar imagem ${file.name}`);
+					}
 				}
 			}
 
 			const productData = { nome, categoria, preco, custo, estoque, status_produto, fotos: JSON.stringify(fotos), descricao };
-			const result = await this.saveToSupabase('produtos', productData);
+			const result = await this.saveToSupabaseInsert('produtos', productData);
 			if (result) this.products.unshift(result);
 			await this.loadData();
 			this.renderProdutosPage();
@@ -5822,6 +6597,70 @@ class DashboardApp {
 			reader.readAsDataURL(file);
 			reader.onload = () => resolve(reader.result);
 			reader.onerror = error => reject(error);
+		});
+	}
+
+	// Função para comprimir imagens base64 com limite de tamanho
+	async compressBase64Image(base64, maxSizeMB = 5, maxWidth = 800) {
+		return new Promise((resolve) => {
+			const img = new Image();
+			img.onload = () => {
+				try {
+					const canvas = document.createElement('canvas');
+					const ctx = canvas.getContext('2d');
+					
+					// Calcular novas dimensões mantendo proporção
+					let { width, height } = img;
+					if (width > maxWidth) {
+						height = (height * maxWidth) / width;
+						width = maxWidth;
+					}
+					
+					canvas.width = width;
+					canvas.height = height;
+					
+					// Desenhar a imagem no canvas
+					ctx.drawImage(img, 0, 0, width, height);
+					
+					// Tentar diferentes qualidades até ficar abaixo do limite
+					let quality = 0.8; // Começar com 80%
+					let compressed = canvas.toDataURL('image/jpeg', quality);
+					
+					// Se ainda for muito grande, reduzir qualidade gradualmente
+					while (compressed.length > maxSizeMB * 1024 * 1024 && quality > 0.1) {
+						quality -= 0.1;
+						compressed = canvas.toDataURL('image/jpeg', quality);
+						console.log(`🔄 Reduzindo qualidade para ${quality.toFixed(1)} - tamanho: ${(compressed.length / 1024 / 1024).toFixed(2)}MB`);
+					}
+					
+					// Se ainda for muito grande, reduzir resolução
+					if (compressed.length > maxSizeMB * 1024 * 1024) {
+						console.log('🔄 Reduzindo resolução adicional...');
+						const newMaxWidth = maxWidth * 0.7; // 70% da resolução anterior
+						const newHeight = (height * newMaxWidth) / width;
+						canvas.width = newMaxWidth;
+						canvas.height = newHeight;
+						ctx.drawImage(img, 0, 0, newMaxWidth, newHeight);
+						compressed = canvas.toDataURL('image/jpeg', 0.5); // 50% qualidade
+					}
+					
+					// Garantir que sempre retornamos uma imagem válida
+					if (compressed && compressed.length > 100) {
+						resolve(compressed);
+					} else {
+						console.warn('⚠️ Compressão falhou, retornando imagem original');
+						resolve(base64); // Fallback para imagem original
+					}
+				} catch (error) {
+					console.error('❌ Erro na compressão:', error);
+					resolve(base64); // Fallback para imagem original
+				}
+			};
+			img.onerror = () => {
+				console.error('❌ Erro ao carregar imagem para compressão');
+				resolve(base64); // Fallback para imagem original
+			};
+			img.src = base64;
 		});
 	}
 
@@ -5887,28 +6726,32 @@ class DashboardApp {
 		if (!this.supabase) return null;
 
 		try {
-			if (id) {
-				const { data: result, error } = await this.supabase
+			if (id !== null && id !== undefined) {
+				const { error } = await this.supabase
 					.from(table)
 					.update(data)
-					.eq('id', id)
-					.select()
-					.single();
+					.eq('id', id);
 
-				if (error) throw error;
-				return result;
+				if (error) {
+					console.error('❌ Erro no UPDATE:', error);
+					throw error;
+				}
+				console.log(`✅ UPDATE realizado com sucesso na tabela ${table}`);
+				return true;
 			} else {
-				const { data: result, error } = await this.supabase
+				const { error } = await this.supabase
 					.from(table)
-					.insert([data])
-					.select()
-					.single();
+					.insert([data]);
 
-				if (error) throw error;
-				return result;
+				if (error) {
+					console.error('❌ Erro no INSERT:', error);
+					throw error;
+				}
+				console.log(`✅ INSERT realizado com sucesso na tabela ${table}`);
+				return true;
 			}
 		} catch (error) {
-			console.error('Erro ao salvar:', error);
+			console.error('💥 Erro geral ao salvar:', error);
 			alert('Erro ao salvar no banco: ' + (error?.message || error));
 			return null;
 		}
@@ -7625,7 +8468,7 @@ openAddDespesaModal() {
 				data_despesa: data
 			};
 
-			const result = await this.saveToSupabase('despesas', despesaData);
+			const result = await this.saveToSupabaseInsert('despesas', despesaData);
 			if (result) {
 				this.despesas.unshift(result);
 				await this.loadData(); // Recarregar dados para atualizar estatísticas
@@ -7729,7 +8572,7 @@ openAddDespesaModal() {
 						pedido_id: pedidoId
 					};
 
-					await this.saveToSupabase('despesas', despesaData);
+					await this.saveToSupabaseInsert('despesas', despesaData);
 					console.log(`✅ Custo registrado: ${produto.nome} - ${this.formatCurrency(custoTotal)}`);
 				}
 			}
@@ -7738,7 +8581,7 @@ openAddDespesaModal() {
 		}
 	}
 
-	async saveToSupabase(table, data) {
+	async saveToSupabaseInsert(table, data) {
 		try {
 			if (!this.supabase) {
 				console.error('Supabase não inicializado - tentando inicializar...');
@@ -7918,7 +8761,7 @@ openAddDespesaModal() {
 
 			// Salvar cliente
 			const clientData = { nome, telefone, email, endereco };
-			const cliente = await this.saveToSupabase('clientes', clientData);
+			const cliente = await this.saveToSupabaseInsert('clientes', clientData);
 			
 			if (cliente) {
 				// Criar pedido
@@ -7938,7 +8781,7 @@ openAddDespesaModal() {
 			// Se cliente é um objeto mas não tem ID, tentar salvar novamente
 			let clienteId = cliente.id;
 			if (!clienteId && typeof cliente === 'object') {
-				const clienteSalvo = await this.saveToSupabase('clientes', {
+				const clienteSalvo = await this.saveToSupabaseInsert('clientes', {
 					nome: cliente.nome,
 					telefone: cliente.telefone,
 					email: cliente.email,
@@ -7991,7 +8834,7 @@ openAddDespesaModal() {
 				idioma: cliente?.idioma || 'pt'
 			};
 			
-			const pedido = await this.saveToSupabase('pedidos', pedidoData);
+			const pedido = await this.saveToSupabaseInsert('pedidos', pedidoData);
 			
 			if (!pedido || !pedido.id) {
 				throw new Error('Falha ao salvar o pedido principal');
@@ -8008,7 +8851,7 @@ openAddDespesaModal() {
 						preco_unitario: item.preco_unitario,
 						created_at: new Date().toISOString()
 					};
-					const itemSalvo = await this.saveToSupabase('pedido_itens', itemData);
+					const itemSalvo = await this.saveToSupabaseInsert('pedido_itens', itemData);
 					if (itemSalvo) {
 						itensSalvos++;
 					}
@@ -8034,7 +8877,7 @@ openAddDespesaModal() {
 						status: 'agendada',
 						created_at: new Date().toISOString()
 					};
-					const entregaSalva = await this.saveToSupabase('entregas', entregaData);
+					const entregaSalva = await this.saveToSupabaseInsert('entregas', entregaData);
 					if (entregaSalva) {
 						console.log('✅ Entrega criada com sucesso:', entregaSalva.id);
 					} else {
@@ -8055,7 +8898,7 @@ openAddDespesaModal() {
 					}
 					this.cart = {}; // Limpar carrinho
 					this.updateCartBadge();
-					this.renderVendasOnlinePage(); // Voltar para produtos e resetar contadores
+					await this.renderVendasOnlinePage(); // Voltar para produtos e resetar contadores
 				} catch (uiError) {
 					console.error('Erro na interface após salvar pedido:', uiError);
 				}
@@ -8067,7 +8910,7 @@ openAddDespesaModal() {
 					}
 					this.cart = {};
 					this.updateCartBadge();
-					this.renderVendasOnlinePage();
+					await this.renderVendasOnlinePage();
 				} catch (uiError) {
 					console.error('Erro na interface após salvar pedido parcial:', uiError);
 				}
@@ -8168,8 +9011,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 function closeModal(modalId) {
 	const modal = document.getElementById(modalId);
 	if (modal) {
+		// Prevenir múltiplas chamadas simultâneas
+		if (modal.classList.contains('closing')) {
+			return;
+		}
+
+		modal.classList.add('closing');
 		modal.classList.remove('show');
-		setTimeout(() => modal.remove(), 300);
+
+		// Remover imediatamente para evitar problemas de camadas
+		setTimeout(() => {
+			if (modal.parentNode) {
+				modal.parentNode.removeChild(modal);
+			}
+		}, 50); // Reduzido de 300ms para 50ms para fechar mais rápido
 	}
 }
 

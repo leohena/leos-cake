@@ -23,10 +23,29 @@ async function initializeSupabase() {
 			return null;
 		}
 
-		// Criar cliente Supabase
+		// Criar cliente Supabase com configurações otimizadas
 		supabaseClient = window.supabase.createClient(
 			SUPABASE_CONFIG.URL,
-			SUPABASE_CONFIG.ANON_KEY
+			SUPABASE_CONFIG.ANON_KEY,
+			{
+				auth: {
+					autoRefreshToken: true,
+					persistSession: true
+				},
+				global: {
+					headers: {
+						'X-Client-Info': 'leos-cake-app'
+					}
+				},
+				db: {
+					schema: 'public'
+				},
+				realtime: {
+					params: {
+						eventsPerSecond: 10
+					}
+				}
+			}
 		);
 
 		if (!supabaseClient) {

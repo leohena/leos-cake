@@ -109,7 +109,62 @@ const translations = {
 		'placeholder.select_product': 'Selecione um produto',
 
 		'currency.symbol': 'CAD$',
-		'currency.name': 'Dólar Canadense'
+		'currency.name': 'Dólar Canadense',
+
+		// Vendas Online
+		'vendas_online.titulo': 'Leó\'s Cake - Vendas Online',
+		'vendas_online.filtrar': 'Filtrar:',
+		'vendas_online.todas_categorias': 'Todas Categorias',
+		'vendas_online.adicionar_cliente': 'Adicionar Cliente',
+		'vendas_online.total': 'Total',
+		'vendas_online.adicionar_carrinho': 'Adicionar ao Carrinho',
+		'vendas_online.pronta_entrega': 'Pronta Entrega',
+		'vendas_online.sob_encomenda': 'Sob Encomenda',
+		'vendas_online.cliente': 'Cliente',
+		'vendas_online.perfil': 'Perfil',
+		'vendas_online.sair': 'Sair',
+
+		// Promoções Pop-up
+		'promocoes.titulo': 'Promoções Especiais!',
+		'promocoes.descricao': 'Aproveite nossas ofertas por tempo limitado',
+		'promocoes.ver_detalhes': 'VER DETALHES',
+		'promocoes.fechar': 'Fechar',
+		'promocoes.condicoes': 'Condições:',
+		'promocoes.beneficios': 'Benefícios:',
+		'promocoes.observacoes': 'Observações:',
+		'promocoes.produto': 'Produto',
+		'promocoes.quantidade_minima': 'Quantidade mínima',
+		'promocoes.valor_minimo': 'Valor mínimo',
+		'promocoes.desconto_percentual': 'de desconto',
+		'promocoes.desconto_valor': 'de desconto',
+		'promocoes.frete_gratis': 'Frete grátis',
+		'promocoes.regioes': 'Regiões',
+		'promocoes.ativa': 'ATIVA',
+
+		// Dashboard - Títulos e Interface
+		'dashboard.titulo_pagina': 'Dashboard - Leo\'s Cake',
+		'dashboard.bem_vindo_texto': 'Bem-vindo(a),',
+		'dashboard.usuario_padrao': 'Usuário',
+
+		// Login Page
+		'login.titulo_pagina': 'Leo\'s Cake - Sistema de Vendas',
+		'login.sistema_vendas': 'Sistema de Vendas',
+		'login.email': 'Email',
+		'login.senha': 'Senha',
+		'login.sua_senha': 'Sua senha',
+		'login.entrar': 'Entrar',
+		'login.erro_padrao': 'Preencha email e senha',
+		'login.erro_autenticacao': 'Email ou senha incorretos',
+		'login.erro_geral': 'Erro ao fazer login. Tente novamente.',
+
+		// Menu do Usuário
+		'menu.configuracoes': 'Configurações',
+		'menu.usuarios': 'Usuários',
+		'menu.promocoes': 'Promoções',
+
+		// Modal de Promoções
+		'modal.promocoes': 'Promoções',
+		'btn.fechar': 'Fechar'
 	},
 	'en-US': {
 	'dashboard.confirmados': 'Confirmed',
@@ -219,12 +274,80 @@ const translations = {
 		'placeholder.select_product': 'Select a product',
 
 		'currency.symbol': 'CAD$',
-		'currency.name': 'Canadian Dollar'
+		'currency.name': 'Canadian Dollar',
+
+		// Vendas Online
+		'vendas_online.titulo': 'Leo\'s Cake - Online Sales',
+		'vendas_online.filtrar': 'Filter:',
+		'vendas_online.todas_categorias': 'All Categories',
+		'vendas_online.adicionar_cliente': 'Add Client',
+		'vendas_online.total': 'Total',
+		'vendas_online.adicionar_carrinho': 'Add to Cart',
+		'vendas_online.pronta_entrega': 'Ready for Delivery',
+		'vendas_online.sob_encomenda': 'Made to Order',
+		'vendas_online.cliente': 'Client',
+		'vendas_online.perfil': 'Profile',
+		'vendas_online.sair': 'Logout',
+
+		// Promoções Pop-up
+		'promocoes.titulo': 'Special Promotions!',
+		'promocoes.descricao': 'Take advantage of our limited-time offers',
+		'promocoes.ver_detalhes': 'VIEW DETAILS',
+		'promocoes.fechar': 'Close',
+		'promocoes.condicoes': 'Conditions:',
+		'promocoes.beneficios': 'Benefits:',
+		'promocoes.observacoes': 'Notes:',
+		'promocoes.produto': 'Product',
+		'promocoes.quantidade_minima': 'Minimum quantity',
+		'promocoes.valor_minimo': 'Minimum value',
+		'promocoes.desconto_percentual': 'discount',
+		'promocoes.desconto_valor': 'discount',
+		'promocoes.frete_gratis': 'Free shipping',
+		'promocoes.regioes': 'Regiões',
+		'promocoes.ativa': 'ATIVA',
+
+		// Dashboard - Títulos e Interface
+		'dashboard.titulo_pagina': 'Dashboard - Leo\'s Cake',
+		'dashboard.bem_vindo_texto': 'Bem-vindo(a),',
+		'dashboard.usuario_padrao': 'Usuário',
+
+		// Seções do Dashboard
+		'section.dashboard': 'Dashboard',
+		'section.clientes': '👥 Clientes',
+		'section.produtos': '🍰 Produtos',
+		'section.pedidos': '📋 Pedidos',
+		'section.estoque': '📦 Estoque',
+		'section.entregas': '🚚 Entregas',
+
+		// Dashboard - Títulos e Interface
+		'dashboard.titulo_pagina': 'Dashboard - Leo\'s Cake',
+		'dashboard.bem_vindo_texto': 'Welcome,',
+		'dashboard.usuario_padrao': 'User',
+
+		// Login Page
+		'login.titulo_pagina': 'Leo\'s Cake - Sales System',
+		'login.sistema_vendas': 'Sales System',
+		'login.email': 'Email',
+		'login.senha': 'Password',
+		'login.sua_senha': 'Your password',
+		'login.entrar': 'Login',
+		'login.erro_padrao': 'Please fill in email and password',
+		'login.erro_autenticacao': 'Incorrect email or password',
+		'login.erro_geral': 'Login error. Please try again.',
+
+		// Menu do Usuário
+		'menu.configuracoes': 'Settings',
+		'menu.usuarios': 'Users',
+		'menu.promocoes': 'Promotions',
+
+		// Modal de Promoções
+		'modal.promocoes': 'Promotions',
+		'btn.fechar': 'Close'
 	}
 };
 
 function getCurrentLang() {
-	return localStorage.getItem('lang') || 'pt-BR';
+	return localStorage.getItem('lang') || 'en-US';
 }
 
 function t(key) {
