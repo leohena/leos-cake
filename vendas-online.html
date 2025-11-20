@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -77,10 +77,17 @@
             justify-content: center;
             align-items: center;
             padding: 1rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
 
         .modal-overlay.show {
             display: flex;
+            opacity: 1;
+        }
+
+        .modal-overlay.closing {
+            opacity: 0;
         }
 
         .modal-content-wrapper {
@@ -196,17 +203,17 @@
                 </button>
                 <div id="user-dropdown">
                     <div style="padding: 1rem 1rem 0.5rem 1rem; text-align: center;">
-                        <span id="dropdown-user-name" style="font-weight:700;font-size:1.1rem;">Cliente</span>
+                        <span id="dropdown-user-name" style="font-weight:700;font-size:1.1rem;" data-i18n="vendas_online.cliente"></span>
                         <div id="dropdown-user-type" style="font-size:0.85rem;color:#888;margin-top:0.2rem;">cliente</div>
                     </div>
                     <div style="border-bottom:1px solid #eee;margin:0.5rem 0 0.5rem 0;"></div>
                     <button id="profile-btn" class="user-dropdown-item" style="border:none;background:none;width:100%;">
                         <i class="fas fa-user"></i>
-                        <span>Perfil</span>
+                        <span data-i18n="vendas_online.perfil"></span>
                     </button>
                     <button id="logout-btn" class="user-dropdown-item" style="border:none;background:none;width:100%;">
                         <i class="fas fa-sign-out-alt"></i>
-                        <span>Sair</span>
+                        <span data-i18n="vendas_online.sair"></span>
                     </button>
                 </div>
             </div>
@@ -284,13 +291,46 @@
                 document.querySelectorAll('.flag-wrapper').forEach(flag => {
                     flag.addEventListener('click', function() {
                         const lang = this.getAttribute('data-lang');
-                        if (window.i18nSystem) {
-                            window.i18nSystem.setLanguage(lang);
-                        }
+                        setLang(lang);
                     });
                 });
             }
         });
+
+        // Funções globais para fechar modais
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                // Prevenir múltiplas execuções
+                if (modal.classList.contains('closing')) {
+                    return;
+                }
+                modal.classList.add('closing');
+                modal.classList.remove('show');
+
+                // Remover completamente após a animação
+                setTimeout(() => {
+                    if (modal && modal.parentNode) {
+                        modal.parentNode.removeChild(modal);
+                    }
+                }, 300);
+            }
+        }
+
+        function closeModalOverlay(event) {
+            if (event.target.classList.contains('modal-overlay')) {
+                const modalId = event.target.id;
+                closeModal(modalId);
+            }
+        }
+
+        // Atualizar título da página dinamicamente
+        document.title = t('vendas_online.titulo');
+
+        // Aplicar traduções após carregamento da página
+        setTimeout(() => {
+            applyTranslations();
+        }, 100);
     </script>
 </body>
 </html>

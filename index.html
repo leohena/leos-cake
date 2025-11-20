@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leo's Cake - Sistema de Vendas</title>
+    <title data-i18n="login.titulo_pagina">Leo's Cake - Sistema de Vendas</title>
     
     <meta name="theme-color" content="#ff6b9d">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -35,7 +35,7 @@
     <div id="splash-screen" class="splash-screen" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); align-items: center; justify-content: center; z-index: 9999; flex-direction: column;">
         <img src="images/logo-png.png" alt="Leo's Cake" style="width: 100px; height: 100px; margin-bottom: 20px; border-radius: 10px;">
         <h1 style="color: white; margin: 0; font-size: 2rem;">Leo's Cake</h1>
-    <p style="color: rgba(255,255,255,0.8); margin: 10px 0; font-size: 1rem;">Sistema de Vendas</p>
+    <p style="color: rgba(255,255,255,0.8); margin: 10px 0; font-size: 1rem;" data-i18n="login.sistema_vendas">Sistema de Vendas</p>
         <div style="width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px;"></div>
     </div>
 
@@ -45,19 +45,19 @@
             <div style="text-align: center; margin-bottom: 2rem;">
                 <img src="images/logo-png.png" alt="Leo's Cake" style="width: 80px; height: 80px; border-radius: 8px; margin-bottom: 1rem;">
                 <h1 style="margin: 0; font-size: 1.5rem; color: #333;">Leo's Cake</h1>
-                <p style="margin: 0.5rem 0 0 0; color: #666;">Sistema de Vendas</p>
+                <p style="margin: 0.5rem 0 0 0; color: #666;" data-i18n="login.sistema_vendas">Sistema de Vendas</p>
             </div>
 
             <form id="login-form" style="display: flex; flex-direction: column; gap: 1rem;">
                 <div>
-                    <label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Email</label>
+                    <label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;" data-i18n="login.email">Email</label>
                     <input type="email" id="login-email" placeholder="seu@email.com" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
                 </div>
                 <div>
-                    <label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Senha</label>
-                    <input type="password" id="login-password" placeholder="Sua senha" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+                    <label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;" data-i18n="login.senha">Senha</label>
+                    <input type="password" id="login-password" placeholder="Sua senha" data-i18n-placeholder="login.sua_senha" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
                 </div>
-                <button type="submit" style="padding: 0.75rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 0.5rem;">
+                <button type="submit" style="padding: 0.75rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 0.5rem;" data-i18n="login.entrar">
                     Entrar
                 </button>
             </form>
@@ -162,7 +162,7 @@
                     const password = document.getElementById('login-password').value;
 
                     if (!email || !password) {
-                        showLoginError('Preencha email e senha');
+                        showLoginError(t('login.erro_padrao'));
                         return;
                     }
 
@@ -173,11 +173,11 @@
                             console.log('✅ Login bem-sucedido');
                             window.location.href = 'dashboard.html';
                         } else {
-                            showLoginError(result.message || 'Email ou senha incorretos');
+                            showLoginError(result.message || t('login.erro_autenticacao'));
                         }
                     } catch (error) {
                         console.error('Erro ao fazer login:', error);
-                        showLoginError('Erro ao fazer login. Tente novamente.');
+                        showLoginError(t('login.erro_geral'));
                     }
                 });
             }
@@ -192,6 +192,11 @@
                 }
             }
         });
+
+        // Aplicar traduções após carregamento
+        setTimeout(() => {
+            applyTranslations();
+        }, 100);
     </script>
 </body>
 </html>

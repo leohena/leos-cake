@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Leo's Cake</title>
+    <title data-i18n="dashboard.titulo_pagina">Dashboard - Leo's Cake</title>
     
     <meta name="theme-color" content="#ff6b9d">
     <meta name="mobile-web-app-capable" content="yes">
@@ -205,6 +205,8 @@
             color: #333;
             font-family: inherit;
             font-size: 0.95rem;
+            position: relative;
+            z-index: 1;
         }
         .user-dropdown-item i {
             min-width: 20px;
@@ -233,7 +235,7 @@
     <header class="header">
         <div class="header-logo">
             <img src="images/logo-png.png" alt="Leo's Cake">
-            <h1 id="page-title">Dashboard</h1>
+            <h1 id="page-title" data-i18n="section.dashboard">Dashboard</h1>
         </div>
 
         <div class="header-actions">
@@ -261,24 +263,24 @@
                     <div style="border-bottom:1px solid #eee;margin:0.5rem 0 0.5rem 0;"></div>
                     <button id="profile-btn" class="user-dropdown-item" style="border:none;background:none;width:100%;">
                         <i class="fas fa-user"></i>
-                        <span>Perfil</span>
+                        <span data-i18n="btn.profile">Perfil</span>
                     </button>
                     <button id="config-btn" class="user-dropdown-item" style="border:none;background:none;width:100%;">
                         <i class="fas fa-cog"></i>
-                        <span>Configurações</span>
+                        <span data-i18n="menu.configuracoes">Configurações</span>
                     </button>
-                    <button id="usuarios-btn" class="user-dropdown-item" style="display:block;border:none;background:none;width:100%;padding-left:2rem;">
+                    <button id="usuarios-btn" class="user-dropdown-item" style="display:block;border:none;background:none;width:100%;padding-left:2rem;position:relative;z-index:1;">
                         <i class="fas fa-users-cog"></i>
-                        <span>Usuários</span>
+                        <span data-i18n="menu.usuarios">Usuários</span>
                     </button>
-                    <button id="promocoes-btn" class="user-dropdown-item" style="display:block;border:none;background:none;width:100%;padding-left:2rem;">
+                    <button id="promocoes-btn" class="user-dropdown-item" style="display:block;border:none;background:none;width:100%;padding-left:2rem;position:relative;z-index:2;">
                         <i class="fas fa-tags"></i>
-                        <span>Promoções</span>
+                        <span data-i18n="menu.promocoes">Promoções</span>
                     </button>
                     <div style="border-bottom:1px solid #eee;margin:0.5rem 0 0.5rem 0;"></div>
                     <button id="logout-btn" class="user-dropdown-item" style="border:none;background:none;width:100%;">
                         <i class="fas fa-sign-out-alt"></i>
-                        <span>Sair</span>
+                        <span data-i18n="btn.logout">Sair</span>
                     </button>
                 </div>
             </div>
@@ -290,7 +292,7 @@
         <!-- Dashboard Section -->
         <section id="dashboard-section" class="content-section" style="display: block;">
             <div style="text-align: center; margin-bottom: 2rem;">
-                <p class="welcome-text" style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;">Bem-vindo(a), <strong id="welcome-name">Usuário</strong>!</p>
+                <p class="welcome-text" style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;"><span data-i18n="dashboard.bem_vindo_texto">Bem-vindo(a),</span> <strong id="welcome-name" data-i18n="dashboard.usuario_padrao">Usuário</strong>!</p>
             </div>
             <div id="stats-grid" style="display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.2rem;">
                 <!-- Stats serão carregados aqui -->
@@ -374,6 +376,9 @@
             const configBtn = document.getElementById('config-btn');
             const profileBtn = document.getElementById('profile-btn');
             
+            console.log('🔍 Usuário atual:', currentUser);
+            console.log('🔍 Tipo/role do usuário:', currentUser?.role, currentUser?.tipo);
+            
             // Garantir que promocoesBtn existe
             if (!promocoesBtn && usuariosBtn) {
                 const btn = document.createElement('button');
@@ -384,8 +389,8 @@
                 usuariosBtn.parentNode.insertBefore(btn, usuariosBtn.nextSibling);
             }
             
-            // Re-obter referência
-            const promocoesBtn = document.getElementById('promocoes-btn');
+            // Re-obter referência (já declarada acima)
+            // const promocoesBtn = document.getElementById('promocoes-btn');
             
             // Inicializar displays
             if (usuariosBtn) usuariosBtn.style.display = 'none';
@@ -413,11 +418,17 @@
             if (configBtn) {
                 configBtn.onclick = function(e) {
                     e.stopPropagation();
+                    console.log('🔧 Clicou em Configurações');
                     // Toggle dos botões usuários e promoções
-                    if (currentUser && currentUser.tipo === 'admin') {
+                    if (currentUser && (currentUser.role === 'admin' || currentUser.tipo === 'admin')) {
+                        console.log('👑 Usuário é admin, mostrando botões');
                         const isVisible = usuariosBtn.style.display === 'block';
+                        console.log('👁️ Visibilidade atual:', isVisible);
                         usuariosBtn.style.display = isVisible ? 'none' : 'block';
                         promocoesBtn.style.display = isVisible ? 'none' : 'block';
+                        console.log('✅ Botões usuários/promoções:', usuariosBtn.style.display, promocoesBtn.style.display);
+                    } else {
+                        console.log('❌ Usuário não é admin:', currentUser?.role, currentUser?.tipo);
                     }
                 };
             }
@@ -463,9 +474,14 @@
         // Funções globais para fechar modais
         function closeModal(modalId) {
             const modal = document.getElementById(modalId);
-            if (modal) {
+            if (modal && !modal.classList.contains('closing')) {
+                modal.classList.add('closing');
                 modal.classList.remove('show');
-                setTimeout(() => modal.remove(), 300);
+                setTimeout(() => {
+                    if (modal.parentNode) {
+                        modal.parentNode.removeChild(modal);
+                    }
+                }, 300);
             }
         }
 
@@ -539,6 +555,19 @@
                 });
             }
         });
+
+        // Aplicar traduções após carregamento
+        setTimeout(() => {
+            applyTranslations();
+            
+            // Adicionar event listeners para as flags de idioma
+            document.querySelectorAll('.flag-wrapper').forEach(flag => {
+                flag.addEventListener('click', function() {
+                    const lang = this.getAttribute('data-lang');
+                    setLang(lang);
+                });
+            });
+        }, 100);
     </script>
 
     <script src="src/supabase.js"></script>
