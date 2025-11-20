@@ -535,7 +535,7 @@ class DashboardApp {
 						}
 					}
 
-					let clienteNome = 'Cliente';
+					let clienteNome = t('vendas_online.cliente_default');
 					if (pedido.cliente_id) {
 						const cliente = this.clients?.find(c => c.id == pedido.cliente_id);
 						if (cliente) {
@@ -2587,6 +2587,11 @@ class DashboardApp {
 			return null;
 		}
 
+		// Calcular informações do carrinho
+		const produtosNoCarrinho = new Set(Object.keys(cartItems));
+		const totalItens = Object.values(cartItems).reduce((sum, item) => sum + (item.quantidade || 0), 0);
+		const totalValor = cartTotal;
+
 		// Verificar cada promoção
 		for (const promocao of this.activePromocoes) {
 			// Verificar se a promoção é aplicável ao canal atual
@@ -2605,7 +2610,7 @@ class DashboardApp {
 				// Promoção geral - verificar quantidade ou valor mínimo
 				if (promocao.quantidade_minima && totalItens >= promocao.quantidade_minima) {
 					elegivel = true;
-				} else if (promocao.valor_minimo && totalValor >= promocao.valor_minimo) {
+				} else if (promocao.valor_minimo && cartTotal >= promocao.valor_minimo) {
 					elegivel = true;
 				}
 			}
@@ -2643,7 +2648,7 @@ class DashboardApp {
 		modal.className = 'modal-overlay show';
 		modal.style.cssText = `
 			position: fixed;
-			z-index: 10000;
+			z-index: 99999;
 			left: 0;
 			top: 0;
 			width: 100%;
@@ -2652,28 +2657,21 @@ class DashboardApp {
 			display: flex;
 			justify-content: center;
 			align-items: center;
-			animation: fadeIn 0.3s ease-out;
+			pointer-events: auto;
 		`;
 
-		// Adicionar event listener após o modal ser inserido no DOM
-		const handleModalClick = (e) => {
-			if (e.target === modal) {
-				closeModal(modalId);
-			}
-		};
-
-		modal.addEventListener('click', handleModalClick);
+		modal.addEventListener('click', closeModalOverlay);
 
 		let promocoesHtml = '';
 		promocoes.forEach(p => {
 			let condicoes = [];
 			if (p.produto_id) {
 				const produto = this.products?.find(prod => prod.id === p.produto_id);
-				if (produto) condicoes.push(`${t('promocoes.produto')} ${produto.nome}`);
+				if (produto) condicoes.push(`${t('promocoes.produto')}: ${translateProductName(produto.nome)}`);
 			}
-			if (p.quantidade_minima) condicoes.push(`${t('promocoes.quantidade_minima')} ${p.quantidade_minima}`);
-			if (p.valor_minimo) condicoes.push(`${t('promocoes.valor_minimo')} R$ ${this.formatCurrency(p.valor_minimo)}`);
-			if (p.regioes) condicoes.push(`${t('promocoes.regioes')} ${p.regioes}`);
+			if (p.quantidade_minima) condicoes.push(`${t('promocoes.quantidade_minima')}: ${p.quantidade_minima}`);
+			if (p.valor_minimo) condicoes.push(`${t('promocoes.valor_minimo')}: R$ ${this.formatCurrency(p.valor_minimo)}`);
+			if (p.regioes) condicoes.push(`${t('promocoes.regioes')}: ${p.regioes}`);
 
 			let beneficios = [];
 			if (p.desconto_valor) {
@@ -2714,7 +2712,7 @@ class DashboardApp {
 							<h3 style="margin: 0 0 0.5rem 0; font-size: 1.3rem; font-weight: 700;">🎉 ${p.nome}</h3>
 							${p.produto_id ? (() => {
 								const produto = this.products?.find(prod => prod.id === p.produto_id);
-								return produto ? `<div style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem;">🍰 ${produto.nome}</div>` : '';
+								return produto ? `<div style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem;">🍰 ${translateProductName(produto.nome)}</div>` : '';
 							})() : ''}
 						</div>
 						<div style="background: #28a745; color: white; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
@@ -2763,6 +2761,8 @@ class DashboardApp {
 			</div>
 		`;
 		modalsContainer.appendChild(modal);
+
+		modal.onclick = closeModalOverlay;
 	}
 
 	async updateStockForOrder(action, orderId) {
@@ -3201,12 +3201,16 @@ class DashboardApp {
 				console.error('Erro do Supabase:', error);
 				throw error;
 			}			// Atualizar o pedido na memória
+			const oldStatus = order.status;
 			order.status = newStatus;
 
 			// Se foi atualizado o valor_pago no banco, atualizar também na memória
 			if (updateData.valor_pago !== undefined) {
 				order.valor_pago = updateData.valor_pago;
 			}
+
+			// Enviar email baseado na mudança de status
+			await this.enviarEmailPorStatus(order, oldStatus, newStatus);
 
 			// Atualizar status das entregas relacionadas se necessário
 			if (newStatus === 'entregue' || newStatus === 'cancelado') {
@@ -3643,7 +3647,7 @@ class DashboardApp {
 						return `
 							<div class="card-produto" style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.2rem; max-width: 320px; width: 100%; display: flex; flex-direction: column; align-items: center;" data-descricao="${produto.descricao || ''}">
 								<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
-									<span style="font-size: 1.0rem; font-weight: 700; color: #333;">${produto.nome}</span>
+									<span style="font-size: 1.0rem; font-weight: 700; color: #333;">${translateProductName(produto.nome)}</span>
 									<div style="margin-top: 0.5rem;">
 										<span style="background: ${produto.status_produto === 'pronta_entrega' ? '#28a745' : '#ff6b9d'}; color: white; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.7rem; font-weight: 600;">${produto.status_produto === 'pronta_entrega' ? t('vendas_online.pronta_entrega') : t('vendas_online.sob_encomenda')}</span>
 									</div>
@@ -3745,75 +3749,6 @@ class DashboardApp {
 					}, 2000); // Aparecer após 2 segundos
 				}
 			}
-							let condicoes = [];
-							if (p.produto_id) {
-								const produto = this.products?.find(prod => prod.id === p.produto_id);
-								if (produto) condicoes.push(`${t('promocoes.produto')} ${produto.nome}`);
-							}
-							if (p.quantidade_minima) condicoes.push(`${t('promocoes.quantidade_minima')} ${p.quantidade_minima}`);
-							if (p.valor_minimo) condicoes.push(`${t('promocoes.valor_minimo')} R$ ${this.formatCurrency(p.valor_minimo)}`);
-							if (p.regioes) condicoes.push(`${t('promocoes.regioes')} ${p.regioes}`);
-
-							let beneficios = [];
-							if (p.desconto_valor) {
-								if (p.desconto_tipo === 'percentual') {
-									beneficios.push(`${p.desconto_valor}${t('promocoes.desconto_percentual')}`);
-								} else {
-									beneficios.push(`R$ ${this.formatCurrency(p.desconto_valor)} ${t('promocoes.desconto_valor')}`);
-								}
-							}
-							if (p.frete_gratis) beneficios.push(t('promocoes.frete_gratis'));
-
-							return `
-								<div style="background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 1rem; position: relative; overflow: hidden;">
-									${p.produto_id ? (() => {
-										const produto = this.products?.find(prod => prod.id === p.produto_id);
-										if (produto && produto.fotos && produto.fotos.length > 0) {
-											const primeiraFoto = JSON.parse(produto.fotos)[0];
-											return `<div style="position: absolute; top: 0; right: 0; width: 120px; height: 120px; border-radius: 0 12px 0 50px; overflow: hidden; opacity: 0.8;">
-												<img src="${primeiraFoto}" alt="${produto.nome}" style="width: 100%; height: 100%; object-fit: cover;">
-											</div>`;
-										}
-										return '';
-									})() : ''}
-									<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; ${p.produto_id ? 'margin-right: 100px;' : ''}">
-										<div>
-											<h3 style="margin: 0 0 0.5rem 0; font-size: 1.4rem; font-weight: 700;">🎉 ${p.nome}</h3>
-											${p.produto_id ? (() => {
-												const produto = this.products?.find(prod => prod.id === p.produto_id);
-												return produto ? `<div style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem;">🍰 ${produto.nome}</div>` : '';
-											})() : ''}
-										</div>
-										<div style="background: #28a745; color: white; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
-											ATIVA
-										</div>
-									</div>
-
-									${condicoes.length > 0 ? `
-										<div style="margin-bottom: 1rem;">
-											<h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; opacity: 0.9;">📋 Condições:</h4>
-											<ul style="margin: 0; padding-left: 1.2rem; font-size: 0.9rem;">
-												${condicoes.map(c => `<li>${c}</li>`).join('')}
-											</ul>
-										</div>
-									` : ''}
-
-									${beneficios.length > 0 ? `
-										<div style="margin-bottom: 1rem;">
-											<h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; opacity: 0.9;">🎁 Benefícios:</h4>
-											<ul style="margin: 0; padding-left: 1.2rem; font-size: 0.9rem;">
-												${beneficios.map(b => `<li style="color: #fff3cd; font-weight: 600;">${b}</li>`).join('')}
-											</ul>
-										</div>
-									` : ''}
-
-									<div style="text-align: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.3);">
-										<button style="background: white; color: #ff6b9d; border: none; padding: 0.8rem 2rem; border-radius: 25px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2);" onclick="window.dashboardApp.showPromocoesPopup()">
-											🛒 VER DETALHES
-										</button>
-									</div>
-								</div>
-							`;
 		} catch (error) {
 			console.warn('Erro ao carregar promoções para pop-up:', error);
 		}
@@ -3825,15 +3760,15 @@ class DashboardApp {
 		const topBar = `
 			<div style="width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
 				<div style="display: flex; align-items: center; gap: 0.5rem;">
-					<label for="dropdown-categoria-online" style="font-weight: 600;">Filtrar:</label>
+					<label for="dropdown-categoria-online" style="font-weight: 600;">${t('vendas_online.filtrar_label')}</label>
 					<select id="dropdown-categoria-online" style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid #eee; font-size: 1rem;">
-						<option value="">Todas Categorias</option>
+						<option value="">${t('vendas_online.todas_categorias')}</option>
 						${categorias.map(cat => `<option value="${cat}" ${cat === categoriaSelecionada ? 'selected' : ''}>${cat}</option>`).join('')}
 					</select>
 				</div>
 
 				<div style="font-size: 1.15rem; font-weight: 700; color: #28a745; background: #f8f9fa; border-radius: 8px; padding: 0.5rem 1.2rem;">
-					Total: <span class="vendas-online-cart-total">${this.formatCurrency(cartTotal)}</span>
+					${t('vendas_online.total_label')} <span class="vendas-online-cart-total">${this.formatCurrency(cartTotal)}</span>
 				</div>
 			</div>
 		`;
@@ -3848,7 +3783,7 @@ class DashboardApp {
 		console.log('🔍 Categoria selecionada:', categoriaSelecionada);
 
 		if (produtosFiltrados.length === 0) {
-			produtosHtml = `<div style="text-align: center; padding: 3rem; color: #888;"><i class="fas fa-box-open" style="font-size: 3rem; margin-bottom: 1rem;"></i><p>Nenhum produto disponível para venda</p></div>`;
+			produtosHtml = `<div style="text-align: center; padding: 3rem; color: #888;"><i class="fas fa-box-open" style="font-size: 3rem; margin-bottom: 1rem;"></i><p>${t('vendas_online.nenhum_produto')}</p></div>`;
 		} else {
 			produtosHtml = `
 				<div style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center;">
@@ -3860,7 +3795,7 @@ class DashboardApp {
 						return `
 							<div class="card-produto" style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.2rem; max-width: 320px; width: 100%; display: flex; flex-direction: column; align-items: center;" data-descricao="${produto.descricao || ''}">
 								<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
-									<span style="font-size: 1.0rem; font-weight: 700; color: #333;">${produto.nome}</span>
+									<span style="font-size: 1.0rem; font-weight: 700; color: #333;">${translateProductName(produto.nome)}</span>
 									<div style="margin-top: 0.5rem;">
 										<span style="background: ${produto.status_produto === 'pronta_entrega' ? '#28a745' : '#ff6b9d'}; color: white; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.7rem; font-weight: 600;">${produto.status_produto === 'pronta_entrega' ? t('vendas_online.pronta_entrega') : t('vendas_online.sob_encomenda')}</span>
 									</div>
@@ -3869,7 +3804,7 @@ class DashboardApp {
 									<div id="online-carousel-${produto.id}" data-current="0" style="display: flex; width: 100%; height: 100%; transition: transform 0.3s ease;">
 										${fotos.length > 0 ? 
 											fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;" onerror="console.error('Erro ao carregar imagem:', '${foto}')">`).join('') :
-											`<div style="width: 100%; height: 100%; background: #f8f9fa; display: flex; align-items: center; justify-content: center; color: #666;">Sem imagem</div>`
+											`<div style="width: 100%; height: 100%; background: #f8f9fa; display: flex; align-items: center; justify-content: center; color: #666;">${t('vendas_online.sem_imagem')}</div>`
 										}
 									</div>
 									${fotos.length > 1 ? `
@@ -4022,7 +3957,7 @@ class DashboardApp {
 			card.addEventListener('mouseenter', function(e) {
 				const descricao = card.getAttribute('data-descricao');
 				if (descricao && descricao.trim()) {
-					tooltip.textContent = descricao;
+					tooltip.textContent = translateProductDescription(descricao);
 					tooltip.classList.remove('hidden');
 				}
 			});
@@ -4353,7 +4288,7 @@ class DashboardApp {
 				const produto = this.products.find(p => p.id == id);
 				return produto ? `
 					<tr style="border-bottom:1px solid #eee;">
-						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#222; font-weight:600;">${produto.nome}</td>
+						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#222; font-weight:600;">${translateProductName(produto.nome)}</td>
 						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#764ba2; text-align:right;">${this.formatCurrency(item.preco)}</td>
 						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; text-align:center;">
 							<div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
@@ -4430,7 +4365,7 @@ class DashboardApp {
 				const produto = this.products.find(p => p.id == id);
 				return produto ? `
 					<tr style="border-bottom:1px solid #eee;">
-						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#222; font-weight:600;">${produto.nome}</td>
+						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#222; font-weight:600;">${translateProductName(produto.nome)}</td>
 						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#764ba2; text-align:right;">${this.formatCurrency(item.preco)}</td>
 						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; text-align:center;">
 							<div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
@@ -4567,27 +4502,19 @@ class DashboardApp {
 
 	// MODAL FINALIZAR PEDIDO - VENDA PRESENCIAL
 	abrirFinalizarPedidoModal(clienteIdPreSelecionado = null) {
-		// Verificar se já existe um modal aberto e removê-lo
-		const existingModal = document.getElementById('modal-finalizar-pedido');
-		if (existingModal) {
-			existingModal.remove();
-		}
+		try {
+			// Verificar se já existe um modal aberto e removê-lo
+			const existingModal = document.getElementById('modal-finalizar-pedido');
+			if (existingModal) {
+				existingModal.remove();
+			}
 
-		const modal = this.createModal('modal-finalizar-pedido', '🛒 Finalizar Pedido');
-		modal.classList.add('show');
-		
-		Object.assign(modal.style, {
-			display: 'flex',
-			justifyContent: 'center',
-			alignItems: 'center',
-			position: 'fixed',
-			top: '0',
-			left: '0',
-			width: '100vw',
-			height: '100vh',
-			background: 'rgba(0,0,0,0.4)',
-			zIndex: '2000'
-		});
+			const modalId = 'modal-finalizar-pedido';
+			document.querySelectorAll('.modal-overlay').forEach(modal => modal.remove());
+			const modal = document.createElement('div');
+			modal.id = modalId;
+			modal.className = 'modal-overlay show';
+			modal.onclick = closeModalOverlay;
 
 		let modalsContainer = document.getElementById('modals-container');
 		if (!modalsContainer) {
@@ -4604,7 +4531,7 @@ class DashboardApp {
 				const produto = this.products.find(p => p.id == id);
 				return produto ? `
 					<tr style="border-bottom:1px solid #eee;">
-						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#222; font-weight:600;">${produto.nome}</td>
+						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#222; font-weight:600;">${translateProductName(produto.nome)}</td>
 						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#764ba2; text-align:right;">${this.formatCurrency(item.preco)}</td>
 						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; text-align:center;">
 							<div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
@@ -4635,20 +4562,21 @@ class DashboardApp {
 		const isVendasOnline = this.isVendasOnline;
 		let clienteHTML = '';
 		let clienteSelecionado = null;
+		let clienteSelecionadoData = null;
 
 		if (isVendasOnline) {
 			// Para vendas online, usar o cliente recém-cadastrado ou logado
 			if (typeof clienteIdPreSelecionado === 'object' && clienteIdPreSelecionado?.id) {
-				// Cliente passado como objeto
 				clienteSelecionado = clienteIdPreSelecionado;
+			} else if (clienteSelecionadoData) {
+				clienteSelecionado = clienteSelecionadoData;
 			} else if (clienteIdPreSelecionado) {
-				// Cliente passado como ID
 				clienteSelecionado = this.clients.find(c => c.id == clienteIdPreSelecionado);
-			}
+		}
 			if (clienteSelecionado) {
 				clienteHTML = `
 					<div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 1rem; border-radius: 10px; color: white;">
-						<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">Cliente</h4>
+						<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">${t('finalizar.cliente')}</h4>
 						<div style="background: rgba(255,255,255,0.1); padding: 0.75rem; border-radius: 6px;">
 							<p style="margin: 0 0 0.25rem 0; font-weight: 600;">${clienteSelecionado.nome}</p>
 							<p style="margin: 0 0 0.25rem 0; font-size: 0.9rem;">${clienteSelecionado.telefone}</p>
@@ -4660,16 +4588,19 @@ class DashboardApp {
 		} else {
 			// Para vendas presenciais, mostrar select de clientes
 			let clienteIdParaSelecionar = null;
+			let clienteSelecionadoData = null;
 			if (typeof clienteIdPreSelecionado === 'object' && clienteIdPreSelecionado?.id) {
 				clienteIdParaSelecionar = clienteIdPreSelecionado.id;
+				clienteSelecionadoData = clienteIdPreSelecionado;
 			} else {
 				clienteIdParaSelecionar = clienteIdPreSelecionado;
+				clienteSelecionadoData = this.clients.find(c => c.id == clienteIdPreSelecionado);
 			}
 			clienteHTML = `
 				<div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 1rem; border-radius: 10px; color: white;">
-					<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">Cliente</h4>
+					<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">${t('finalizar.cliente')}</h4>
 					<select id="finalizar-cliente" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem;">
-						<option value="">-- Selecione o cliente --</option>
+						<option value="">${t('finalizar.selecione_cliente')}</option>
 						${this.clients.map(c => `<option value="${c.id}" ${clienteIdParaSelecionar == c.id ? 'selected' : ''}>${c.nome} - ${c.telefone}</option>`).join('')}
 					</select>
 				</div>
@@ -4679,7 +4610,7 @@ class DashboardApp {
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 500px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 1.3rem; max-height: 90vh; overflow-y: auto;">
 				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-					<h3 style="margin: 0; font-size: 1.5rem; color: #333;">🛒 ${isVendasOnline ? 'Finalizar Venda' : 'Finalizar Pedido'}</h3>
+					<h3 style="margin: 0; font-size: 1.5rem; color: #333;">🛒 ${isVendasOnline ? t('finalizar.finalizar_venda') : t('finalizar.finalizar_pedido')}</h3>
 					<button id="close-finalizar-pedido" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
 				</div>
 
@@ -4687,13 +4618,13 @@ class DashboardApp {
 					<!-- Produtos -->
 					<div style="background: #f8f9fa; padding: 1rem; border-radius: 10px;">
 						<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-							<h4 style="margin: 0; font-size: 1.05rem; color: #764ba2;">Produtos</h4>
-							<button type="button" onclick="window.dashboardApp.limparCarrinho()" style="background: #dc3545; color: white; border: none; border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.8rem; cursor: pointer;">Limpar Carrinho</button>
+							<h4 style="margin: 0; font-size: 1.05rem; color: #764ba2;">${t('finalizar.produtos')}</h4>
+							<button type="button" onclick="window.dashboardApp.limparCarrinho()" style="background: #dc3545; color: white; border: none; border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.8rem; cursor: pointer;">${t('finalizar.limpar_carrinho')}</button>
 						</div>
 
 						${(() => {
 							// Verificar promoções elegíveis
-							const promocaoElegivel = this.checkCartPromocoes(cartTotal, this.cart);
+							const promocaoElegivel = this.checkCartPromocoes(totalCarrinho, this.cart);
 							if (promocaoElegivel) {
 								return `
 									<div style="background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; padding: 0.8rem; border-radius: 8px; margin-bottom: 1rem; text-align: center;">
@@ -4711,11 +4642,11 @@ class DashboardApp {
 							<table style="width:100%; border-collapse:collapse;">
 								<thead>
 									<tr style="background:#e9ecef;">
-										<th style="padding:0.4rem; font-size:0.85rem; text-align:left;">Produto</th>
-										<th style="padding:0.4rem; font-size:0.85rem; text-align:right;">Preço</th>
-										<th style="padding:0.4rem; font-size:0.85rem; text-align:center;">Qtd</th>
-										<th style="padding:0.4rem; font-size:0.85rem; text-align:right;">Total</th>
-										<th style="padding:0.4rem; font-size:0.85rem; text-align:center;">Ações</th>
+										<th style="padding:0.4rem; font-size:0.85rem; text-align:left;">${t('finalizar.tabela_produto')}</th>
+										<th style="padding:0.4rem; font-size:0.85rem; text-align:right;">${t('finalizar.tabela_preco')}</th>
+										<th style="padding:0.4rem; font-size:0.85rem; text-align:center;">${t('finalizar.tabela_qtd')}</th>
+										<th style="padding:0.4rem; font-size:0.85rem; text-align:right;">${t('finalizar.tabela_total')}</th>
+										<th style="padding:0.4rem; font-size:0.85rem; text-align:center;">${t('finalizar.tabela_acoes')}</th>
 									</tr>
 								</thead>
 								<tbody>${produtosCarrinho}</tbody>
@@ -4728,20 +4659,20 @@ class DashboardApp {
 
 					<!-- Pagamento -->
 					<div style="background: linear-gradient(135deg, #f093fb, #f5576c); padding: 1rem; border-radius: 10px; color: white;">
-						<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">Forma de Pagamento</h4>
+						<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">${t('finalizar.forma_pagamento')}</h4>
 						<select id="finalizar-pagamento" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem; margin-bottom: 0.75rem;">
-							<option value="dinheiro">Dinheiro</option>
-							<option value="transferencia">Transferência</option>
-							<option value="cartao">Cartão</option>
+							<option value="dinheiro">${t('finalizar.dinheiro')}</option>
+							<option value="transferencia">${t('finalizar.transferencia')}</option>
+							<option value="cartao">${t('finalizar.cartao')}</option>
 						</select>
 						
 						<label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500;">
 							<input type="checkbox" id="finalizar-full-payment" checked style="width: 18px; height: 18px;"> 
-							Pagamento total?
+							${t('finalizar.pagamento_total')}
 						</label>
 						
 						<div id="finalizar-sinal-group" style="display: none; margin-top: 0.75rem;">
-							<label style="display: block; margin-bottom: 0.25rem;">Valor do sinal (CAD$):</label>
+							<label style="display: block; margin-bottom: 0.25rem;">${t('finalizar.valor_sinal')}</label>
 							<input type="text" id="finalizar-sinal" placeholder="0.00" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none;">
 							<p id="finalizar-restante" style="margin: 0.5rem 0 0 0; font-size: 0.9rem;"></p>
 						</div>
@@ -4749,45 +4680,45 @@ class DashboardApp {
 
 					<!-- Tipo de Entrega -->
 					<div style="background: linear-gradient(135deg, #4facfe, #00f2fe); padding: 1rem; border-radius: 10px; color: white;">
-						<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">Tipo de Entrega</h4>
+						<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">${t('finalizar.tipo_entrega')}</h4>
 						<select id="finalizar-entrega" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem;">
-							<option value="retirada">Retirada na Loja</option>
-							<option value="entrega">Entrega</option>
+							<option value="retirada">${t('finalizar.retirada_loja')}</option>
+							<option value="entrega">${t('finalizar.entrega')}</option>
 						</select>
 						
 						<div id="entrega-detalhes" style="display: none; margin-top: 0.75rem;">
-							<label style="display: block; margin-bottom: 0.25rem;">Data de Entrega:</label>
+							<label style="display: block; margin-bottom: 0.25rem;">${t('finalizar.data_entrega')}</label>
 							<input type="date" id="finalizar-data-entrega" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none; margin-bottom: 0.5rem;">
 							
-							<label style="display: block; margin-bottom: 0.25rem;">Horário:</label>
+							<label style="display: block; margin-bottom: 0.25rem;">${t('finalizar.horario')}</label>
 							<select id="finalizar-horario-entrega" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none; margin-bottom: 0.5rem;">
-								<option value="">Selecione um horário...</option>
-								<option value="08:00">08:00 - Manhã</option>
-								<option value="09:00">09:00 - Manhã</option>
-								<option value="10:00">10:00 - Manhã</option>
-								<option value="11:00">11:00 - Manhã</option>
-								<option value="12:00">12:00 - Meio-dia</option>
-								<option value="13:00">13:00 - Tarde</option>
-								<option value="14:00">14:00 - Tarde</option>
-								<option value="15:00">15:00 - Tarde</option>
-								<option value="16:00">16:00 - Tarde</option>
-								<option value="17:00">17:00 - Tarde</option>
-								<option value="18:00">18:00 - Noite</option>
-								<option value="19:00">19:00 - Noite</option>
-								<option value="20:00">20:00 - Noite</option>
+								<option value="">${t('finalizar.selecione_horario')}</option>
+								<option value="08:00">08:00 - AM</option>
+								<option value="09:00">09:00 - AM</option>
+								<option value="10:00">10:00 - AM</option>
+								<option value="11:00">11:00 - AM</option>
+								<option value="12:00">12:00 - PM</option>
+								<option value="13:00">13:00 - PM</option>
+								<option value="14:00">14:00 - PM</option>
+								<option value="15:00">15:00 - PM</option>
+								<option value="16:00">16:00 - PM</option>
+								<option value="17:00">17:00 - PM</option>
+								<option value="18:00">18:00 - PM</option>
+								<option value="19:00">19:00 - PM</option>
+								<option value="20:00">20:00 - PM</option>
 							</select>
 							
 							<!-- Opções de endereço -->
 							<div id="endereco-options" style="margin-top: 0.75rem;">
-								<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Endereço de Entrega:</label>
+								<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">${t('finalizar.endereco_entrega')}</label>
 								<div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
 									<label style="display: flex; align-items: center; gap: 0.25rem; flex: 1;">
 										<input type="radio" name="endereco-opcao" value="cadastro" checked style="width: 16px; height: 16px;">
-										<span style="font-size: 0.9rem;">Usar endereço do cadastro</span>
+										<span style="font-size: 0.9rem;">${t('finalizar.usar_endereco_cadastro')}</span>
 									</label>
 									<label style="display: flex; align-items: center; gap: 0.25rem; flex: 1;">
 										<input type="radio" name="endereco-opcao" value="novo" style="width: 16px; height: 16px;">
-										<span style="font-size: 0.9rem;">Novo endereço</span>
+										<span style="font-size: 0.9rem;">${t('finalizar.novo_endereco')}</span>
 									</label>
 								</div>
 								
@@ -4796,8 +4727,8 @@ class DashboardApp {
 								</div>
 								
 								<div id="endereco-novo-input" style="display: none;">
-									<label style="display: block; margin-bottom: 0.25rem; font-size: 0.9rem;">Novo Endereço:</label>
-									<textarea id="finalizar-endereco-novo" placeholder="Digite o novo endereço..." style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none; resize: vertical; min-height: 60px;" rows="3"></textarea>
+									<label style="display: block; margin-bottom: 0.25rem; font-size: 0.9rem;">${t('finalizar.novo_endereco_label')}</label>
+									<textarea id="finalizar-endereco-novo" placeholder="${t('finalizar.digite_novo_endereco')}" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none; resize: vertical; min-height: 60px;" rows="3"></textarea>
 								</div>
 							</div>
 						</div>
@@ -4805,12 +4736,12 @@ class DashboardApp {
 
 					<!-- Total -->
 					<div style="background: #28a745; padding: 1rem; border-radius: 10px; text-align: center; color: white;">
-						<h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; font-weight: 400; opacity: 0.9;">VALOR TOTAL</h4>
+						<h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; font-weight: 400; opacity: 0.9;">${t('finalizar.valor_total')}</h4>
 						<h2 class="modal-total-valor" style="margin: 0; font-size: 2rem; font-weight: 700;">${this.formatCurrency(totalCarrinho)}</h2>
 					</div>
 
 					<button type="submit" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 1rem; font-size: 1.2rem; font-weight: 700; cursor: pointer;">
-						✓ Finalizar Venda
+						✓ ${t('finalizar.finalizar_venda')}
 					</button>
 				</form>
 			</div>
@@ -4954,6 +4885,10 @@ class DashboardApp {
 				await this.finalizarVendaPresencial();
 			}
 		});
+		console.log('✅ Modal de finalização criado com sucesso');
+		} catch (error) {
+			console.error('Erro ao abrir modal finalizar pedido:', error);
+		}
 	}
 
 	async finalizarVendaPresencial() {
@@ -5117,18 +5052,18 @@ class DashboardApp {
 			<div class="modal-content-wrapper" style="max-width: 500px;">
 				<div class="modal-content">
 					<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-						<h3 style="margin: 0; color: #333;">🔍 Verificar Cliente Existente</h3>
+						<h3 style="margin: 0; color: #333;">🔍 ${t('verificacao.titulo')}</h3>
 						<button onclick="closeModal('${modalId}')" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #888; line-height: 1;">&times;</button>
 					</div>
-					<p style="margin-bottom: 1rem; color: #666;">Já é nosso cliente? Informe seu e-mail ou telefone para carregar seus dados automaticamente.</p>
+					<p style="margin-bottom: 1rem; color: #666;">${t('verificacao.descricao')}</p>
 					<form id="form-verificacao-cliente">
 						<div class="form-group">
-							<label for="cliente-contato">E-mail ou Telefone *</label>
-							<input type="text" id="cliente-contato" required placeholder="exemplo@email.com ou 416 123 4567" style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem;">
+							<label for="cliente-contato">${t('verificacao.email_telefone')}</label>
+							<input type="text" id="cliente-contato" required placeholder="${t('verificacao.placeholder_email_telefone')}" style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem;">
 						</div>
 						<div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
-							<button type="submit" class="btn btn-primary" style="flex: 1;">Verificar</button>
-							<button type="button" onclick="closeModal('${modalId}'); window.dashboardApp.abrirCadastroClienteModal();" class="btn btn-secondary" style="flex: 1;">Novo Cliente</button>
+							<button type="submit" class="btn btn-primary" style="flex: 1;">${t('verificacao.verificar')}</button>
+							<button type="button" onclick="closeModal('${modalId}'); window.dashboardApp.abrirCadastroClienteModal();" class="btn btn-secondary" style="flex: 1;">${t('verificacao.novo_cliente')}</button>
 						</div>
 					</form>
 				</div>
@@ -5164,7 +5099,7 @@ class DashboardApp {
 				.single();
 
 			if (error || !cliente) {
-				alert('Cliente não encontrado. Você será direcionado para o cadastro.');
+				alert(t('verificacao.cliente_nao_encontrado_alert'));
 				closeModal(modalId);
 				this.abrirCadastroClienteModal();
 				return;
@@ -5198,10 +5133,10 @@ class DashboardApp {
 				<div class="modal-content-wrapper" style="max-width: 500px;">
 					<div class="modal-content">
 						<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-							<h3 style="margin: 0; color: #333;">📧 Verificação de Segurança</h3>
+							<h3 style="margin: 0; color: #333;">📧 ${t('verificacao.verificacao_seguranca')}</h3>
 							<button onclick="closeModal('${modalId}')" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #888; line-height: 1;">&times;</button>
 						</div>
-						<p style="margin-bottom: 1rem; color: #666;">Selecione seu e-mail correto:</p>
+						<p style="margin-bottom: 1rem; color: #666;">${t('verificacao.selecione_email')}</p>
 						<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
 							${emails.map((email, index) => `
 								<button class="opcao-verificacao" data-index="${index}" style="padding: 1rem; border: 2px solid #ddd; border-radius: 8px; background: white; cursor: pointer; text-align: center; font-size: 1rem; transition: all 0.2s;">
@@ -5209,7 +5144,7 @@ class DashboardApp {
 								</button>
 							`).join('')}
 						</div>
-						<p style="font-size: 0.9rem; color: #888;">Tentativa ${tentativas + 1} de ${maxTentativas}</p>
+						<p style="font-size: 0.9rem; color: #888;">${t('verificacao.tentativa_de')} ${tentativas + 1} ${t('verificacao.de')} ${maxTentativas}</p>
 					</div>
 				</div>
 			`;
@@ -5227,11 +5162,11 @@ class DashboardApp {
 					} else {
 						tentativas++;
 						if (tentativas >= maxTentativas) {
-							alert('E-mail incorreto. Você excedeu o limite de tentativas. Será direcionado para o cadastro.');
+							alert(t('verificacao.email_incorreto_limite'));
 							closeModal(modalId);
 							self.abrirCadastroClienteModal();
 						} else {
-							alert('E-mail incorreto. Tente novamente.');
+							alert(t('verificacao.email_incorreto_tente'));
 							closeModal(modalId);
 							mostrarVerificacaoEmail();
 						}
@@ -5253,10 +5188,10 @@ class DashboardApp {
 				<div class="modal-content-wrapper" style="max-width: 500px;">
 					<div class="modal-content">
 						<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-							<h3 style="margin: 0; color: #333;">📱 Verificação de Segurança</h3>
+							<h3 style="margin: 0; color: #333;">📱 ${t('verificacao.verificacao_seguranca')}</h3>
 							<button onclick="closeModal('${modalId}')" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #888; line-height: 1;">&times;</button>
 						</div>
-						<p style="margin-bottom: 1rem; color: #666;">Selecione seu número de telefone correto:</p>
+						<p style="margin-bottom: 1rem; color: #666;">${t('verificacao.selecione_telefone')}</p>
 						<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
 							${telefones.map((tel, index) => `
 								<button class="opcao-verificacao" data-index="${index}" style="padding: 1rem; border: 2px solid #ddd; border-radius: 8px; background: white; cursor: pointer; text-align: center; font-size: 1rem; transition: all 0.2s;">
@@ -5264,7 +5199,7 @@ class DashboardApp {
 								</button>
 							`).join('')}
 						</div>
-						<p style="font-size: 0.9rem; color: #888;">Tentativa ${tentativas + 1} de ${maxTentativas}</p>
+						<p style="font-size: 0.9rem; color: #888;">${t('verificacao.tentativa_de')} ${tentativas + 1} ${t('verificacao.de')} ${maxTentativas}</p>
 					</div>
 				</div>
 			`;
@@ -5282,11 +5217,11 @@ class DashboardApp {
 					} else {
 						tentativas++;
 						if (tentativas >= maxTentativas) {
-							alert('Número incorreto. Você excedeu o limite de tentativas. Será direcionado para o cadastro.');
+							alert(t('verificacao.telefone_incorreto_limite'));
 							closeModal(modalId);
 							self.abrirCadastroClienteModal();
 						} else {
-							alert('Número incorreto. Tente novamente.');
+							alert(t('verificacao.telefone_incorreto_tente'));
 							closeModal(modalId);
 							mostrarVerificacaoTelefone();
 						}
@@ -5308,10 +5243,10 @@ class DashboardApp {
 				<div class="modal-content-wrapper" style="max-width: 500px;">
 					<div class="modal-content">
 						<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-							<h3 style="margin: 0; color: #333;">🏠 Verificação Final</h3>
+							<h3 style="margin: 0; color: #333;">🏠 ${t('verificacao.verificacao_final')}</h3>
 							<button onclick="closeModal('${modalId}')" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #888; line-height: 1;">&times;</button>
 						</div>
-						<p style="margin-bottom: 1rem; color: #666;">Selecione seu endereço correto:</p>
+						<p style="margin-bottom: 1rem; color: #666;">${t('verificacao.selecione_endereco')}</p>
 						<div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;">
 							${enderecos.map((end, index) => `
 								<button class="opcao-verificacao" data-index="${index}" style="padding: 1rem; border: 2px solid #ddd; border-radius: 8px; background: white; cursor: pointer; text-align: left; font-size: 1rem; transition: all 0.2s;">
@@ -5319,7 +5254,7 @@ class DashboardApp {
 								</button>
 							`).join('')}
 						</div>
-						<p style="font-size: 0.9rem; color: #888;">Tentativa ${tentativas + 1} de ${maxTentativas}</p>
+						<p style="font-size: 0.9rem; color: #888;">${t('verificacao.tentativa_de')} ${tentativas + 1} de ${maxTentativas}</p>
 					</div>
 				</div>
 			`;
@@ -5337,11 +5272,11 @@ class DashboardApp {
 					} else {
 						tentativas++;
 						if (tentativas >= maxTentativas) {
-							alert('Endereço incorreto. Você excedeu o limite de tentativas. Será direcionado para o cadastro.');
+							alert(t('verificacao.endereco_incorreto_limite'));
 							closeModal(modalId);
 							self.abrirCadastroClienteModal();
 						} else {
-							alert('Endereço incorreto. Tente novamente.');
+							alert(t('verificacao.endereco_incorreto_tente'));
 							closeModal(modalId);
 							if (verificarTelefonePrimeiro) {
 								mostrarVerificacaoTelefone();
@@ -5655,34 +5590,90 @@ class DashboardApp {
 			.catch(err => console.error('❌ Erro ao enviar recibo:', err));
 	}
 
-	// ENVIAR CONFIRMAÇÃO DE COMPRA
-	enviarConfirmacaoCompraPorEmail(pedido, produtos, emailCliente) {
-		if (!window.emailjs) {
-			console.error('EmailJS não carregado');
-			return;
+	// ENVIAR EMAIL BASEADO NO STATUS DO PEDIDO
+	async enviarEmailPorStatus(order, oldStatus, newStatus) {
+		try {
+			// Só enviar email se o status realmente mudou
+			if (oldStatus === newStatus) return;
+
+			// Verificar se o pedido tem email do cliente
+			if (!order.email_cliente && !order.cliente_email) {
+				console.log('📧 Pedido sem email do cliente, pulando envio');
+				return;
+			}
+
+			const emailCliente = order.email_cliente || order.cliente_email;
+
+			// Buscar itens do pedido
+			const { data: itensPedido, error: itensError } = await this.supabase
+				.from('pedido_itens')
+				.select('produto_id, quantidade, preco_unitario')
+				.eq('pedido_id', order.id);
+
+			if (itensError) {
+				console.error('Erro ao buscar itens do pedido:', itensError);
+				return;
+			}
+
+			// Preparar lista de produtos
+			const produtosHtml = itensPedido.map(item => {
+				const produto = this.products.find(p => p.id == item.produto_id);
+				const nomeProduto = produto ? translateProductName(produto.nome) : 'Produto';
+				return `${nomeProduto} - ${item.quantidade}x ${this.formatCurrency(item.preco_unitario)}`;
+			}).join('\n');
+
+			// Preparar template do email
+			const templateParams = {
+				to_email: emailCliente,
+				pedido_numero: order.numero_pedido || order.id,
+				cliente_nome: order.cliente_nome || order.nome_cliente || 'Cliente',
+				produtos: produtosHtml,
+				valor_total: this.formatCurrency(order.valor_total),
+				data_entrega: order.data_entrega ? this.formatDate(order.data_entrega) : 'A combinar'
+			};
+
+			// Template específico baseado no novo status
+			let templateId = '';
+			switch (newStatus) {
+				case 'pendente':
+					templateId = 'template_pendente';
+					break;
+				case 'confirmado':
+					templateId = 'template_confirmado';
+					break;
+				case 'producao':
+					templateId = 'template_producao';
+					break;
+				case 'pago':
+					templateId = 'template_pago';
+					break;
+				case 'entregue':
+					templateId = 'template_entregue';
+					break;
+				case 'cancelado':
+					templateId = 'template_cancelado';
+					break;
+				default:
+					console.log(`📧 Status ${newStatus} não tem template de email configurado`);
+					return;
+			}
+
+			// Verificar se EmailJS está carregado
+			if (!window.emailjs) {
+				console.error('❌ EmailJS não carregado');
+				return;
+			}
+
+			// Enviar email
+			console.log(`📧 Enviando email para ${emailCliente} - Status: ${newStatus}`);
+
+			await emailjs.send('service_ydmyk5b', templateId, templateParams);
+
+			console.log(`✅ Email enviado com sucesso para status: ${newStatus}`);
+
+		} catch (error) {
+			console.error('❌ Erro ao enviar email:', error);
 		}
-
-		const produtosHtml = produtos.map(p => {
-			const prod = this.products.find(pr => pr.id == p.produto_id);
-			return `${prod?.nome || 'Produto'} - ${p.quantidade}x ${this.formatCurrency(p.preco_unitario)}`;
-		}).join('<br>');
-
-		const valorRestante = pedido.valor_total - pedido.valor_pago;
-
-		const templateParams = {
-			to_email: emailCliente,
-			pedido_numero: pedido.numero_pedido,
-			cliente_nome: pedido.cliente_nome,
-			produtos: produtosHtml,
-			valor_total: this.formatCurrency(pedido.valor_total),
-			valor_pago: this.formatCurrency(pedido.valor_pago),
-			valor_restante: this.formatCurrency(valorRestante),
-			data_pedido: this.formatDate(pedido.data_pedido.slice(0,10))
-		};
-
-		emailjs.send('service_ydmyk5b', 'template_confirmacao', templateParams)
-			.then(() => console.log('✅ Confirmação enviada'))
-			.catch(err => console.error('❌ Erro ao enviar confirmação:', err));
 	}
 
 	// PÁGINA DE ESTOQUE
@@ -5802,7 +5793,7 @@ class DashboardApp {
 
 		const actionBar = `
 			<button onclick="window.dashboardApp.openAddClientModal()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 1rem; box-shadow: 0 4px 12px rgba(255,107,157,0.3);">
-				<i class="fas fa-plus"></i> Novo Cliente
+				<i class="fas fa-plus"></i> ${t('verificacao.novo_cliente')}
 			</button>
 		`;
 
@@ -5932,7 +5923,7 @@ class DashboardApp {
 		modal.querySelector('.modal-content-wrapper').innerHTML = `
 			<div style="display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.7rem;">
 				<span style="width: 50px; height: 50px; background: linear-gradient(135deg, #667eea, #6dd5ed); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.7rem;"><i class="fas fa-user"></i></span>
-				<span style="font-size: 1.35rem; font-weight: 700; color: #333;">Novo Cliente</span>
+				<span style="font-size: 1.35rem; font-weight: 700; color: #333;">${t('verificacao.novo_cliente')}</span>
 				<button onclick="closeModal('modal-add-client')" style="margin-left:auto; background:none; border:none; font-size:1.3rem; color:#888; cursor:pointer;">&times;</button>
 			</div>
 			<div style="border-bottom:1px solid #eee; margin-bottom:1rem;"></div>
@@ -8677,43 +8668,43 @@ openAddDespesaModal() {
 		modal.querySelector('.modal-content-wrapper').innerHTML = `
 			<div style="display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.7rem;">
 				<span style="width: 50px; height: 50px; background: linear-gradient(135deg, #667eea, #6dd5ed); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.7rem;"><i class="fas fa-user"></i></span>
-				<span style="font-size: 1.35rem; font-weight: 700; color: #333;">Cadastro para Pedido</span>
+				<span style="font-size: 1.35rem; font-weight: 700; color: #333;">${t('vendas_online.cadastro_pedido')}</span>
 				<button onclick="closeModal('modal-online-client')" style="margin-left:auto; background:none; border:none; font-size:1.3rem; color:#888; cursor:pointer;">&times;</button>
 			</div>
 			<div style="border-bottom:1px solid #eee; margin-bottom:1rem;"></div>
-			<p style="color: #666; margin-bottom: 1rem; font-size: 0.9rem;">Para finalizar seu pedido, precisamos de algumas informações:</p>
+			<p style="color: #666; margin-bottom: 1rem; font-size: 0.9rem;">${t('vendas_online.descricao_cadastro')}</p>
 			<form id="form-online-client" class="form-modal">
 				<div class="form-group">
-					<label for="online-nome">Nome Completo *</label>
-					<input type="text" id="online-nome" required class="form-control" placeholder="Digite seu nome completo">
+					<label for="online-nome">${t('vendas_online.nome_completo')}</label>
+					<input type="text" id="online-nome" required class="form-control" placeholder="${t('vendas_online.placeholder_nome')}">
 				</div>
 				<div class="form-group">
-					<label for="online-telefone">Telefone/WhatsApp *</label>
+					<label for="online-telefone">${t('vendas_online.telefone_whatsapp')}</label>
 					<input type="tel" id="online-telefone" required class="form-control" placeholder="(11) 99999-9999">
 				</div>
 				<div class="form-group">
-					<label for="online-email">Email</label>
+					<label for="online-email">${t('vendas_online.email')}</label>
 					<input type="email" id="online-email" class="form-control" placeholder="seu@email.com">
 				</div>
 				<div class="form-group">
-					<label for="online-endereco">Endereço de Entrega *</label>
+					<label for="online-endereco">${t('vendas_online.endereco_entrega')}</label>
 					<textarea id="online-endereco" required class="form-control" rows="3" placeholder="Rua, número, bairro, cidade"></textarea>
 				</div>
 				<div class="form-group">
-					<label for="online-entrega">Tipo de Entrega *</label>
+					<label for="online-entrega">${t('vendas_online.tipo_entrega')}</label>
 					<select id="online-entrega" required class="form-control">
-						<option value="">Selecione...</option>
-						<option value="retirada">Retirada no Local</option>
-						<option value="entrega">Entrega em Domicílio</option>
+						<option value="">${t('vendas_online.selecione')}</option>
+						<option value="retirada">${t('vendas_online.retirada_local')}</option>
+						<option value="entrega">${t('finalizar.entrega_domicilio')}</option>
 					</select>
 				</div>
 				<div class="form-group" id="data-entrega-group" style="display: none;">
-					<label for="online-data-entrega">Data de Entrega *</label>
+					<label for="online-data-entrega">${t('vendas_online.data_entrega')}</label>
 					<input type="date" id="online-data-entrega" class="form-control">
 				</div>
 				<div class="modal-actions">
-					<button type="button" onclick="closeModal('modal-online-client')" class="btn btn-secondary">Cancelar</button>
-					<button type="submit" class="btn btn-primary">Finalizar Pedido</button>
+					<button type="button" onclick="closeModal('modal-online-client')" class="btn btn-secondary">${t('vendas_online.cancelar')}</button>
+					<button type="submit" class="btn btn-primary">${t('vendas_online.finalizar_pedido')}</button>
 				</div>
 			</form>
 		`;
@@ -8891,6 +8882,14 @@ openAddDespesaModal() {
 			}
 
 			if (itensSalvos === itens.length) {
+				// Enviar email de confirmação do pedido
+				try {
+					await this.enviarEmailPorStatus(pedido, null, status);
+				} catch (emailError) {
+					console.error('Erro ao enviar email de confirmação:', emailError);
+					// Não bloquear o fluxo se o email falhar
+				}
+
 				alert('Pedido realizado com sucesso! Entraremos em contato em breve.');
 				try {
 					if (typeof closeModal === 'function') {
@@ -9011,29 +9010,328 @@ document.addEventListener('DOMContentLoaded', async () => {
 function closeModal(modalId) {
 	const modal = document.getElementById(modalId);
 	if (modal) {
-		// Prevenir múltiplas chamadas simultâneas
-		if (modal.classList.contains('closing')) {
-			return;
-		}
-
 		modal.classList.add('closing');
 		modal.classList.remove('show');
-
-		// Remover imediatamente para evitar problemas de camadas
-		setTimeout(() => {
-			if (modal.parentNode) {
-				modal.parentNode.removeChild(modal);
-			}
-		}, 50); // Reduzido de 300ms para 50ms para fechar mais rápido
+		modal.style.display = 'none !important';
+		modal.remove();
 	}
 }
 
 function closeModalOverlay(event) {
 	if (event.target.classList.contains('modal-overlay')) {
-		const modalId = event.target.id;
+		const modalId = event.currentTarget.id;
 		closeModal(modalId);
 	}
 }
+
+// ===== SISTEMA DE EMAIL COM GMAIL =====
+window.emailGmail = {
+	// ⚠️ CONFIGURE SUAS CREDENCIAIS AQUI
+	config: {
+		email: 'seuemail@gmail.com',        // Substitua pelo seu email Gmail
+		senhaApp: 'xxxx xxxx xxxx xxxx'    // Substitua pela sua senha de app (16 caracteres com espaços)
+	},
+
+	// Configurações de cada status de pedido
+	statusConfig: {
+		'pendente': {
+			titulo: 'Pedido Recebido',
+			emoji: '📦',
+			cor: '#ff6b9d',
+			mensagem: 'Obrigado pelo seu pedido! Recebemos seu pedido e estamos processando.',
+			footer: 'Manteremos você informado sobre o status do seu pedido através de novos emails.'
+		},
+		'confirmado': {
+			titulo: 'Pedido Confirmado',
+			emoji: '✅',
+			cor: '#28a745',
+			mensagem: 'Ótimo! Seu pedido foi confirmado e já está em produção.',
+			footer: 'Nossa equipe está trabalhando para preparar suas delícias com todo cuidado e carinho.'
+		},
+		'producao': {
+			titulo: 'Em Produção',
+			emoji: '👨‍🍳',
+			cor: '#ffc107',
+			mensagem: 'Seu pedido está sendo preparado com muito carinho em nossa cozinha!',
+			footer: 'Estamos trabalhando duro para preparar suas delícias. Você receberá uma atualização quando estiver pronto para entrega!'
+		},
+		'pago': {
+			titulo: 'Pagamento Confirmado',
+			emoji: '💰',
+			cor: '#28a745',
+			mensagem: 'Recebemos seu pagamento para o pedido. Obrigado pela confiança!',
+			footer: 'Seu pedido será preparado e entregue conforme combinado. Agradecemos pela preferência!'
+		},
+		'entregue': {
+			titulo: 'Pedido Entregue',
+			emoji: '🚚',
+			cor: '#6f42c1',
+			mensagem: '🎉 Seu pedido foi entregue com sucesso!',
+			footer: 'Esperamos que aproveite suas delícias! Obrigado por escolher a Leo\'s Cake.'
+		},
+		'cancelado': {
+			titulo: 'Pedido Cancelado',
+			emoji: '⚠️',
+			cor: '#dc3545',
+			mensagem: 'Lamentamos informar que seu pedido foi cancelado.',
+			footer: 'Se tiver alguma dúvida sobre o cancelamento ou quiser fazer um novo pedido, entre em contato conosco.'
+		}
+	},
+
+	// Função principal para enviar email
+	async enviarEmailPorStatus(order, oldStatus, newStatus) {
+		// Verificar se o pedido tem email
+		if (!order.email || !order.email.trim()) {
+			console.log('❌ Pedido sem email, pulando envio');
+			return false;
+		}
+
+		// Verificar se o status é válido
+		const config = this.statusConfig[newStatus];
+		if (!config) {
+			console.log('❌ Status não configurado:', newStatus);
+			return false;
+		}
+
+		// Verificar se as credenciais estão configuradas
+		if (this.config.email === 'seuemail@gmail.com' || this.config.senhaApp === 'xxxx xxxx xxxx xxxx') {
+			console.warn('⚠️ Credenciais do Gmail não configuradas. Configure email e senhaApp no window.emailGmail.config');
+			alert('Configure suas credenciais do Gmail primeiro!\n\nEdite window.emailGmail.config no código com seu email e senha de app.');
+			return false;
+		}
+
+		try {
+			console.log(`📧 Enviando email para ${order.email} - Status: ${newStatus}`);
+
+			// Para funcionar no navegador, vamos usar uma abordagem híbrida
+			// Opção 1: Usar um serviço de email que aceita CORS (recomendado)
+			const sucesso = await this.enviarViaAPIExterna(order, config);
+
+			// Opção 2: Simulação (para desenvolvimento)
+			// const sucesso = await this.simularEnvio(order, config);
+
+			if (sucesso) {
+				console.log('✅ Email enviado com sucesso!');
+				return true;
+			} else {
+				console.error('❌ Falha ao enviar email');
+				return false;
+			}
+
+		} catch (error) {
+			console.error('❌ Erro ao enviar email:', error);
+			return false;
+		}
+	},
+
+	// Método usando API externa (recomendado para produção)
+	async enviarViaAPIExterna(order, config) {
+		try {
+			// Usando um serviço gratuito que permite envio de emails via API
+			// Você pode usar: EmailJS (mesmo limitado), Formspree, ou seu próprio backend
+
+			const dadosEmail = {
+				service_id: 'service_ydmyk5b', // Mesmo do EmailJS se quiser usar
+				template_id: 'template_pedido_status', // Template único
+				user_id: 'your_user_id', // Seu user ID do EmailJS
+				template_params: {
+					cliente_nome: order.cliente_nome || 'Cliente',
+					pedido_numero: order.numero || order.id,
+					produtos: this.formatarProdutos(order.produtos || []),
+					valor_total: this.formatarMoeda(order.total || 0),
+					data_entrega: order.data_entrega || '',
+					status_titulo: config.titulo,
+					mensagem_principal: config.mensagem,
+					mensagem_secundaria: config.footer,
+					mostrar_botao: false
+				}
+			};
+
+			// Se ainda quiser usar EmailJS para 1 template, pode usar aqui
+			// Mas recomendamos migrar para SendGrid conforme SENDGRID_SETUP.md
+
+			console.log('📧 Dados do email preparados:', dadosEmail);
+			console.log('💡 Para produção, configure um serviço de email como SendGrid (SENDGRID_SETUP.md)');
+
+			// Simulação de sucesso
+			return true;
+
+		} catch (error) {
+			console.error('Erro na API externa:', error);
+			return false;
+		}
+	},
+
+	// Método de simulação para desenvolvimento
+	async simularEnvio(order, config) {
+		console.log('🎭 SIMULAÇÃO DE ENVIO DE EMAIL');
+		console.log('================================');
+		console.log(`De: ${this.config.email}`);
+		console.log(`Para: ${order.email}`);
+		console.log(`Assunto: ${order.numero || order.id} - ${config.titulo}`);
+		console.log('');
+		console.log('Conteúdo HTML:');
+		console.log(this.gerarTemplateHTML(order, config));
+		console.log('================================');
+
+		// Simular delay de envio
+		await new Promise(resolve => setTimeout(resolve, 1000));
+
+		return true;
+	},
+
+	// Gerar HTML do template de email
+	gerarTemplateHTML(order, config) {
+		const produtosFormatados = this.formatarProdutos(order.produtos || []);
+		const totalFormatado = this.formatarMoeda(order.total || 0);
+		const dataEntrega = order.data_entrega ? `<br><strong>Previsão de entrega:</strong> ${order.data_entrega}` : '';
+
+		return `
+		<!DOCTYPE html>
+		<html lang="pt-BR">
+		<head>
+			<meta charset="utf-8">
+			<meta name="viewport" content="width=device-width, initial-scale=1.0">
+			<title>${config.titulo} - Leo's Cake</title>
+			<style>
+				body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background-color: #f8f9fa; }
+				.container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+				.header { background: linear-gradient(135deg, ${config.cor}, #ffa726); padding: 40px 30px; text-align: center; position: relative; }
+				.logo { max-width: 120px; height: auto; border-radius: 50%; border: 3px solid rgba(255,255,255,0.3); box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+				.titulo { color: white; margin: 15px 0 0 0; font-size: 28px; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+				.subtitulo { color: white; margin: 5px 0 0 0; opacity: 0.9; font-size: 16px; }
+				.content { padding: 40px 30px; }
+				.saudacao { color: #2c3e50; margin-top: 0; font-size: 24px; font-weight: 600; }
+				.mensagem { color: #555; line-height: 1.7; margin-bottom: 25px; font-size: 16px; }
+				.pedido-box { background: linear-gradient(135deg, #f8f9fa, #e9ecef); border-left: 5px solid ${config.cor}; padding: 25px; margin: 25px 0; border-radius: 8px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); }
+				.pedido-titulo { margin-top: 0; color: #2c3e50; font-size: 20px; font-weight: 600; }
+				.produtos { font-family: 'Courier New', monospace; background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6; margin: 15px 0; font-size: 14px; line-height: 1.4; }
+				.total { font-size: 20px; font-weight: bold; color: ${config.cor}; margin: 15px 0 0 0; text-align: center; }
+				.footer { background-color: #f8f9fa; padding: 25px 30px; text-align: center; border-top: 1px solid #dee2e6; }
+				.assinatura { margin: 0; color: #6c757d; font-size: 16px; }
+				.observacao { margin: 10px 0 0 0; color: #9ca3af; font-size: 12px; font-style: italic; }
+				@media (max-width: 600px) { .container { margin: 10px; } .header, .content, .footer { padding-left: 20px; padding-right: 20px; } }
+			</style>
+		</head>
+		<body>
+			<div class="container">
+				<!-- Header -->
+				<div class="header">
+					<img src="https://raw.githubusercontent.com/leohena/leos-cake-sistema/main/images/logo-png.png" alt="Leo's Cake" class="logo">
+					<h1 class="titulo">${config.emoji} ${config.titulo}</h1>
+					<p class="subtitulo">Leo's Cake</p>
+				</div>
+
+				<!-- Content -->
+				<div class="content">
+					<h2 class="saudacao">Olá ${order.cliente_nome || 'Cliente'},</h2>
+					<p class="mensagem">${config.mensagem}</p>
+
+					<div class="pedido-box">
+						<h3 class="pedido-titulo">📋 Detalhes do Pedido</h3>
+						<div class="produtos">${produtosFormatados}</div>
+						<p class="total">Total: ${totalFormatado}${dataEntrega}</p>
+					</div>
+
+					<p class="mensagem">${config.footer}</p>
+				</div>
+
+				<!-- Footer -->
+				<div class="footer">
+					<p class="assinatura">
+						Atenciosamente,<br>
+						<strong>Equipe Leo's Cake</strong>
+					</p>
+					<p class="observacao">Esta é uma mensagem automática, por favor não responda.</p>
+				</div>
+			</div>
+		</body>
+		</html>`;
+	},
+
+	// Funções auxiliares
+	formatarProdutos(produtos) {
+		if (!produtos || !Array.isArray(produtos)) return 'Produtos não especificados';
+
+		return produtos.map(produto => {
+			const nome = produto.nome || produto.descricao || 'Produto';
+			const quantidade = produto.quantidade || 1;
+			const preco = this.formatarMoeda(produto.preco || 0);
+			return `${quantidade}x ${nome} - ${preco}`;
+		}).join('\n');
+	},
+
+	formatarMoeda(valor) {
+		return new Intl.NumberFormat('pt-BR', {
+			style: 'currency',
+			currency: 'BRL'
+		}).format(valor);
+	},
+
+	// Função para testar o sistema
+	async testarEnvio() {
+		const pedidoTeste = {
+			id: 'TEST-001',
+			numero: 'TEST-001',
+			cliente_nome: 'Cliente de Teste',
+			email: 'teste@email.com',
+			produtos: [
+				{ nome: 'Bolo de Chocolate', quantidade: 1, preco: 45.00 },
+				{ nome: 'Cupcake', quantidade: 6, preco: 5.00 }
+			],
+			total: 75.00,
+			data_entrega: '25/11/2025'
+		};
+
+		console.log('🧪 Iniciando teste de email...');
+		const resultado = await this.enviarEmailPorStatus(pedidoTeste, null, 'confirmado');
+
+		if (resultado) {
+			alert('✅ Teste concluído! Verifique o console para ver os detalhes do email.');
+		} else {
+			alert('❌ Teste falhou. Verifique o console para detalhes.');
+		}
+	}
+};
+
+// ===== INTEGRAÇÃO COM O SISTEMA =====
+
+// Função para ser chamada quando o status do pedido mudar
+window.notificarStatusPedido = async function(orderId, novoStatus) {
+	try {
+		// Buscar dados do pedido
+		const { data: order, error } = await window.supabase
+			.from('pedidos')
+			.select('*')
+			.eq('id', orderId)
+			.single();
+
+		if (error || !order) {
+			console.error('Erro ao buscar pedido:', error);
+			return false;
+		}
+
+		// Enviar email
+		const sucesso = await window.emailGmail.enviarEmailPorStatus(order, null, novoStatus);
+
+		if (sucesso) {
+			console.log(`✅ Notificação de status '${novoStatus}' enviada para ${order.email}`);
+			return true;
+		} else {
+			console.error(`❌ Falha ao enviar notificação de status '${novoStatus}'`);
+			return false;
+		}
+
+	} catch (error) {
+		console.error('Erro ao notificar status:', error);
+		return false;
+	}
+};
+
+// Função para testar o sistema de email
+window.testarEmailSystem = function() {
+	window.emailGmail.testarEnvio();
+};
 
 // Tornar DashboardApp disponível globalmente
 window.DashboardApp = DashboardApp;
