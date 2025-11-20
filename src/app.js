@@ -4140,7 +4140,7 @@ class DashboardApp {
 		}
 	}
 
-	updateCartHeader() {
+	async updateCartHeader() {
 		const header = document.querySelector('header.header');
 		if (!header) return;
 
@@ -4184,13 +4184,13 @@ class DashboardApp {
 				</div>
 			`;
 
-			headCart.onclick = (e) => {
+			headCart.onclick = async (e) => {
 				e.preventDefault();
 				e.stopPropagation();
 				if (this.isVendasOnline) {
-					this.abrirVerificacaoClienteModal();
+					await this.abrirVerificacaoClienteModal();
 				} else {
-					this.abrirFinalizarPedidoModal();
+					await this.abrirFinalizarPedidoModal();
 				}
 			};
 		}
@@ -4688,24 +4688,12 @@ class DashboardApp {
 						
 						<div id="entrega-detalhes" style="display: none; margin-top: 0.75rem;">
 							<label style="display: block; margin-bottom: 0.25rem;">${t('finalizar.data_entrega')}</label>
-							<input type="date" id="finalizar-data-entrega" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none; margin-bottom: 0.5rem;">
+							<input type="date" id="finalizar-data-entrega" onchange="window.dashboardApp.updateHorariosDisponiveis(this.value)" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none; margin-bottom: 0.5rem;">
 							
 							<label style="display: block; margin-bottom: 0.25rem;">${t('finalizar.horario')}</label>
 							<select id="finalizar-horario-entrega" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none; margin-bottom: 0.5rem;">
 								<option value="">${t('finalizar.selecione_horario')}</option>
-								<option value="08:00">08:00 - AM</option>
-								<option value="09:00">09:00 - AM</option>
-								<option value="10:00">10:00 - AM</option>
-								<option value="11:00">11:00 - AM</option>
-								<option value="12:00">12:00 - PM</option>
-								<option value="13:00">13:00 - PM</option>
-								<option value="14:00">14:00 - PM</option>
-								<option value="15:00">15:00 - PM</option>
-								<option value="16:00">16:00 - PM</option>
-								<option value="17:00">17:00 - PM</option>
-								<option value="18:00">18:00 - PM</option>
-								<option value="19:00">19:00 - PM</option>
-								<option value="20:00">20:00 - PM</option>
+								<!-- Opções serão carregadas dinamicamente baseada na data selecionada -->
 							</select>
 							
 							<!-- Opções de endereço -->
@@ -5028,7 +5016,7 @@ class DashboardApp {
 		}
 	}
 
-	abrirVerificacaoClienteModal() {
+	async abrirVerificacaoClienteModal() {
 		// Verificar se há produtos no carrinho
 		const produtosNoCarrinho = Object.entries(this.cart)
 			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado);
@@ -5263,12 +5251,12 @@ class DashboardApp {
 			modal.classList.add('show');
 
 			document.querySelectorAll('.opcao-verificacao').forEach(btn => {
-				btn.addEventListener('click', (e) => {
+				btn.addEventListener('click', async (e) => {
 					const index = parseInt(e.target.dataset.index);
 					if (enderecos[index] === cliente.endereco) {
 						// Cliente verificado com sucesso - ir direto para finalização
 						closeModal(modalId);
-						self.abrirFinalizarPedidoModal(cliente);
+						await self.abrirFinalizarPedidoModal(cliente);
 					} else {
 						tentativas++;
 						if (tentativas >= maxTentativas) {
@@ -5369,7 +5357,7 @@ class DashboardApp {
 		return opcoes;
 	}
 
-	abrirCadastroClienteModal(clienteExistente = null) {
+	async abrirCadastroClienteModal(clienteExistente = null) {
 		// Verificar se há produtos no carrinho
 		const produtosNoCarrinho = Object.entries(this.cart)
 			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado);
@@ -5544,7 +5532,7 @@ class DashboardApp {
 					closeModal(modalId);
 
 					// Abrir modal de finalização de pedido com cliente selecionado
-					this.abrirFinalizarPedidoModal(clienteSalvo);
+					await this.abrirFinalizarPedidoModal(clienteSalvo);
 
 				} catch (error) {
 					console.error('Erro ao cadastrar cliente:', error);
@@ -5692,6 +5680,22 @@ class DashboardApp {
 		const isVendedor = role === 'sale' || role === 'vendedor';
 		const isAdmin = role === 'admin';
 
+		// Cabeçalho com botão de configuração (apenas para admin)
+		let headerHtml = '';
+		if (isAdmin) {
+			headerHtml = `
+				<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding: 1rem; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(102,126,234,0.3);">
+					<div>
+						<h3 style="margin: 0; font-size: 1.25rem; font-weight: 700;">🚚 Gerenciamento de Entregas</h3>
+						<p style="margin: 0.25rem 0 0 0; opacity: 0.9; font-size: 0.9rem;">Configure horários e gerencie entregas</p>
+					</div>
+					<button onclick="window.dashboardApp.openHorariosConfigModal()" style="padding: 0.75rem 1.25rem; background: rgba(255,255,255,0.2); color: white; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; cursor: pointer; font-weight: 600; backdrop-filter: blur(10px); transition: all 0.2s;">
+						<i class="fas fa-clock"></i> Configurar Horários
+					</button>
+				</div>
+			`;
+		}
+
 		// Filtrar entregas baseado no papel do usuário
 		let entregas = [...this.entregas];
 		if (isVendedor && this.currentUser?.id) {
@@ -5711,7 +5715,7 @@ class DashboardApp {
 		entregas.sort((a, b) => new Date(a.data_entrega) - new Date(b.data_entrega));
 
 		if (entregas.length === 0) {
-			container.innerHTML = `<p style="text-align: center; padding: 3rem; color: #888;">${this.t('msg.nenhuma_entrega')}</p>`;
+			container.innerHTML = headerHtml + `<p style="text-align: center; padding: 3rem; color: #888;">${this.t('msg.nenhuma_entrega')}</p>`;
 			return;
 		}
 
@@ -5779,7 +5783,7 @@ class DashboardApp {
 			`;
 		}).join('');
 
-		container.innerHTML = list;
+		container.innerHTML = headerHtml + list;
 	}
 
 	// PÁGINA DE CLIENTES
@@ -6694,6 +6698,193 @@ class DashboardApp {
 		document.getElementById('modals-container').appendChild(modal);
 		modal.classList.add('show');
 	}
+
+	async loadConfiguracoes() {
+		try {
+			const { data: configuracoes, error: configError } = await this.supabase
+				.from('configuracoes')
+				.select('*');
+			if (configError) {
+				console.error('❌ Erro ao carregar configurações:', configError);
+				this.configuracoes = [];
+			} else {
+				this.configuracoes = configuracoes || [];
+				console.log('✅ Configurações carregadas com sucesso:', this.configuracoes);
+			}
+		} catch (error) {
+			console.error('Erro ao carregar configurações:', error);
+			this.configuracoes = [];
+		}
+	}
+
+	openHorariosConfigModal() {
+		// Carregar configurações atuais de horários
+		let horariosConfig = this.configuracoes.find(c => c.chave === 'horarios_entrega');
+		
+		// Se não existir configuração, criar uma padrão
+		if (!horariosConfig) {
+			horariosConfig = {
+				dias_semana: ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'],
+				fins_semana: ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00']
+			};
+			console.log('⚠️ Usando configuração padrão de horários');
+		} else {
+			horariosConfig = horariosConfig.valor;
+		}
+
+		const modal = this.createModal('modal-horarios-config', '🕐 Configurar Horários de Entrega', true);
+
+		modal.innerHTML = `
+			<div style="padding: 1.5rem;">
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+					<div>
+						<h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem;">📅 ${t('horarios.dias_semana')}</h4>
+						<div id="dias-semana-container" style="display: grid; grid-template-columns: 1fr; gap: 0.5rem; margin-bottom: 1rem; max-height: 300px; overflow-y: auto;">
+							${this.generateHorariosCheckboxes('dias_semana', horariosConfig.dias_semana)}
+						</div>
+						<div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+							<button onclick="window.dashboardApp.selectAllHorarios('dias_semana')" style="padding: 0.25rem 0.5rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">${t('horarios.selecionar_todos')}</button>
+							<button onclick="window.dashboardApp.deselectAllHorarios('dias_semana')" style="padding: 0.25rem 0.5rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">${t('horarios.desmarcar_todos')}</button>
+						</div>
+					</div>
+
+					<div>
+						<h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem;">🎉 ${t('horarios.fins_semana')}</h4>
+						<div id="fins-semana-container" style="display: grid; grid-template-columns: 1fr; gap: 0.5rem; margin-bottom: 1rem; max-height: 300px; overflow-y: auto;">
+							${this.generateHorariosCheckboxes('fins_semana', horariosConfig.fins_semana)}
+						</div>
+						<div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+							<button onclick="window.dashboardApp.selectAllHorarios('fins_semana')" style="padding: 0.25rem 0.5rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">${t('horarios.selecionar_todos')}</button>
+							<button onclick="window.dashboardApp.deselectAllHorarios('fins_semana')" style="padding: 0.25rem 0.5rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">${t('horarios.desmarcar_todos')}</button>
+						</div>
+					</div>
+				</div>
+
+				<div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid #eee;">
+					<button onclick="closeModal('modal-horarios-config')" style="padding: 0.75rem 1.5rem; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">${t('btn.cancelar')}</button>
+					<button onclick="window.dashboardApp.saveHorariosConfig()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; box-shadow: 0 4px 12px rgba(102,126,234,0.3);">${t('horarios.salvar_config')}</button>
+				</div>
+			</div>
+		`;
+
+		document.getElementById('modals-container').appendChild(modal);
+		modal.classList.add('show');
+	}
+
+	generateHorariosCheckboxes(tipo, horariosSelecionados) {
+		const allHorarios = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
+		
+		return allHorarios.map(horario => {
+			const isChecked = horariosSelecionados.includes(horario);
+			const periodo = parseInt(horario.split(':')[0]) < 12 ? 'AM' : 'PM';
+			return `
+				<label style="display: flex; align-items: center; gap: 0.25rem; padding: 0.5rem; background: ${isChecked ? '#e8f5e8' : '#f8f9fa'}; border-radius: 6px; cursor: pointer; border: 1px solid ${isChecked ? '#28a745' : '#dee2e6'};">
+					<input type="checkbox" value="${horario}" ${isChecked ? 'checked' : ''} style="width: 16px; height: 16px;" data-tipo="${tipo}">
+					<span style="font-size: 0.9rem; font-weight: 500;">${horario} - ${periodo}</span>
+				</label>
+			`;
+		}).join('');
+	}
+
+	selectAllHorarios(tipo) {
+		const checkboxes = document.querySelectorAll(`input[data-tipo="${tipo}"]`);
+		checkboxes.forEach(cb => cb.checked = true);
+	}
+
+	deselectAllHorarios(tipo) {
+		const checkboxes = document.querySelectorAll(`input[data-tipo="${tipo}"]`);
+		checkboxes.forEach(cb => cb.checked = false);
+	}
+
+	updateHorariosDisponiveis(dataSelecionada) {
+		const select = document.getElementById('finalizar-horario-entrega');
+		if (!select) return;
+
+		// Limpar opções existentes exceto a primeira
+		while (select.options.length > 1) {
+			select.remove(1);
+		}
+
+		if (!dataSelecionada) return;
+
+		// Determinar se é fim de semana
+		const data = new Date(dataSelecionada);
+		const diaSemana = data.getDay(); // 0 = Domingo, 6 = Sábado
+		const isFimSemana = diaSemana === 0 || diaSemana === 6;
+
+		// Carregar configuração de horários
+		let horariosConfig = this.configuracoes.find(c => c.chave === 'horarios_entrega');
+		let horariosDisponiveis = [];
+
+		if (horariosConfig && horariosConfig.valor) {
+			horariosDisponiveis = isFimSemana ? horariosConfig.valor.fins_semana : horariosConfig.valor.dias_semana;
+		} else {
+			// Fallback para horários padrão
+			horariosDisponiveis = isFimSemana 
+				? ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00']
+				: ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
+		}
+
+		// Adicionar opções
+		horariosDisponiveis.forEach(horario => {
+			const option = document.createElement('option');
+			option.value = horario;
+			const periodo = parseInt(horario.split(':')[0]) < 12 ? 'AM' : 'PM';
+			option.textContent = `${horario} - ${periodo}`;
+			select.appendChild(option);
+		});
+	}
+
+	async saveHorariosConfig() {
+		try {
+			// Coletar horários selecionados
+			const diasSemanaCheckboxes = document.querySelectorAll('input[data-tipo="dias_semana"]:checked');
+			const finsSemanaCheckboxes = document.querySelectorAll('input[data-tipo="fins_semana"]:checked');
+			
+			const dias_semana = Array.from(diasSemanaCheckboxes).map(cb => cb.value);
+			const fins_semana = Array.from(finsSemanaCheckboxes).map(cb => cb.value);
+
+			// Verificar se pelo menos um horário foi selecionado para cada tipo
+			if (dias_semana.length === 0 || fins_semana.length === 0) {
+				alert(`⚠️ ${t('horarios.erro_minimo')}`);
+				return;
+			}
+
+			// Salvar no Supabase
+			const { data, error } = await this.supabase
+				.from('configuracoes')
+				.upsert({
+					chave: 'horarios_entrega',
+					valor: { dias_semana, fins_semana },
+					updated_at: new Date().toISOString()
+				}, { onConflict: 'chave' });
+
+			if (error) {
+				console.error('Erro ao salvar configuração de horários:', error);
+				alert('❌ Erro ao salvar configuração. Tente novamente.');
+				return;
+			}
+
+			// Atualizar configurações locais
+			const existingIndex = this.configuracoes.findIndex(c => c.chave === 'horarios_entrega');
+			if (existingIndex >= 0) {
+				this.configuracoes[existingIndex] = { chave: 'horarios_entrega', valor: { dias_semana, fins_semana } };
+			} else {
+				this.configuracoes.push({ chave: 'horarios_entrega', valor: { dias_semana, fins_semana } });
+			}
+
+			alert(`✅ ${t('horarios.sucesso')}`);
+			closeModal('modal-horarios-config');
+			
+			// Opcional: recarregar a página de entregas para refletir mudanças
+			this.renderEntregasPage();
+			
+		} catch (error) {
+			console.error('Erro ao salvar horários:', error);
+			alert('❌ Erro inesperado. Tente novamente.');
+		}
+	}
+
 	createModal(id, title, showClose = true) {
 		const modal = document.createElement('div');
 		modal.id = id;

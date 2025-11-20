@@ -140,6 +140,16 @@ const translations = {
 		'section.estoque': '📦 Estoque',
 		'section.entregas': '🚚 Entregas',
 
+		// Configurações de horários
+		'horarios.dias_semana': 'Dias de Semana (Segunda a Sexta)',
+		'horarios.fins_semana': 'Fins de Semana (Sábado e Domingo)',
+		'horarios.selecionar_todos': 'Selecionar Todos',
+		'horarios.desmarcar_todos': 'Desmarcar Todos',
+		'horarios.configurar': 'Configurar Horários',
+		'horarios.salvar_config': 'Salvar Configuração',
+		'horarios.erro_minimo': 'Selecione pelo menos um horário para dias de semana e fins de semana.',
+		'horarios.sucesso': 'Configuração de horários salva com sucesso!',
+
 		'detail.telefone': 'Telefone',
 		'detail.endereco': 'Endereço',
 		'detail.preco': 'Preço',
@@ -411,6 +421,16 @@ const translations = {
 		'section.pedidos': '📋 Orders',
 		'section.estoque': '📦 Stock',
 		'section.entregas': '🚚 Deliveries',
+
+		// Delivery time settings
+		'horarios.dias_semana': 'Weekdays (Monday to Friday)',
+		'horarios.fins_semana': 'Weekends (Saturday and Sunday)',
+		'horarios.selecionar_todos': 'Select All',
+		'horarios.desmarcar_todos': 'Deselect All',
+		'horarios.configurar': 'Configure Times',
+		'horarios.salvar_config': 'Save Configuration',
+		'horarios.erro_minimo': 'Select at least one time for weekdays and weekends.',
+		'horarios.sucesso': 'Time configuration saved successfully!',
 
 		'detail.telefone': 'Phone',
 		'detail.endereco': 'Address',
