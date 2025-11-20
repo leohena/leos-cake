@@ -270,7 +270,7 @@
                 console.log('📦 Produtos carregados:', window.dashboardApp.products?.length || 0);
                 
                 // Renderizar página de vendas online
-                window.dashboardApp.renderVendasOnlinePage();
+                await window.dashboardApp.renderVendasOnlinePage();
                 console.log('🎨 Página renderizada');
             } else {
                 console.error('❌ DashboardApp não encontrado');
