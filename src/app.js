@@ -223,7 +223,7 @@ class DashboardApp {
 		this.configuracoes = [];
 		this.entregas = []; // Adicionado para evitar erro de undefined
 		this.initialized = false;
-		this.currentLang = localStorage.getItem('lang') || 'pt-BR';
+		this.currentLang = localStorage.getItem('lang') || 'en';
 		this.supabase = null;
 		this.cart = {};
 		this.isVendasOnline = window.location.pathname.includes('vendas-online.html') || document.body.classList.contains('vendas-online');
