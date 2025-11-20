@@ -1,0 +1,16 @@
+{
+  "supabase": {
+    "url": "https://qzuccgbxddzpbotxvjug.supabase.co",
+    "anonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6dWNjZ2J4ZGR6cGJvdHh2anVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxODE1NTQsImV4cCI6MjA3Nzc1NzU1NH0.jMtCOeyS3rLLanJzeWv0j1cYQFnFUBjZmnwMe5aUNk4"
+  },
+  "app": {
+    "name": "Leo's Cake",
+    "version": "1.0.0",
+    "defaultLanguage": "pt"
+  },
+  "email": {
+    "serviceId": "service_ydmyk5b",
+    "templateId": "template_044bzyj",
+    "userId": "vv8Q2vZmtBAstixZR"
+  }
+}
