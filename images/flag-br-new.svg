@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40">
+  <!-- Fundo verde -->
+  <rect width="60" height="40" fill="#009b3a"/>
+  <!-- Losango amarelo -->
+  <polygon points="30,5 50,20 30,35 10,20" fill="#fedf00"/>
+  <!-- Círculo azul -->
+  <circle cx="30" cy="20" r="7" fill="#002776"/>
+  <!-- Faixa "ORDEM E PROGRESSO" simplificada -->
+  <path d="M25,17 Q30,16 35,17 Q35,23 30,24 Q25,23 25,17" fill="#fedf00"/>
+</svg>

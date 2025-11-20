@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" style="border-radius: 4px;">
+  <defs>
+    <linearGradient id="redGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff4757;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#dc3545;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Fundo branco -->
+  <rect width="640" height="480" fill="#ffffff"/>
+  
+  <!-- Faixas vermelhas laterais com gradiente -->
+  <rect width="160" height="480" fill="url(#redGradient)"/>
+  <rect x="480" width="160" height="480" fill="url(#redGradient)"/>
+  
+  <!-- Folha de bordo moderna e detalhada -->
+  <g transform="translate(320,240)" fill="url(#redGradient)">
+    <!-- Folha principal -->
+    <path d="M0,-90 L-15,-70 L-35,-75 L-25,-50 L-45,-40 L-20,-35 L-25,-15 L-10,-25 L-5,-5 L0,-10 L5,-5 L10,-25 L25,-15 L20,-35 L45,-40 L25,-50 L35,-75 L15,-70 Z" 
+          stroke="rgba(139,0,0,0.3)" stroke-width="1" opacity="0.95"/>
+    
+    <!-- Nervuras da folha -->
+    <g stroke="rgba(139,0,0,0.4)" stroke-width="1.5" fill="none" opacity="0.7">
+      <path d="M0,-90 L0,-10"/>
+      <path d="M0,-70 L-20,-50"/>
+      <path d="M0,-70 L20,-50"/>
+      <path d="M0,-50 L-15,-30"/>
+      <path d="M0,-50 L15,-30"/>
+      <path d="M0,-30 L-10,-15"/>
+      <path d="M0,-30 L10,-15"/>
+    </g>
+    
+    <!-- Caule -->
+    <rect x="-3" y="-10" width="6" height="50" fill="url(#redGradient)" rx="3"/>
+  </g>
+  
+  <!-- Sombra sutil -->
+  <rect width="640" height="480" fill="rgba(0,0,0,0.05)" style="mix-blend-mode: multiply;"/>
+</svg>

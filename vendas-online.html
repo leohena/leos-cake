@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leo's Cake - Vendas Online</title>
+
+    <meta name="theme-color" content="#ff6b9d">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="styles.css?v=1.8">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="images/logo-png.png">
+    <link rel="apple-touch-icon" href="images/logo-png.png">
+
+    <!-- Fonts e Ícones -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <!-- Bibliotecas Externas -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.emailjs.com/sdk/dist/email.min.js"></script>
+
+    <style>
+        .user-dropdown-item {
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .user-dropdown-item:hover {
+            background: #f5f5f5;
+        }
+        .language-flags {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .flag-wrapper {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            overflow: hidden;
+            cursor: pointer;
+            border: 2px solid rgba(255,255,255,0.3);
+            opacity: 0.6;
+            transition: all 0.2s;
+        }
+        .flag-wrapper:hover {
+            opacity: 0.8;
+            border-color: rgba(255,255,255,0.8);
+        }
+        .flag-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #user-dropdown {
+            display: none;
+            flex-direction: column;
+        }
+
+        #user-dropdown.show {
+            display: flex;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.4);
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-overlay.closing {
+            opacity: 0;
+        }
+
+        .modal-content-wrapper {
+            background: white;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        #clientes-container,
+        #produtos-container,
+        #estoque-container,
+        #entregas-container {
+            display: flex !important;
+        }
+
+        /* Estilos do Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 56px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 1rem;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .header-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .header-logo img {
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+        }
+        .header-logo h1 {
+            margin: 0;
+            color: white;
+            font-size: 1.2rem;
+        }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        #user-menu-button {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 20px;
+            padding: 0.25rem 0.75rem;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        #user-menu-button:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        #user-menu-button img {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+        }
+        #user-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 200px;
+            margin-top: 0.5rem;
+            z-index: 101;
+        }
+    </style>
+</head>
+<body class="vendas-online">
+    <!-- Header -->
+    <header class="header">
+        <div class="header-logo">
+            <img src="images/logo-png.png" alt="Leo's Cake">
+            <h1>Leo's Cake</h1>
+        </div>
+
+        <div class="header-actions">
+            <!-- Seletor de Idioma -->
+            <div class="language-flags">
+                <div class="flag-wrapper" data-lang="pt" title="Português (Brasil)">
+                    <img src="images/brasil_icon.jpg" alt="PT-BR">
+                </div>
+                <div class="flag-wrapper" data-lang="en" title="English (Canada)">
+                    <img src="images/canada_icon.jpg" alt="EN-CA">
+                </div>
+            </div>
+
+            <!-- Menu do Usuário -->
+            <div style="position: relative;">
+                <button id="user-menu-button">
+                    <img id="user-avatar" src="https://ui-avatars.com/api/?name=User&background=ff6b9d&color=fff&size=32">
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div id="user-dropdown">
+                    <div style="padding: 1rem 1rem 0.5rem 1rem; text-align: center;">
+                        <span id="dropdown-user-name" style="font-weight:700;font-size:1.1rem;" data-i18n="vendas_online.cliente"></span>
+                        <div id="dropdown-user-type" style="font-size:0.85rem;color:#888;margin-top:0.2rem;">cliente</div>
+                    </div>
+                    <div style="border-bottom:1px solid #eee;margin:0.5rem 0 0.5rem 0;"></div>
+                    <button id="profile-btn" class="user-dropdown-item" style="border:none;background:none;width:100%;">
+                        <i class="fas fa-user"></i>
+                        <span data-i18n="vendas_online.perfil"></span>
+                    </button>
+                    <button id="logout-btn" class="user-dropdown-item" style="border:none;background:none;width:100%;">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span data-i18n="vendas_online.sair"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main style="margin-top: 60px; padding: 1rem; min-height: calc(100vh - 140px); background: #f8f9fa;">
+        <!-- Vendas Online Section -->
+        <section id="vendas-online-section" class="content-section" style="display: block;">
+            <div id="vendas-online-container"></div>
+        </section>
+    </main>
+
+    <!-- Container para Modais -->
+    <div id="modals-container"></div>
+
+    <!-- Scripts -->
+    <script src="src/supabase.js"></script>
+    <script src="src/i18n.js"></script>
+    <script src="src/auth.js"></script>
+    <script src="src/app.js"></script>
+
+    <script>
+        // Inicializar Vendas Online
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('🚀 Inicializando Vendas Online...');
+
+            // Inicializar EmailJS
+            if (window.emailjs) {
+                emailjs.init('vv8Q2vZmtBAstixZR');
+                console.log('📧 EmailJS inicializado');
+            } else {
+                console.warn('⚠️ EmailJS não carregou');
+            }
+
+            // Inicializar DashboardApp em modo vendas online
+            if (window.DashboardApp) {
+                window.dashboardApp = new DashboardApp();
+                window.dashboardApp.isVendasOnline = true;
+                console.log('📱 Modo vendas online ativado');
+                
+                const initResult = await window.dashboardApp.initialize();
+                console.log('✅ Inicialização concluída:', initResult);
+                
+                // Aguardar produtos serem carregados
+                let attempts = 0;
+                while ((!window.dashboardApp.products || window.dashboardApp.products.length === 0) && attempts < 100) {
+                    console.log('⏳ Aguardando produtos carregarem...');
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    attempts++;
+                }
+                
+                console.log('📦 Produtos carregados:', window.dashboardApp.products?.length || 0);
+                
+                // Renderizar página de vendas online
+                window.dashboardApp.renderVendasOnlinePage();
+                console.log('🎨 Página renderizada');
+            } else {
+                console.error('❌ DashboardApp não encontrado');
+            }
+
+            // Setup do header
+            setupHeader();
+
+            function setupHeader() {
+                // Menu do usuário (escondido para vendas online)
+                const userMenuButton = document.getElementById('user-menu-button');
+                const userDropdown = document.getElementById('user-dropdown');
+                
+                if (userMenuButton) userMenuButton.style.display = 'none';
+                if (userDropdown) userDropdown.style.display = 'none';
+
+                // Seletor de idioma
+                document.querySelectorAll('.flag-wrapper').forEach(flag => {
+                    flag.addEventListener('click', function() {
+                        const lang = this.getAttribute('data-lang');
+                        setLang(lang);
+                    });
+                });
+            }
+        });
+
+        // Funções globais para fechar modais
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                // Prevenir múltiplas execuções
+                if (modal.classList.contains('closing')) {
+                    return;
+                }
+                modal.classList.add('closing');
+                modal.classList.remove('show');
+
+                // Remover completamente após a animação
+                setTimeout(() => {
+                    if (modal && modal.parentNode) {
+                        modal.parentNode.removeChild(modal);
+                    }
+                }, 300);
+            }
+        }
+
+        function closeModalOverlay(event) {
+            if (event.target.classList.contains('modal-overlay')) {
+                const modalId = event.target.id;
+                closeModal(modalId);
+            }
+        }
+
+        // Atualizar título da página dinamicamente
+        document.title = t('vendas_online.titulo');
+
+        // Aplicar traduções após carregamento da página
+        setTimeout(() => {
+            applyTranslations();
+        }, 100);
+    </script>
+</body>
+</html>

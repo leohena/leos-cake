@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="dashboard.titulo_pagina">Dashboard - Leo's Cake</title>
+    
+    <meta name="theme-color" content="#ff6b9d">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="styles.css?v=1.8">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="images/logo-png.png">
+    <link rel="apple-touch-icon" href="images/logo-png.png">
+    
+    <!-- Fonts e Ícones -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Bibliotecas Externas -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.emailjs.com/sdk/dist/email.min.js"></script>
+
+    <style>
+        .user-dropdown-item {
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .user-dropdown-item:hover {
+            background: #f5f5f5;
+        }
+        .language-flags {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .flag-wrapper {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            overflow: hidden;
+            cursor: pointer;
+            border: 2px solid rgba(255,255,255,0.3);
+            opacity: 0.6;
+            transition: all 0.2s;
+        }
+        .flag-wrapper:hover {
+            opacity: 0.8;
+            border-color: rgba(255,255,255,0.8);
+        }
+        .flag-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        #user-dropdown {
+            display: none;
+            flex-direction: column;
+        }
+        
+        #user-dropdown.show {
+            display: flex;
+        }
+        
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.4);
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+        
+        .modal-overlay.show {
+            display: flex;
+        }
+        
+        .modal-content-wrapper {
+            background: white;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        
+        #clientes-container,
+        #produtos-container,
+        #estoque-container,
+        #entregas-container {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0.75rem !important;
+        }
+        #pedidos-container {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0.75rem !important;
+            z-index: 10;
+            pointer-events: auto;
+        }
+
+        /* Estilos do Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 56px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 1rem;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .header-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .header-logo img {
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+        }
+        .header-logo h1 {
+            margin: 0;
+            color: white;
+            font-size: 1.2rem;
+        }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        #user-menu-button {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 20px;
+            color: white;
+            padding: 0.3rem 0.6rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+        #user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        #user-dropdown {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            min-width: 200px;
+            z-index: 1000;
+            overflow: hidden;
+        }
+        #user-dropdown div {
+            padding: 0.75rem 1rem;
+            font-weight: 600;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+            color: #333;
+        }
+        #user-dropdown div #dropdown-user-type {
+            font-size: 0.75rem;
+            font-weight: 400;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+        #usuarios-btn {
+            display: none;
+        }
+        #usuarios-btn.show {
+            display: flex !important;
+        }
+        .user-dropdown-item {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: none;
+            border: none;
+            text-align: left;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #333;
+            font-family: inherit;
+            font-size: 0.95rem;
+            position: relative;
+            z-index: 1;
+        }
+        .user-dropdown-item i {
+            min-width: 20px;
+        }
+        .user-dropdown-item:hover {
+            background: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <!-- Splash Screen -->
+    <div id="splash-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); display: flex; align-items: center; justify-content: center; z-index: 9999; flex-direction: column;">
+        <img src="images/logo-png.png" alt="Leo's Cake" style="width: 100px; height: 100px; margin-bottom: 20px; border-radius: 10px;">
+        <h1 style="color: white; margin: 0; font-size: 2rem;">Leo's Cake</h1>
+        <p style="color: rgba(255,255,255,0.8); margin: 10px 0; font-size: 1rem;">Sistema de Vendas</p>
+        <div id="splash-spinner" style="width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px;"></div>
+    </div>
+
+    <style>
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+    
+    <!-- Header -->
+    <header class="header">
+        <div class="header-logo">
+            <img src="images/logo-png.png" alt="Leo's Cake">
+            <h1 id="page-title" data-i18n="section.dashboard">Dashboard</h1>
+        </div>
+
+        <div class="header-actions">
+            <!-- Seletor de Idioma -->
+            <div class="language-flags">
+                <div class="flag-wrapper" data-lang="pt" title="Português (Brasil)">
+                    <img src="images/brasil_icon.jpg" alt="PT-BR">
+                </div>
+                <div class="flag-wrapper" data-lang="en" title="English (Canada)">
+                    <img src="images/canada_icon.jpg" alt="EN-CA">
+                </div>
+            </div>
+
+            <!-- Menu do Usuário -->
+            <div style="position: relative;">
+                <button id="user-menu-button">
+                    <img id="user-avatar" src="https://ui-avatars.com/api/?name=User&background=ff6b9d&color=fff&size=32">
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div id="user-dropdown">
+                    <div style="padding: 1rem 1rem 0.5rem 1rem; text-align: center;">
+                        <span id="dropdown-user-name" style="font-weight:700;font-size:1.1rem;">Usuário</span>
+                        <div id="dropdown-user-type" style="font-size:0.85rem;color:#888;margin-top:0.2rem;">user</div>
+                    </div>
+                    <div style="border-bottom:1px solid #eee;margin:0.5rem 0 0.5rem 0;"></div>
+                    <button id="profile-btn" class="user-dropdown-item" style="border:none;background:none;width:100%;">
+                        <i class="fas fa-user"></i>
+                        <span data-i18n="btn.profile">Perfil</span>
+                    </button>
+                    <button id="config-btn" class="user-dropdown-item" style="border:none;background:none;width:100%;">
+                        <i class="fas fa-cog"></i>
+                        <span data-i18n="menu.configuracoes">Configurações</span>
+                    </button>
+                    <button id="usuarios-btn" class="user-dropdown-item" style="display:block;border:none;background:none;width:100%;padding-left:2rem;position:relative;z-index:1;">
+                        <i class="fas fa-users-cog"></i>
+                        <span data-i18n="menu.usuarios">Usuários</span>
+                    </button>
+                    <button id="promocoes-btn" class="user-dropdown-item" style="display:block;border:none;background:none;width:100%;padding-left:2rem;position:relative;z-index:2;">
+                        <i class="fas fa-tags"></i>
+                        <span data-i18n="menu.promocoes">Promoções</span>
+                    </button>
+                    <div style="border-bottom:1px solid #eee;margin:0.5rem 0 0.5rem 0;"></div>
+                    <button id="logout-btn" class="user-dropdown-item" style="border:none;background:none;width:100%;">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span data-i18n="btn.logout">Sair</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main style="margin-top: 60px; padding: 1rem; min-height: calc(100vh - 140px); background: #f8f9fa; margin-bottom: 70px;">
+        <!-- Dashboard Section -->
+        <section id="dashboard-section" class="content-section" style="display: block;">
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <p class="welcome-text" style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;"><span data-i18n="dashboard.bem_vindo_texto">Bem-vindo(a),</span> <strong id="welcome-name" data-i18n="dashboard.usuario_padrao">Usuário</strong>!</p>
+            </div>
+            <div id="stats-grid" style="display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.2rem;">
+                <!-- Stats serão carregados aqui -->
+            </div>
+        </section>
+
+        <!-- Clientes Section -->
+        <section id="clientes-section" class="content-section" style="display: none;">
+            <div id="clientes-container"></div>
+        </section>
+
+        <!-- Produtos Section -->
+        <section id="produtos-section" class="content-section" style="display: none;">
+            <div id="produtos-container"></div>
+        </section>
+
+        <!-- Pedidos Section -->
+        <section id="pedidos-section" class="content-section" style="display: none;">
+            <div id="pedidos-container"></div>
+        </section>
+
+
+        <!-- Entregas Section -->
+        <section id="entregas-section" class="content-section" style="display: none;">
+            <div id="entregas-container"></div>
+        </section>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="navbar" style="position: fixed; bottom: 0; left: 0; width: 100%; height: 64px; background: white; box-shadow: 0 -2px 8px rgba(0,0,0,0.04); display: flex; justify-content: space-around; align-items: center; z-index: 100;">
+        <button class="nav-btn" data-section="dashboard" style="background: none; border: none; color: #888; font-size: 1.1rem; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: color 0.2s; flex: 1; gap: 0.25rem;">
+            <i class="fas fa-chart-pie"></i>
+            <span style="font-size: 0.75rem;">Dashboard</span>
+        </button>
+        <button class="nav-btn" data-section="clientes" style="background: none; border: none; color: #888; font-size: 1.1rem; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: color 0.2s; flex: 1; gap: 0.25rem;">
+            <i class="fas fa-user-friends"></i>
+            <span style="font-size: 0.75rem;">Clientes</span>
+        </button>
+        <button class="nav-btn" data-section="produtos" style="background: none; border: none; color: #888; font-size: 1.1rem; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: color 0.2s; flex: 1; gap: 0.25rem;">
+            <i class="fas fa-cookie-bite"></i>
+            <span style="font-size: 0.75rem;">Produtos</span>
+        </button>
+        <button class="nav-btn" data-section="pedidos" style="background: none; border: none; color: #888; font-size: 1.1rem; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: color 0.2s; flex: 1; gap: 0.25rem;">
+            <i class="fas fa-receipt"></i>
+            <span style="font-size: 0.75rem;">Pedidos</span>
+        </button>
+        <button class="nav-btn" data-section="entregas" style="background: none; border: none; color: #888; font-size: 1.1rem; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: color 0.2s; flex: 1; gap: 0.25rem;">
+            <i class="fas fa-shipping-fast"></i>
+            <span style="font-size: 0.75rem;">Entregas</span>
+        </button>
+    </nav>
+
+    <!-- Container para Modais -->
+    <div id="modals-container"></div>
+
+    <!-- Scripts -->
+    <script>
+        // Limpar Service Workers antigos
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                registrations.forEach(registration => {
+                    registration.unregister().catch(err => {
+                        console.warn('Erro ao desregistrar SW:', err);
+                    });
+                });
+            });
+        }
+
+        // Configurar botões do dropdown após o DOM carregar
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Aguardar o authSystem estar pronto
+            while (!window.authSystem?.isInitialized) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
+            const currentUser = await window.authSystem.getCurrentUser();
+            const userMenuButton = document.getElementById('user-menu-button');
+            const userDropdown = document.getElementById('user-dropdown');
+            const usuariosBtn = document.getElementById('usuarios-btn');
+            const promocoesBtn = document.getElementById('promocoes-btn');
+            const configBtn = document.getElementById('config-btn');
+            const profileBtn = document.getElementById('profile-btn');
+            
+            console.log('🔍 Usuário atual:', currentUser);
+            console.log('🔍 Tipo/role do usuário:', currentUser?.role, currentUser?.tipo);
+            
+            // Garantir que promocoesBtn existe
+            if (!promocoesBtn && usuariosBtn) {
+                const btn = document.createElement('button');
+                btn.id = 'promocoes-btn';
+                btn.className = 'user-dropdown-item';
+                btn.style.cssText = 'display:none;border:none;background:none;width:100%;padding-left:2rem;';
+                btn.innerHTML = '<i class="fas fa-tags"></i><span>Promoções</span>';
+                usuariosBtn.parentNode.insertBefore(btn, usuariosBtn.nextSibling);
+            }
+            
+            // Re-obter referência (já declarada acima)
+            // const promocoesBtn = document.getElementById('promocoes-btn');
+            
+            // Inicializar displays
+            if (usuariosBtn) usuariosBtn.style.display = 'none';
+            if (promocoesBtn) promocoesBtn.style.display = 'none';
+            
+            // Toggle do dropdown ao clicar no avatar/menu
+            if (userMenuButton && userDropdown) {
+                userMenuButton.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    userDropdown.classList.toggle('show');
+                });
+            }
+            
+            // Fechar dropdown ao clicar fora
+            document.addEventListener('click', function(e) {
+                if (userDropdown && !userMenuButton.contains(e.target) && !userDropdown.contains(e.target)) {
+                    userDropdown.classList.remove('show');
+                    // Esconder botões usuários e promoções quando fechar
+                    if (usuariosBtn) usuariosBtn.style.display = 'none';
+                    if (promocoesBtn) promocoesBtn.style.display = 'none';
+                }
+            });
+            
+            // Mostrar botão Usuários apenas para admin e quando clicar em Configurações
+            if (configBtn) {
+                configBtn.onclick = function(e) {
+                    e.stopPropagation();
+                    console.log('🔧 Clicou em Configurações');
+                    // Toggle dos botões usuários e promoções
+                    if (currentUser && (currentUser.role === 'admin' || currentUser.tipo === 'admin')) {
+                        console.log('👑 Usuário é admin, mostrando botões');
+                        const isVisible = usuariosBtn.style.display === 'block';
+                        console.log('👁️ Visibilidade atual:', isVisible);
+                        usuariosBtn.style.display = isVisible ? 'none' : 'block';
+                        promocoesBtn.style.display = isVisible ? 'none' : 'block';
+                        console.log('✅ Botões usuários/promoções:', usuariosBtn.style.display, promocoesBtn.style.display);
+                    } else {
+                        console.log('❌ Usuário não é admin:', currentUser?.role, currentUser?.tipo);
+                    }
+                };
+            }
+            
+            // Botão Usuários
+            if (usuariosBtn) {
+                usuariosBtn.onclick = function() {
+                    if (window.dashboardApp && window.dashboardApp.showUsuariosModal) {
+                        window.dashboardApp.showUsuariosModal();
+                    }
+                    // Fechar dropdown após clicar
+                    document.getElementById('user-dropdown')?.classList.remove('show');
+                    // Esconder o botão usuários
+                    usuariosBtn.style.display = 'none';
+                };
+            }
+            
+            // Botão Promoções
+            if (promocoesBtn) {
+                promocoesBtn.onclick = function() {
+                    if (window.dashboardApp && window.dashboardApp.showPromocoesModal) {
+                        window.dashboardApp.showPromocoesModal();
+                    }
+                    // Fechar dropdown após clicar
+                    document.getElementById('user-dropdown')?.classList.remove('show');
+                    // Esconder o botão promoções
+                    promocoesBtn.style.display = 'none';
+                };
+            }
+            
+            // Botão Perfil
+            if (profileBtn) {
+                profileBtn.onclick = function() {
+                    if (window.dashboardApp && window.dashboardApp.showEditUserModal) {
+                        window.dashboardApp.showEditUserModal();
+                    }
+                    // Fechar dropdown após clicar
+                    document.getElementById('user-dropdown')?.classList.remove('show');
+                };
+            }
+        });
+
+        // Funções globais para fechar modais
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal && !modal.classList.contains('closing')) {
+                modal.classList.add('closing');
+                modal.classList.remove('show');
+                setTimeout(() => {
+                    if (modal.parentNode) {
+                        modal.parentNode.removeChild(modal);
+                    }
+                }, 300);
+            }
+        }
+
+        function closeModalOverlay(event) {
+            if (event.target.classList.contains('modal-overlay')) {
+                const modalId = event.target.id;
+                closeModal(modalId);
+            }
+        }
+
+        // Event listener para o dropdown do usuário (fora do DOMContentLoaded para garantir)
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Aguardar o authSystem estar pronto
+            while (!window.authSystem?.isInitialized) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
+            const currentUser = await window.authSystem.getCurrentUser();
+            const userMenuButton = document.getElementById('user-menu-button');
+            const userDropdown = document.getElementById('user-dropdown');
+            const configBtn = document.getElementById('config-btn');
+            const usuariosBtn = document.getElementById('usuarios-btn');
+            const profileBtn = document.getElementById('profile-btn');
+            
+            // Toggle do dropdown ao clicar no avatar/menu
+            if (userMenuButton && userDropdown) {
+                userMenuButton.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    userDropdown.classList.toggle('show');
+                });
+            }
+            
+            // Fechar dropdown ao clicar fora
+            document.addEventListener('click', function(e) {
+                if (userMenuButton && userDropdown && !userMenuButton.contains(e.target) && !userDropdown.contains(e.target)) {
+                    userDropdown.classList.remove('show');
+                    if (usuariosBtn) usuariosBtn.classList.remove('show');
+                }
+            });
+            
+            // Botão Configurações - mostrar/esconder Usuários
+            if (configBtn) {
+                configBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    console.log('Config clicked, currentUser:', currentUser);
+                    if (usuariosBtn) {
+                        console.log('Toggling usuariosBtn');
+                        usuariosBtn.classList.toggle('show');
+                    }
+                });
+            }
+            
+            // Botão Usuários
+            if (usuariosBtn) {
+                usuariosBtn.addEventListener('click', function() {
+                    if (window.dashboardApp && window.dashboardApp.showUsuariosModal) {
+                        window.dashboardApp.showUsuariosModal();
+                    }
+                    userDropdown.classList.remove('show');
+                    usuariosBtn.classList.remove('show');
+                });
+            }
+            
+            // Botão Perfil
+            if (profileBtn) {
+                profileBtn.addEventListener('click', function() {
+                    if (window.dashboardApp && window.dashboardApp.showEditUserModal) {
+                        window.dashboardApp.showEditUserModal();
+                    }
+                    userDropdown.classList.remove('show');
+                });
+            }
+        });
+
+        // Aplicar traduções após carregamento
+        setTimeout(() => {
+            applyTranslations();
+            
+            // Adicionar event listeners para as flags de idioma
+            document.querySelectorAll('.flag-wrapper').forEach(flag => {
+                flag.addEventListener('click', function() {
+                    const lang = this.getAttribute('data-lang');
+                    setLang(lang);
+                });
+            });
+        }, 100);
+    </script>
+
+    <script src="src/supabase.js"></script>
+    <script src="src/i18n.js"></script>
+    <script src="src/auth.js"></script>
+    <script src="src/app.js"></script>
+    
+</body>
+</html>

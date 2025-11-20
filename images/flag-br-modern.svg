@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" style="border-radius: 4px;">
+  <defs>
+    <linearGradient id="greenGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#28a745;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e7e34;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="yellowGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffd700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ffc107;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="blueGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2196f3;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1976d2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Fundo verde com gradiente -->
+  <rect width="640" height="480" fill="url(#greenGradient)"/>
+  
+  <!-- Losango amarelo com gradiente -->
+  <polygon points="320,60 560,240 320,420 80,240" fill="url(#yellowGradient)" stroke="rgba(255,255,255,0.1)" stroke-width="2"/>
+  
+  <!-- Círculo azul com gradiente -->
+  <circle cx="320" cy="240" r="80" fill="url(#blueGradient)" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+  
+  <!-- Faixa da bandeira -->
+  <path d="M250,210 Q320,190 390,210 Q390,270 320,290 Q250,270 250,210" fill="url(#yellowGradient)" opacity="0.9"/>
+  
+  <!-- Estrelas decorativas -->
+  <g fill="rgba(255,255,255,0.8)">
+    <polygon points="320,200 322,206 328,206 323,210 325,216 320,212 315,216 317,210 312,206 318,206" transform="scale(0.8)"/>
+    <polygon points="290,220 292,226 298,226 293,230 295,236 290,232 285,236 287,230 282,226 288,226" transform="scale(0.6)"/>
+    <polygon points="350,220 352,226 358,226 353,230 355,236 350,232 345,236 347,230 342,226 348,226" transform="scale(0.6)"/>
+  </g>
+</svg>
