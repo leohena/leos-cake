@@ -1972,22 +1972,17 @@ class DashboardApp {
 		modalsContainer.appendChild(modal);
 
 		// Adicionar event listeners após o modal ser inserido no DOM
-		// Usar uma função nomeada para poder removê-la depois se necessário
-		const handleModalClick = (e) => {
+		modal.onclick = (e) => {
 			if (e.target === modal) {
 				closeModal(modalId);
 			}
 		};
 
-		const handleCloseBtnClick = () => {
-			closeModal(modalId);
-		};
-
-		modal.addEventListener('click', handleModalClick);
-
 		const closeBtn = modal.querySelector('#close-promocoes-btn');
 		if (closeBtn) {
-			closeBtn.addEventListener('click', handleCloseBtnClick);
+			closeBtn.onclick = () => {
+				closeModal(modalId);
+			};
 		}
 
 		this.loadPromocoesContent();
@@ -4502,6 +4497,7 @@ class DashboardApp {
 
 	// MODAL FINALIZAR PEDIDO - VENDA PRESENCIAL
 	abrirFinalizarPedidoModal(clienteIdPreSelecionado = null) {
+		console.log('🛒 Abrindo modal de finalização');
 		try {
 			// Verificar se já existe um modal aberto e removê-lo
 			const existingModal = document.getElementById('modal-finalizar-pedido');
@@ -4726,6 +4722,12 @@ class DashboardApp {
 					<div style="background: #28a745; padding: 1rem; border-radius: 10px; text-align: center; color: white;">
 						<h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; font-weight: 400; opacity: 0.9;">${t('finalizar.valor_total')}</h4>
 						<h2 class="modal-total-valor" style="margin: 0; font-size: 2rem; font-weight: 700;">${this.formatCurrency(totalCarrinho)}</h2>
+					</div>
+
+					<!-- Observações -->
+					<div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 1rem; border-radius: 10px; color: white;">
+						<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">📝 ${t('finalizar.observacoes')}</h4>
+						<textarea id="finalizar-observacoes" placeholder="${t('finalizar.observacoes_placeholder')}" style="width: 100%; padding: 0.75rem; border: none; border-radius: 6px; resize: vertical; min-height: 80px; font-family: inherit; font-size: 1rem;" rows="3"></textarea>
 					</div>
 
 					<button type="submit" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 1rem; font-size: 1.2rem; font-weight: 700; cursor: pointer;">
@@ -5014,9 +5016,25 @@ class DashboardApp {
 			
 			alert('Venda finalizada com sucesso!');
 		}
+		console.log('✅ Modal de finalização criado');
+		
+		// Forçar atualização de horários se já houver uma data selecionada
+		const dataInput = document.getElementById('finalizar-data-entrega');
+		if (dataInput && dataInput.value) {
+			console.log('📅 Data já selecionada, atualizando horários:', dataInput.value);
+			this.updateHorariosDisponiveis(dataInput.value);
+		}
 	}
 
 	async abrirVerificacaoClienteModal() {
+		// Verificar se há validação em cache válida (10 minutos)
+		const validacaoCache = this.getValidacaoClienteCache();
+		if (validacaoCache) {
+			console.log('✅ Validação em cache encontrada, pulando verificação');
+			await this.abrirFinalizarPedidoModal(validacaoCache.cliente);
+			return;
+		}
+
 		// Verificar se há produtos no carrinho
 		const produtosNoCarrinho = Object.entries(this.cart)
 			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado);
@@ -5110,6 +5128,10 @@ class DashboardApp {
 
 		function mostrarVerificacaoEmail() {
 			const emails = self.gerarOpcoesEmail(cliente.email);
+			// Encontrar o índice da opção correta após embaralhamento
+			const indiceCorreto = emails.findIndex(email => 
+				email.trim().toLowerCase() === cliente.email.trim().toLowerCase()
+			);
 			const modalId = 'modal-verificacao-email';
 			document.querySelectorAll('.modal-overlay').forEach(modal => modal.remove());
 			const modal = document.createElement('div');
@@ -5143,7 +5165,7 @@ class DashboardApp {
 			document.querySelectorAll('.opcao-verificacao').forEach(btn => {
 				btn.addEventListener('click', (e) => {
 					const index = parseInt(e.target.dataset.index);
-					if (emails[index] === cliente.email) {
+					if (index === indiceCorreto) {
 						// Correto, próxima verificação
 						closeModal(modalId);
 						mostrarVerificacaoEndereco();
@@ -5165,6 +5187,10 @@ class DashboardApp {
 
 		function mostrarVerificacaoTelefone() {
 			const telefones = self.gerarOpcoesTelefone(self.formatarTelefone(cliente.telefone));
+			// Encontrar o índice da opção correta após embaralhamento
+			const indiceCorreto = telefones.findIndex(tel => 
+				tel.trim() === self.formatarTelefone(cliente.telefone).trim()
+			);
 			const modalId = 'modal-verificacao-telefone';
 			document.querySelectorAll('.modal-overlay').forEach(modal => modal.remove());
 			const modal = document.createElement('div');
@@ -5198,7 +5224,7 @@ class DashboardApp {
 			document.querySelectorAll('.opcao-verificacao').forEach(btn => {
 				btn.addEventListener('click', (e) => {
 					const index = parseInt(e.target.dataset.index);
-					if (telefones[index] === self.formatarTelefone(cliente.telefone)) {
+					if (index === indiceCorreto) {
 						// Correto, próxima verificação
 						closeModal(modalId);
 						mostrarVerificacaoEndereco();
@@ -5219,7 +5245,26 @@ class DashboardApp {
 		}
 
 		function mostrarVerificacaoEndereco() {
+			console.log('🏠 Iniciando verificação de endereço para cliente:', cliente);
+			console.log('📍 Endereço do cliente:', cliente.endereco);
+			
+			if (!cliente.endereco || cliente.endereco.trim() === '') {
+				console.error('❌ Cliente não tem endereço cadastrado!');
+				alert('Cliente não possui endereço cadastrado. Cadastre o endereço primeiro.');
+				closeModal(modalId);
+				self.abrirCadastroClienteModal(cliente);
+				return;
+			}
+			
 			const enderecos = self.gerarOpcoesEndereco(cliente.endereco);
+			// Encontrar o índice da opção correta após embaralhamento (comparação flexível)
+			const indiceCorreto = enderecos.findIndex(end => 
+				end.trim().toLowerCase() === cliente.endereco.trim().toLowerCase()
+			);
+			console.log('🔍 Debug endereço:');
+			console.log('  Cliente:', cliente.endereco);
+			console.log('  Opções:', enderecos);
+			console.log('  Índice correto:', indiceCorreto);
 			const modalId = 'modal-verificacao-endereco';
 			document.querySelectorAll('.modal-overlay').forEach(modal => modal.remove());
 			const modal = document.createElement('div');
@@ -5237,7 +5282,7 @@ class DashboardApp {
 						<p style="margin-bottom: 1rem; color: #666;">${t('verificacao.selecione_endereco')}</p>
 						<div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;">
 							${enderecos.map((end, index) => `
-								<button class="opcao-verificacao" data-index="${index}" style="padding: 1rem; border: 2px solid #ddd; border-radius: 8px; background: white; cursor: pointer; text-align: left; font-size: 1rem; transition: all 0.2s;">
+								<button class="opcao-verificacao" data-index="${index}" data-correct="${index === indiceCorreto ? 'true' : 'false'}" style="padding: 1rem; border: 2px solid #ddd; border-radius: 8px; background: white; cursor: pointer; text-align: left; font-size: 1rem; transition: all 0.2s;">
 									${end}
 								</button>
 							`).join('')}
@@ -5252,12 +5297,18 @@ class DashboardApp {
 
 			document.querySelectorAll('.opcao-verificacao').forEach(btn => {
 				btn.addEventListener('click', async (e) => {
-					const index = parseInt(e.target.dataset.index);
-					if (enderecos[index] === cliente.endereco) {
-						// Cliente verificado com sucesso - ir direto para finalização
+					const isCorrect = e.target.dataset.correct === 'true';
+					const textoClicado = e.target.textContent.trim();
+					console.log(`🖱️ Clicou: "${textoClicado}" - Correto: ${isCorrect}`);
+					if (isCorrect) {
+						console.log('✅ Opção correta selecionada!');
+						// Cliente verificado com sucesso - armazenar em cache e ir direto para finalização
+						self.setValidacaoClienteCache(cliente);
 						closeModal(modalId);
 						await self.abrirFinalizarPedidoModal(cliente);
 					} else {
+						console.log('❌ Opção errada selecionada');
+						tentativas++;
 						tentativas++;
 						if (tentativas >= maxTentativas) {
 							alert(t('verificacao.endereco_incorreto_limite'));
@@ -6797,7 +6848,9 @@ class DashboardApp {
 	}
 
 	updateHorariosDisponiveis(dataSelecionada) {
+		console.log('🔄 updateHorariosDisponiveis chamada com:', dataSelecionada);
 		const select = document.getElementById('finalizar-horario-entrega');
+		console.log('📋 Select encontrado:', !!select);
 		if (!select) return;
 
 		// Limpar opções existentes exceto a primeira
@@ -6805,24 +6858,71 @@ class DashboardApp {
 			select.remove(1);
 		}
 
-		if (!dataSelecionada) return;
+		if (!dataSelecionada) {
+			console.log('⚠️ Nenhuma data selecionada');
+			return;
+		}
 
 		// Determinar se é fim de semana
-		const data = new Date(dataSelecionada);
+		const data = new Date(dataSelecionada + 'T12:00:00'); // Forçar meio-dia para evitar problemas de timezone
 		const diaSemana = data.getDay(); // 0 = Domingo, 6 = Sábado
-		const isFimSemana = diaSemana === 0 || diaSemana === 6;
+		
+		// Lógica explícita: fim de semana = sábado (6) ou domingo (0)
+		// NUNCA segunda-feira (1) deve ser considerada fim de semana
+		let isFimSemana = false;
+		if (diaSemana === 0) {
+			isFimSemana = true; // Domingo
+		} else if (diaSemana === 6) {
+			isFimSemana = true; // Sábado
+		} else {
+			isFimSemana = false; // Dias de semana (segunda a sexta)
+		}
+		console.log('📅 Data selecionada:', dataSelecionada);
+		console.log('📅 Data criada:', data.toLocaleDateString());
+		console.log('📅 Dia da semana (getDay):', diaSemana);
+		console.log('📅 Nome do dia:', ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'][diaSemana]);
+		console.log('📅 É fim de semana?', isFimSemana, '(só sábado e domingo)');
+		
+		// Verificar se há bug
+		if (diaSemana === 1 && isFimSemana) {
+			console.error('🚨 BUG: Segunda-feira sendo considerada fim de semana!');
+		}
+		if (diaSemana >= 1 && diaSemana <= 5 && isFimSemana) {
+			console.error('🚨 BUG: Dia de semana sendo considerado fim de semana!');
+		}
 
 		// Carregar configuração de horários
 		let horariosConfig = this.configuracoes.find(c => c.chave === 'horarios_entrega');
+		console.log('⚙️ Configuração encontrada:', horariosConfig);
 		let horariosDisponiveis = [];
 
 		if (horariosConfig && horariosConfig.valor) {
-			horariosDisponiveis = isFimSemana ? horariosConfig.valor.fins_semana : horariosConfig.valor.dias_semana;
-		} else {
-			// Fallback para horários padrão
+			let configValue = horariosConfig.valor;
+			// Se o valor for string, tentar parsear como JSON
+			if (typeof configValue === 'string') {
+				try {
+					configValue = JSON.parse(configValue);
+					console.log('📄 Valor parseado como JSON:', configValue);
+				} catch (e) {
+					console.error('❌ Erro ao parsear configuração JSON:', e);
+					configValue = null;
+				}
+			}
+			
+			if (configValue && configValue.dias_semana && configValue.fins_semana) {
+				horariosDisponiveis = isFimSemana ? configValue.fins_semana : configValue.dias_semana;
+				console.log('✅ Usando configuração salva:', horariosDisponiveis);
+			} else {
+				console.log('⚠️ Configuração encontrada mas formato inválido');
+			}
+		}
+		
+		// Fallback para horários padrão se não conseguiu carregar configuração válida
+		if (horariosDisponiveis.length === 0) {
 			horariosDisponiveis = isFimSemana 
 				? ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00']
 				: ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
+			console.log('⚠️ Usando fallback - configuração não encontrada ou inválida:', horariosDisponiveis);
 		}
 
 		// Adicionar opções
@@ -6833,6 +6933,8 @@ class DashboardApp {
 			option.textContent = `${horario} - ${periodo}`;
 			select.appendChild(option);
 		});
+
+		console.log('✅ Opções adicionadas, total:', select.options.length);
 	}
 
 	async saveHorariosConfig() {
@@ -9003,6 +9105,12 @@ openAddDespesaModal() {
 			if (enderecoEntrega) {
 				observacoes += ` - Endereço: ${enderecoEntrega}`;
 			}
+			
+			// Adicionar observações do cliente se houver
+			const observacoesCliente = document.getElementById('finalizar-observacoes')?.value?.trim();
+			if (observacoesCliente) {
+				observacoes += `\n\nObservações do cliente: ${observacoesCliente}`;
+			}
 
 			const pedidoData = {
 				numero_pedido: numeroPedido,
@@ -9182,6 +9290,54 @@ openAddDespesaModal() {
 			</div>
 		`;
 	}
+
+	// CACHE DE VALIDAÇÃO DE CLIENTE (10 minutos)
+	getValidacaoClienteCache() {
+		try {
+			const cache = localStorage.getItem('cliente_validacao_cache');
+			if (!cache) return null;
+
+			const data = JSON.parse(cache);
+			const agora = Date.now();
+			const tempoDecorrido = agora - data.timestamp;
+
+			// Verificar se não passou 10 minutos (600000 ms)
+			if (tempoDecorrido > 600000) {
+				console.log('⏰ Cache de validação expirado, removendo');
+				localStorage.removeItem('cliente_validacao_cache');
+				return null;
+			}
+
+			console.log(`✅ Cache válido: ${Math.round(tempoDecorrido / 1000)}s restantes`);
+			return data;
+		} catch (error) {
+			console.error('Erro ao ler cache de validação:', error);
+			localStorage.removeItem('cliente_validacao_cache');
+			return null;
+		}
+	}
+
+	setValidacaoClienteCache(cliente) {
+		try {
+			const data = {
+				cliente: cliente,
+				timestamp: Date.now()
+			};
+			localStorage.setItem('cliente_validacao_cache', JSON.stringify(data));
+			console.log('💾 Validação de cliente armazenada em cache (10 min)');
+		} catch (error) {
+			console.error('Erro ao salvar cache de validação:', error);
+		}
+	}
+
+	clearValidacaoClienteCache() {
+		try {
+			localStorage.removeItem('cliente_validacao_cache');
+			console.log('🗑️ Cache de validação removido');
+		} catch (error) {
+			console.error('Erro ao remover cache de validação:', error);
+		}
+	}
 }
 
 // INICIALIZAÇÃO
@@ -9196,6 +9352,55 @@ document.addEventListener('DOMContentLoaded', async () => {
 		console.error('Erro ao inicializar aplicação:', error);
 	}
 });
+
+// CACHE DE VALIDAÇÃO DE CLIENTE (10 minutos) - MÉTODOS DA CLASSE DASHBOARDAPP
+// Estes métodos são adicionados à classe DashboardApp
+DashboardApp.prototype.getValidacaoClienteCache = function() {
+	try {
+		const cache = localStorage.getItem('cliente_validacao_cache');
+		if (!cache) return null;
+
+		const data = JSON.parse(cache);
+		const agora = Date.now();
+		const tempoDecorrido = agora - data.timestamp;
+
+		// Verificar se não passou 10 minutos (600000 ms)
+		if (tempoDecorrido > 600000) {
+			console.log('⏰ Cache de validação expirado, removendo');
+			localStorage.removeItem('cliente_validacao_cache');
+			return null;
+		}
+
+		console.log(`✅ Cache válido: ${Math.round(tempoDecorrido / 1000)}s restantes`);
+		return data;
+	} catch (error) {
+		console.error('Erro ao ler cache de validação:', error);
+		localStorage.removeItem('cliente_validacao_cache');
+		return null;
+	}
+};
+
+DashboardApp.prototype.setValidacaoClienteCache = function(cliente) {
+	try {
+		const data = {
+			cliente: cliente,
+			timestamp: Date.now()
+		};
+		localStorage.setItem('cliente_validacao_cache', JSON.stringify(data));
+		console.log('💾 Validação de cliente armazenada em cache (10 min)');
+	} catch (error) {
+		console.error('Erro ao salvar cache de validação:', error);
+	}
+};
+
+DashboardApp.prototype.clearValidacaoClienteCache = function() {
+	try {
+		localStorage.removeItem('cliente_validacao_cache');
+		console.log('🗑️ Cache de validação removido');
+	} catch (error) {
+		console.error('Erro ao remover cache de validação:', error);
+	}
+};
 
 // Funções globais
 function closeModal(modalId) {
