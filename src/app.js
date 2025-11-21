@@ -6877,19 +6877,7 @@ class DashboardApp {
 		} else {
 			isFimSemana = false; // Dias de semana (segunda a sexta)
 		}
-		console.log('📅 Data selecionada:', dataSelecionada);
-		console.log('📅 Data criada:', data.toLocaleDateString());
-		console.log('📅 Dia da semana (getDay):', diaSemana);
-		console.log('📅 Nome do dia:', ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'][diaSemana]);
-		console.log('📅 É fim de semana?', isFimSemana, '(só sábado e domingo)');
-		
-		// Verificar se há bug
-		if (diaSemana === 1 && isFimSemana) {
-			console.error('🚨 BUG: Segunda-feira sendo considerada fim de semana!');
-		}
-		if (diaSemana >= 1 && diaSemana <= 5 && isFimSemana) {
-			console.error('🚨 BUG: Dia de semana sendo considerado fim de semana!');
-		}
+		console.log('📅 Data:', dataSelecionada, 'Dia da semana:', diaSemana, 'Fim de semana:', isFimSemana);
 
 		// Carregar configuração de horários
 		let horariosConfig = this.configuracoes.find(c => c.chave === 'horarios_entrega');
