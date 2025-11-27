@@ -38,9 +38,17 @@ Antes de começar, certifique-se de que você tem:
 O Netlify deve detectar automaticamente as configurações do `netlify.toml`, mas confirme:
 
 ### Basic build settings:
-- **Branch to deploy**: `master` (ou a branch que você usa)
-- **Build command**: Deixe vazio (não precisamos de build)
-- **Publish directory**: `.` (raiz do projeto)
+- **Branch to deploy**: `master`
+- **Build command**: `echo 'No build step required'` (ou deixe vazio)
+- **Publish directory**: `.` (ponto = raiz do projeto)
+
+### ⚠️ Importante para projetos SPA:
+Como este é um projeto HTML/CSS/JS puro (SPA sem framework), **não use** comandos como:
+- ❌ `npm run build`
+- ❌ `yarn build`
+- ❌ `npm install && npm run build`
+
+**Use apenas**: `echo 'No build step required'` ou deixe vazio.
 
 ### Advanced build settings:
 - **Functions directory**: `netlify/functions` ✅ (já configurado)
