@@ -1,14 +1,41 @@
 // supabase.js - Configuração e utilitários do Supabase
 
 let supabaseClient = null;
-const SUPABASE_CONFIG = {
-	URL: 'https://qzuccgbxddzpbotxvjug.supabase.co',
-	ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6dWNjZ2J4ZGR6cGJvdHh2anVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxODE1NTQsImV4cCI6MjA3Nzc1NzU1NH0.jMtCOeyS3rLLanJzeWv0j1cYQFnFUBjZmnwMe5aUNk4'
-};
+let supabaseConfig = null;
+
+async function loadSupabaseConfig() {
+	try {
+		console.log('🔧 Carregando configurações do Supabase...');
+		// Tentar carregar configurações da função Netlify primeiro
+		const response = await fetch('/.netlify/functions/config');
+		if (response.ok) {
+			const config = await response.json();
+			supabaseConfig = config.supabase;
+			console.log('✅ Configurações carregadas da função Netlify:', supabaseConfig.URL);
+		} else {
+			console.warn('⚠️ Resposta da função config:', response.status, response.statusText);
+			throw new Error('Função config não disponível');
+		}
+	} catch (error) {
+		console.warn('⚠️ Usando configurações fallback:', error.message);
+		// Fallback para configurações locais (desenvolvimento)
+		supabaseConfig = {
+			URL: 'https://qzuccgbxddzpbotxvjug.supabase.co',
+			ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6dWNjZ2J4ZGR6cGJvdHh2anVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxODE1NTQsImV4cCI6MjA3Nzc1NzU1NH0.jMtCOeyS3rLLanJzeWv0j1cYQFnFUBjZmnwMe5aUNk4'
+		};
+		console.log('📋 Usando configurações fallback');
+	}
+	return supabaseConfig;
+}
 
 async function initializeSupabase() {
 	try {
-		console.log('🔌 Conectando ao Supabase...');
+		console.log('🔌 Inicializando Supabase...');
+
+		// Carregar configurações primeiro
+		if (!supabaseConfig) {
+			await loadSupabaseConfig();
+		}
 
 		// Aguardar a biblioteca Supabase estar carregada
 		let attempts = 0;
@@ -23,10 +50,10 @@ async function initializeSupabase() {
 			return null;
 		}
 
-		// Criar cliente Supabase com configurações otimizadas
+		// Criar cliente Supabase com configurações carregadas
 		supabaseClient = window.supabase.createClient(
-			SUPABASE_CONFIG.URL,
-			SUPABASE_CONFIG.ANON_KEY,
+			supabaseConfig.URL,
+			supabaseConfig.ANON_KEY,
 			{
 				auth: {
 					autoRefreshToken: true,

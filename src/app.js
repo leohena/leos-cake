@@ -9170,8 +9170,20 @@ openAddDespesaModal() {
 	}
 	async finalizarPedidoOnline(cliente, tipoEntrega, dataEntrega, enderecoEntrega, formaPagamento) {
 		try {
+			console.log('🛒 Iniciando finalização de pedido online...');
+			console.log('👤 Cliente:', cliente);
+			console.log('🛍️ Carrinho:', this.cart);
+			console.log('📦 Produtos carregados:', this.products?.length);
+
 			if (!cliente) {
 				alert('Erro: Cliente não informado. Tente novamente.');
+				console.error('❌ Cliente não informado');
+				return;
+			}
+
+			if (!this.cart || Object.keys(this.cart).length === 0) {
+				alert('Erro: Carrinho vazio. Adicione produtos antes de finalizar.');
+				console.error('❌ Carrinho vazio');
 				return;
 			}
 			// Se cliente é um objeto mas não tem ID, tentar salvar novamente
