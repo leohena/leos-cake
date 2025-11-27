@@ -1,5 +1,4 @@
 // Modal de edição do usuário logado
-
 // Modal de edição do usuário logado (dados reais)
 window.showEditUserModal = async function() {
 	const modalsContainer = document.getElementById('modals-container');
@@ -26,7 +25,6 @@ window.showEditUserModal = async function() {
 	`;
 	modalsContainer.appendChild(modal);
 };
-
 // Salvar edição do usuário logado no banco
 window.saveEditUser = async function(userId) {
 	const nome = document.getElementById('edit-user-nome').value;
@@ -42,7 +40,6 @@ window.saveEditUser = async function(userId) {
 		closeModal('edit-user-modal');
 	}
 };
-
 // Modal de tabela de usuários (dados reais)
 window.showUsuariosModal = async function() {
 	const modalsContainer = document.getElementById('modals-container');
@@ -98,26 +95,21 @@ window.showUsuariosModal = async function() {
 	`;
 	modalsContainer.appendChild(modal);
 };
-
 // Funções de ação dos usuários
 window.editUsuario = function(id) { alert('Editar usuário: ' + id); };
 window.showResetPasswordModal = async function(id) {
 	console.log('resetSenhaUsuario called with id:', id);
-	
 	// Buscar dados do usuário
 	const { data: usuario, error } = await window.supabase
 		.from('usuarios')
 		.select('nome, email')
 		.eq('id', id)
 		.single();
-	
 	console.log('Usuario data:', usuario, 'error:', error);
-	
 	if (error || !usuario) {
 		alert('Erro ao buscar dados do usuário.');
 		return;
 	}
-
 	// Criar modal de confirmação
 	const modalsContainer = document.getElementById('modals-container');
 	if (!modalsContainer) {
@@ -125,7 +117,6 @@ window.showResetPasswordModal = async function(id) {
 		return;
 	}
 	modalsContainer.innerHTML = '';
-
 	const modalId = 'reset-senha-modal';
 	const modal = document.createElement('div');
 	modal.id = modalId;
@@ -133,24 +124,20 @@ window.showResetPasswordModal = async function(id) {
 	modal.onclick = (e) => {
 		if (e.target === modal) closeModalOverlay(e);
 	};
-
 	modal.innerHTML = `
 		<div class="modal-content-wrapper" style="padding:2rem;max-width:400px;">
 			<h2 style="margin-bottom:1rem;color:#ffc107;"><i class="fas fa-key"></i> Resetar Senha</h2>
-			
 			<div style="background:#fff3cd;border:1px solid #ffeaa7;border-radius:6px;padding:1rem;margin-bottom:1rem;">
 				<p style="margin:0;font-size:0.9rem;color:#856404;">
 					<strong>Usuário:</strong> ${usuario.nome}<br>
 					<strong>Email:</strong> ${usuario.email}
 				</p>
 			</div>
-			
 			<div style="background:#d1ecf1;border:1px solid #bee5eb;border-radius:6px;padding:1rem;margin-bottom:1rem;">
 				<p style="margin:0;font-size:0.9rem;color:#0c5460;">
 					A senha será resetada para <strong>"123456"</strong>.
 				</p>
 			</div>
-			
 			<div style="display:flex;justify-content:flex-end;gap:1rem;">
 				<button onclick="closeModal('${modalId}')" style="background:#6c757d;color:white;border:none;padding:0.5rem 1.2rem;border-radius:6px;">Cancelar</button>
 				<button onclick="window.confirmResetSenha('${id}')" style="background:#ffc107;color:#333;border:none;padding:0.5rem 1.2rem;border-radius:6px;font-weight:600;">
@@ -159,11 +146,9 @@ window.showResetPasswordModal = async function(id) {
 			</div>
 		</div>
 	`;
-
 	modalsContainer.appendChild(modal);
 	console.log('Modal appended');
 };
-
 window.confirmResetSenha = async function(id) {
 	try {
 		const hashedPassword = btoa('123456');
@@ -171,9 +156,7 @@ window.confirmResetSenha = async function(id) {
 			.from('usuarios')
 			.update({ password_hash: hashedPassword })
 			.eq('id', id);
-		
 		if (error) throw error;
-		
 		alert('Senha resetada com sucesso para "123456"!');
 		closeModal('reset-senha-modal');
 	} catch (error) {
@@ -183,15 +166,12 @@ window.confirmResetSenha = async function(id) {
 };
 window.excluirUsuario = async function(id) {
 	if (!confirm('Tem certeza que deseja excluir este usuário?')) return;
-	
 	try {
 		const { error } = await window.supabase
 			.from('usuarios')
 			.delete()
 			.eq('id', id);
-		
 		if (error) throw error;
-		
 		alert('Usuário excluído com sucesso!');
 		// Recarregar a lista
 		if (window.dashboardApp && window.dashboardApp.showUsuariosModal) {
@@ -210,9 +190,110 @@ window.adicionarUsuario = function() {
 	}
 };
 // app.js - Dashboard com Fluxo de Vendedor Atualizado
-
 class DashboardApp {
 	constructor() {
+		// Importar configurações de email
+		this.emailConfig = null;
+		try {
+			// Tentar importar configurações de email (fallback se não conseguir)
+			import('./email-config.js').then(module => {
+				this.emailConfig = module.default;
+				console.log('✅ Configurações de email carregadas');
+			}).catch(error => {
+				console.warn('⚠️ Arquivo email-config.js não encontrado, usando configurações padrão');
+				this.emailConfig = {
+					smtp: { host: 'smtp.gmail.com', port: 587, secure: false, auth: { user: '', pass: '' } },
+					empresa: { nome: 'Leo\'s Cake', email: 'contato@leoscake.com', telefone: '(11) 99999-9999' }
+				};
+			});
+		} catch (error) {
+			console.warn('Erro ao carregar configurações de email:', error);
+		}
+		// Modal de banner profissional do status
+		DashboardApp.prototype.abrirBannerStatus = async function(orderId, statusKey) {
+		    const order = this.orders.find(o => o.id == orderId);
+		    if (!order) return;
+			const empresa = this.emailConfig?.empresa || {
+				nome: "Leo's Cake",
+				email: 'contato@leoscake.com',
+				telefone: '(11) 99999-9999',
+				endereco: 'Endereço não informado',
+				website: 'https://leohena.github.io/leos-cake/vendas-online.html',
+				logo: 'images/logo-png.png'
+			};
+		    // Banner visual profissional para cada status
+		    const statusLabels = {
+		        recebido: 'Pedido Recebido',
+		        confirmado: 'Pedido Confirmado',
+		        producao: 'Em Produção',
+		        pago: 'Pagamento Confirmado',
+		        saiu_entrega: 'Saiu para Entrega',
+		        entregue: 'Pedido Entregue'
+		    };
+		    const statusColors = {
+		        recebido: '#ffb347',
+		        confirmado: '#6bc6ff',
+		        producao: '#ffe58f',
+		        pago: '#a3e635',
+		        saiu_entrega: '#17a2b8',
+		        entregue: '#28a745'
+		    };
+		    const statusEmojis = {
+		        recebido: '📥',
+		        confirmado: '✅',
+		        producao: '👩‍🍳',
+		        pago: '💰',
+		        saiu_entrega: '🚚',
+		        entregue: '🎁'
+		    };
+		    const label = statusLabels[statusKey] || 'Atualização';
+		    const color = statusColors[statusKey] || '#ffe58f';
+		    const emoji = statusEmojis[statusKey] || '🔔';
+		    // Mensagem personalizada
+		    const mensagem = window.getStatusMessage(order, statusKey);
+		    // Banner visual
+		    const bannerText = `
+		        <div style='background: ${color}; border-radius: 12px; padding: 1.2rem 1rem; box-shadow: 0 2px 12px rgba(0,0,0,0.08); text-align: center; font-family: Segoe UI, Arial, sans-serif;'>
+		            <img src='${empresa.logo}' alt='Logo Leo\'s Cake' style='width: 60px; height: 60px; object-fit: contain; margin-bottom: 0.5rem;'/>
+		            <h2 style='margin: 0; color: #ff6b9d; font-size: 1.3rem; font-weight: bold;'>${empresa.nome}</h2>
+		            <div style='font-size: 1.1rem; color: #333; margin: 0.5rem 0;'>${emoji} <strong>${label}</strong></div>
+		            <div style='font-size: 0.98rem; color: #333; margin-bottom: 0.7rem;'>${mensagem}</div>
+		            <div style='font-size: 0.9rem; color: #555; margin-bottom: 0.5rem;'>${empresa.endereco}<br>${empresa.telefone}<br>${empresa.email}<br><a href='${empresa.website}' target='_blank' style='color:#007bff;text-decoration:none;'>${empresa.website}</a></div>
+		            <div style='margin-top: 0.7rem; color: #ff6b9d; font-size: 0.95rem;'>🍰 Doces feitos com carinho especialmente para você! 🍰</div>
+		        </div>
+		    `;
+		    const hasBannerSent = order.email_sent_steps && order.email_sent_steps.includes(statusKey);
+		    // Cria modal
+		    const modalId = 'modal-banner-' + orderId + '-' + statusKey;
+		    let modal = document.getElementById(modalId);
+		    if (modal) modal.remove();
+		    modal = document.createElement('div');
+		    modal.id = modalId;
+		    modal.className = 'modal-banner-status';
+		    modal.style = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.18); z-index: 9999; display: flex; align-items: center; justify-content: center;';
+		    modal.innerHTML = `
+				<div style="background: white; border-radius: 18px; max-width: 480px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 1.3rem; align-items: center; justify-content: flex-start;">
+		            <img src='${empresa.logo}' alt='Logo Leo\'s Cake' style='width: 90px; height: 90px; object-fit: contain; margin-bottom: 0.5rem;'/>
+		            <h2 style='margin: 0; color: #ff6b9d; font-family: "Segoe UI",sans-serif; font-size: 1.5rem; font-weight: bold;'>${empresa.nome}</h2>
+		            <div style='font-size: 0.95rem; color: #333; margin-bottom: 0.5rem;'>${empresa.endereco}<br>${empresa.telefone}<br>${empresa.email}<br><a href='${empresa.website}' target='_blank' style='color:#007bff;text-decoration:none;'>${empresa.website}</a></div>
+		            <div style='width: 100%;'>
+		                <div id='banner-visual' style='margin: 0;'>${bannerText}</div>
+		            </div>
+					<div style='display: flex; align-items: center; gap: 0.7rem; margin-top: 0.5rem;'>
+						<button onclick='navigator.clipboard.writeText("${bannerText.replace(/'/g,"&#39;")}"); this.innerText="Copiado!"; setTimeout(()=>this.innerText="Copiar texto",1200);' style='background: #007bff; color: white; border: none; border-radius: 4px; padding: 0.25rem 0.7rem; font-size: 0.9rem; cursor: pointer;'>Copiar texto</button>
+						<button onclick='window.dashboardApp.copiarBannerComoImagem("${orderId}", "${statusKey}")' style='background: #ff6b9d; color: white; border: none; border-radius: 4px; padding: 0.25rem 0.7rem; font-size: 0.9rem; cursor: pointer;'>Copiar como imagem</button>
+						<button onclick='window.dashboardApp.copiarBannerEmailHTML("${orderId}", "${statusKey}")' style='background: #28a745; color: white; border: none; border-radius: 4px; padding: 0.25rem 0.7rem; font-size: 0.9rem; cursor: pointer;'>Copiar para e-mail</button>
+						<label style='display: flex; align-items: center; gap: 0.3rem; font-size: 0.9rem;'>
+							<input type='checkbox' ${hasBannerSent ? 'checked disabled' : ''} onchange='window.dashboardApp.confirmarEnvioBanner("${order.id}", "${statusKey}", this)' style='width: 16px; height: 16px;'> Confirmar envio
+						</label>
+						${hasBannerSent ? '<span style="color: #28a745; font-weight: 600;">✔️ Enviado</span>' : ''}
+					</div>
+		            <button onclick='document.getElementById("${modalId}").remove()' style='background: #6c757d; color: white; border: none; border-radius: 8px; padding: 0.75rem 2rem; font-size: 1rem; cursor: pointer; margin-top: 1rem;'>Fechar</button>
+		        </div>
+		    `;
+		    document.body.appendChild(modal);
+		};
+
 		this.currentUser = null;
 		this.products = [];
 		this.clients = [];
@@ -223,34 +304,46 @@ class DashboardApp {
 		this.configuracoes = [];
 		this.entregas = []; // Adicionado para evitar erro de undefined
 		this.initialized = false;
-		this.currentLang = localStorage.getItem('lang') || 'en';
+		const storedLang = localStorage.getItem('lang');
+		if (storedLang === 'pt-BR' || storedLang === 'en-US') {
+			this.currentLang = storedLang;
+		} else if (storedLang === 'pt') {
+			this.currentLang = 'pt-BR';
+			localStorage.setItem('lang', 'pt-BR');
+		} else {
+			this.currentLang = 'en-US';
+			localStorage.setItem('lang', 'en-US');
+		}
+		const activeLang = typeof window.getCurrentLang === 'function' ? window.getCurrentLang() : null;
+		if (typeof window.setLang === 'function' && activeLang !== this.currentLang) {
+			window.setLang(this.currentLang);
+		}
+		if (document.documentElement) {
+			document.documentElement.setAttribute('lang', this.currentLang);
+		}
 		this.supabase = null;
 		this.cart = {};
 		this.isVendasOnline = window.location.pathname.includes('vendas-online.html') || document.body.classList.contains('vendas-online');
+		this.automatedEmailTimers = {};
 	}
-
 	async initialize() {
 		try {
 			console.log('🚀 Inicializando Dashboard...', this.isVendasOnline ? '(Modo Vendas Online)' : '(Modo Dashboard)');
-
 			// Aguardar authSystem
 			let attempts = 0;
 			while (!window.authSystem?.isInitialized && attempts < 50) {
 				await new Promise(resolve => setTimeout(resolve, 100));
 				attempts++;
 			}
-
 			// No modo vendas online, não requer login
 			if (!this.isVendasOnline && !window.authSystem?.isLoggedIn()) {
 				window.location.href = 'index.html';
 				return false;
 			}
-
 			// No modo vendas online, não carrega dados do usuário logado
 			if (!this.isVendasOnline) {
 				this.currentUser = await window.authSystem.getCurrentUser();
 			}
-			
 			// Aguardar inicialização do Supabase
 			let supabaseAttempts = 0;
 			while (!window.supabaseClient && supabaseAttempts < 50) {
@@ -258,27 +351,22 @@ class DashboardApp {
 				await new Promise(resolve => setTimeout(resolve, 100));
 				supabaseAttempts++;
 			}
-			
 			if (!window.supabaseClient) {
 				console.warn('⚠️ Supabase não inicializado, pulando real-time updates');
 				this.supabase = null;
 			} else {
 				this.supabase = window.supabaseClient;
 			}
-
 			// Carregar dados
 			await this.loadData();
-
 			// Configurar UI baseado no tipo de usuário e modo
 			this.setupUI();
 			this.setupEventListeners();
 			this.setupLanguageSwitcher();
-			
 			if (!this.isVendasOnline) {
 				this.createStatsCards();
 				this.createDataCards();
 				// Removida chamada precoce de updateFollowUpEntregas() - será chamada após carregamento dos dados
-
 				// Subscribe to real-time updates (apenas se Supabase estiver disponível)
 				if (this.supabase) {
 					let lastPedidoUpdate = 0;
@@ -291,7 +379,6 @@ class DashboardApp {
 								return;
 							}
 							lastPedidoUpdate = now;
-							
 							console.log('Pedido changed:', payload);
 						await this.loadData(); // Reload all data
 						this.loadPedidosStatusList(); // Update orders list
@@ -304,7 +391,6 @@ class DashboardApp {
 						}
 					})
 					.subscribe();
-
 				// Subscribe to real-time updates for entregas
 				let lastEntregaUpdate = 0;
 				this.supabase
@@ -316,7 +402,6 @@ class DashboardApp {
 							return;
 						}
 						lastEntregaUpdate = now;
-						
 						console.log('Entrega changed:', payload);
 						await this.loadData(); // Reload all data
 						this.loadPedidosStatusList(); // Update orders list
@@ -331,11 +416,23 @@ class DashboardApp {
 					.subscribe();
 			}
 			}
-
+			if (this.supabase) {
+				let lastConfiguracaoUpdate = 0;
+				this.supabase
+					.channel('configuracoes_changes')
+					.on('postgres_changes', { event: '*', schema: 'public', table: 'configuracoes' }, async (payload) => {
+						const now = Date.now();
+						if (now - lastConfiguracaoUpdate < 500) {
+							return;
+						}
+						lastConfiguracaoUpdate = now;
+						await this.loadConfiguracoes();
+						this.applyConfiguracoesRealtime(payload);
+					})
+					.subscribe();
+			}
 			window.addEventListener('languageChanged', () => this.updateAllTranslations());
-
 			this.initialized = true;
-			
 			// Remover splash screen
 			const splashScreen = document.getElementById('splash-screen');
 			if (splashScreen) {
@@ -345,24 +442,26 @@ class DashboardApp {
 				splashScreen.style.opacity = '0';
 				setTimeout(() => splashScreen.style.display = 'none', 500);
 			}
+			// Renderizar página de vendas online se necessário
+			if (this.isVendasOnline) {
+				console.log('🛒 Renderizando página de vendas online...');
+				setTimeout(() => this.renderVendasOnlinePage(), 1000);
+			}
 			return true;
 		} catch (error) {
 			console.error('❌ Erro ao inicializar:', error);
 			return false;
 		}
 	}
-
 	async loadData() {
 		if (!this.supabase) {
 			console.warn('⚠️ Supabase não disponível');
 			return;
 		}
-
 		try {
 			const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
 			const isVendedor = role === 'sale' || role === 'vendedor';
 			const isAdmin = role === 'admin';
-			
 			// Carregar clientes
 			const { data: clientes, error: clientesError } = await this.supabase
 				.from('clientes')
@@ -375,7 +474,6 @@ class DashboardApp {
 			} else {
 				this.clients = Array.isArray(clientes) ? clientes.filter(c => c && c.id) : [];
 			}
-
 			// Carregar produtos
 			try {
 				// Primeiro verificar se conseguimos listar as tabelas disponíveis
@@ -383,23 +481,19 @@ class DashboardApp {
 					.from('produtos')
 					.select('id, nome, preco, status_produto')
 					.limit(1);
-				
 				if (tablesError) {
 					console.error('❌ Erro na tabela produtos:', tablesError);
 					console.log('❌ Código do erro:', tablesError.code);
 					console.log('❌ Mensagem do erro:', tablesError.message);
 					console.log('❌ Detalhes do erro:', tablesError.details);
-					
 					// Tentar uma query ainda mais simples
 					const { data: simpleData, error: simpleError } = await this.supabase
 						.from('produtos')
 						.select('count')
 						.limit(1);
-					
 					if (simpleError) {
 						console.error('❌ Mesmo query simples falhou:', simpleError);
 					}
-					
 					this.products = [];
 				} else {
 					// Carregar apenas campos essenciais primeiro para evitar timeout
@@ -409,7 +503,6 @@ class DashboardApp {
 						.select(selectFields)
 						.order('created_at', { ascending: false })
 						.limit(50); // Reduzir limite para evitar timeout
-					
 					if (basicosError) {
 						console.error('❌ Erro ao carregar produtos básicos:', basicosError);
 						console.error('❌ Detalhes do erro:', JSON.stringify(basicosError, null, 2));
@@ -418,7 +511,6 @@ class DashboardApp {
 						console.log('📦 Produtos básicos carregados:', produtosBasicos?.length || 0);
 						console.log('📦 Primeiro produto:', produtosBasicos?.[0]);
 						this.products = produtosBasicos || [];
-						
 						// Carregar fotos separadamente apenas se houver produtos
 						if (this.products.length > 0) {
 							// Carregar fotos com atraso maior
@@ -434,13 +526,11 @@ class DashboardApp {
 											.select('id, fotos')
 											.in('id', lote.map(p => p.id))
 											.single(); // Usar .single() para lote de 1
-
 										if (fotosError) {
 											console.error('❌ Erro ao carregar fotos do lote:', lote.map(p => p.id), fotosError);
 											// Continuar sem as fotos ao invés de parar tudo
 											continue;
 										}
-
 										if (fotosData) {
 											const produto = this.products.find(p => p.id === fotosData.id);
 											if (produto) {
@@ -448,17 +538,14 @@ class DashboardApp {
 												console.log(`✅ Foto carregada para produto: ${produto.nome}`);
 											}
 										}
-
 										// Pausa maior entre lotes para evitar sobrecarga do servidor
 										await new Promise(resolve => setTimeout(resolve, 500)); // 500ms entre cada foto
 									}
 									console.log('📦 Fotos carregadas em lotes menores');
-
 									// Atualizar apenas a seção ativa se ela mostrar produtos
 									if (this.activeSection === 'produtos' || this.activeSection === 'pedidos' || this.isVendasOnline) {
 										// Em vez de re-renderizar completamente, apenas atualizar as imagens
 										this.updateProductImages();
-
 										// Para vendas online, também re-renderizar a página para garantir que tudo apareça
 										if (this.isVendasOnline) {
 											console.log('🔄 Re-renderizando página de vendas online após carregamento de fotos');
@@ -476,20 +563,17 @@ class DashboardApp {
 				console.error('❌ Exceção ao carregar produtos:', prodError);
 				this.products = [];
 			}
-
 			// Carregar promoções ativas para vendas online
 			if (this.isVendasOnline) {
 				this.loadActivePromocoes();
 			}
-
 			// Carregar pedidos - NOTA: Campo vendedor_id não existe no schema atual
 			// Todos os pedidos são carregados e a filtragem é feita nas entregas
 			let pedidosQuery = this.supabase
 				.from('pedidos')
-				.select('id, numero_pedido, cliente_id, vendedor_id, data_pedido, data_entrega, hora_entrega, valor_total, valor_pago, valor_pendente, status, forma_pagamento, observacoes, idioma, created_at')
+				.select('id, numero_pedido, cliente_id, vendedor_id, data_pedido, data_entrega, hora_entrega, valor_total, valor_pago, valor_pendente, status, forma_pagamento, observacoes, idioma, email_sent_steps, created_at')
 				.order('created_at', { ascending: false })
 				.limit(100); // Limitar para performance
-			
 			// Filtragem por vendedor logado
 			if (isVendedor && this.currentUser?.id) {
 				pedidosQuery = pedidosQuery.eq('vendedor_id', this.currentUser.id);
@@ -497,7 +581,6 @@ class DashboardApp {
 			} else {
 				console.log('🔎 Carregando pedidos sem filtro de vendedor.');
 			}
-
 			// Executar query dos pedidos
 			const { data: pedidos, error: pedidosError } = await pedidosQuery;
 			if (pedidosError) {
@@ -534,37 +617,38 @@ class DashboardApp {
 							}
 						}
 					}
-
 					let clienteNome = t('vendas_online.cliente_default');
+					let clienteEmail = '';
 					if (pedido.cliente_id) {
 						const cliente = this.clients?.find(c => c.id == pedido.cliente_id);
 						if (cliente) {
 							clienteNome = cliente.nome;
+							clienteEmail = cliente.email || '';
 						} else {
-							// Buscar nome do cliente no banco se não estiver em cache
+							// Buscar nome e email do cliente no banco se não estiver em cache
 							try {
 								const { data: clienteData, error: clienteError } = await this.supabase
 									.from('clientes')
-									.select('nome')
+									.select('nome, email')
 									.eq('id', pedido.cliente_id)
 									.single();
 								if (!clienteError && clienteData) {
 									clienteNome = clienteData.nome;
+									clienteEmail = clienteData.email || '';
 								}
 							} catch (e) {
-								console.warn('Erro ao buscar nome do cliente:', e);
+								console.warn('Erro ao buscar dados do cliente:', e);
 							}
 						}
 					}
-
 					return {
 						...pedido,
 						vendedor_nome: vendedorNome,
-						cliente_nome: clienteNome
+						cliente_nome: clienteNome,
+						email: clienteEmail
 					};
 				}));
 			}
-
 			// Carregar entregas - filtrar apenas entregas dos pedidos do usuário
 			let entregasQuery = this.supabase
 				.from('entregas')
@@ -587,7 +671,6 @@ class DashboardApp {
 				`)
 				.order('data_entrega', { ascending: true })
 				.limit(200);
-
 			// Se for vendedor, filtrar apenas entregas dos seus pedidos
 			// NOTA: Filtragem por vendedor será implementada quando o schema for atualizado
 			// if (isVendedor && this.currentUser?.id) {
@@ -604,9 +687,7 @@ class DashboardApp {
 			// } else {
 			//     console.log('👑 Admin logado - carregando todas as entregas');
 			// }
-			
 			console.log('🚚 Carregando todas as entregas (filtragem por vendedor desabilitada temporariamente)');
-
 			const { data: entregas, error: entregasError } = await entregasQuery;
 			if (entregasError) {
 				console.error('❌ Erro ao carregar entregas:', entregasError);
@@ -627,7 +708,6 @@ class DashboardApp {
 					console.log('📋 Detalhes das entregas entregues:', entregues.map(e => ({ id: e.id, pedido_id: e.pedido_id, status: e.status })));
 				}
 			}
-
 			// Carregar despesas
 			const { data: despesas, error: despesasError } = await this.supabase
 				.from('despesas')
@@ -640,9 +720,7 @@ class DashboardApp {
 			} else {
 				this.despesas = despesas || [];
 			}
-
 			// Carregar receitas
-
 			// Carregar receitas
 			const { data: receitas, error: receitasError } = await this.supabase
 				.from('receitas')
@@ -655,12 +733,10 @@ class DashboardApp {
 			} else {
 				this.receitas = receitas || [];
 			}
-
 			// Atualizar entregas após carregamento dos dados
 			if (document.getElementById('entregas-hoje')) {
 				this.updateFollowUpEntregas();
 			}
-
 			// Carregar estoque
 			const { data: estoque, error: estoqueError } = await this.supabase
 				.from('estoque')
@@ -673,7 +749,6 @@ class DashboardApp {
 				this.stock = estoque || [];
 				console.log('📦 Estoque carregado:', this.stock.length);
 			}
-
 			// Carregar configurações
 			const { data: configuracoes, error: configError } = await this.supabase
 				.from('configuracoes')
@@ -688,78 +763,95 @@ class DashboardApp {
 			console.error('Erro ao carregar dados:', error);
 		}
 	}
-
 	updateProductImages() {
-		// Atualizar apenas as imagens dos produtos já renderizados
 		console.log('🖼️ Iniciando updateProductImages() com', this.products?.length || 0, 'produtos');
-		
+		const placeholder = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+		const buildImage = (foto, nome) => `<img loading="lazy" decoding="async" fetchpriority="low" data-src="${foto}" src="${placeholder}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;" alt="${translateProductName(nome)}">`;
+		const renderInto = (id, fotos, nome) => {
+			const el = document.getElementById(id);
+			if (!el) {
+				return null;
+			}
+			el.innerHTML = fotos.map(foto => buildImage(foto, nome)).join('');
+			return el;
+		};
 		this.products.forEach(produto => {
-			if (produto.fotos) {
-				let fotos = [];
-				try { fotos = JSON.parse(produto.fotos); } catch {}
-				console.log(`📸 Produto ${produto.id} (${produto.nome}): ${fotos.length} fotos`);
-				
-				// Atualizar carrossel na página de produtos
-				const carouselProdutos = document.getElementById(`carousel-${produto.id}`);
-				if (carouselProdutos && fotos.length > 0) {
-					carouselProdutos.innerHTML = fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;">`).join('');
-					console.log(`✅ Atualizado carousel-produtos-${produto.id}`);
-				}
-				
-				// Atualizar carrossel na página de pedidos
-				const carouselPedidos = document.getElementById(`market-carousel-${produto.id}`);
-				if (carouselPedidos && fotos.length > 0) {
-					carouselPedidos.innerHTML = fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;">`).join('');
-					console.log(`✅ Atualizado market-carousel-${produto.id}`);
-					
-					// Adicionar controles de navegação se houver múltiplas fotos
-					if (fotos.length > 1) {
-						const container = carouselPedidos.parentElement;
-						if (!container.querySelector('button[data-action="prev-produto-photo"]')) {
-							container.insertAdjacentHTML('beforeend', `
-								<button data-action="prev-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
-								<button data-action="next-produto-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">›</button>
-							`);
-						}
-					}
-				}
-				
-				// Atualizar carrossel na página de vendas online
-				const carouselOnline = document.getElementById(`online-carousel-${produto.id}`);
-				console.log(`🔍 Procurando online-carousel-${produto.id}:`, !!carouselOnline);
-				if (carouselOnline && fotos.length > 0) {
-					carouselOnline.style.width = `${fotos.length * 100}%`;
-					carouselOnline.innerHTML = fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;">`).join('');
-					console.log(`✅ Atualizado online-carousel-${produto.id}`);
-					
-					// Adicionar controles de navegação se houver múltiplas fotos
-					if (fotos.length > 1) {
-						const container = carouselOnline.parentElement;
-						if (!container.querySelector('button[data-action="prev-online-photo"]')) {
-							container.insertAdjacentHTML('beforeend', `
-								<button data-action="prev-online-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
-								<button data-action="next-online-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">›</button>
-							`);
-						}
-					}
-				}
-			} else {
-				console.log(`⚠️ Produto ${produto.id} (${produto.nome}) não tem fotos`);
+			if (!produto.fotos) {
+				return;
+			}
+			let fotos = [];
+			try { fotos = JSON.parse(produto.fotos); } catch {}
+			if (!Array.isArray(fotos) || fotos.length === 0) {
+				return;
+			}
+			renderInto(`carousel-${produto.id}`, fotos, produto.nome);
+			const pedidosCarousel = renderInto(`market-carousel-${produto.id}`, fotos, produto.nome);
+			if (pedidosCarousel) {
+				this.ensureCarouselControls(pedidosCarousel.parentElement, 'produto', produto.id, fotos.length);
+			}
+			const onlineCarousel = renderInto(`online-carousel-${produto.id}`, fotos, produto.nome);
+			if (onlineCarousel) {
+				onlineCarousel.style.width = `${fotos.length * 100}%`;
+				this.ensureCarouselControls(onlineCarousel.parentElement, 'online', produto.id, fotos.length);
 			}
 		});
-		console.log('🖼️ Imagens dos produtos atualizadas');
+		this.lazyLoadProductImages();
 	}
-
+	ensureCarouselControls(container, context, produtoId, total) {
+		if (!container || total <= 1) {
+			return;
+		}
+		const prevAction = context === 'online' ? 'prev-online-photo' : 'prev-produto-photo';
+		const nextAction = context === 'online' ? 'next-online-photo' : 'next-produto-photo';
+		if (container.querySelector(`button[data-action="${prevAction}"][data-id="${produtoId}"]`)) {
+			return;
+		}
+		container.insertAdjacentHTML('beforeend', `
+			<button data-action="${prevAction}" data-id="${produtoId}" data-total="${total}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
+			<button data-action="${nextAction}" data-id="${produtoId}" data-total="${total}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">›</button>
+		`);
+	}
+	lazyLoadProductImages() {
+		const images = document.querySelectorAll('img[data-src]');
+		if (images.length === 0) {
+			return;
+		}
+		if (!('IntersectionObserver' in window)) {
+			images.forEach(img => {
+				const dataSrc = img.getAttribute('data-src');
+				if (dataSrc) {
+					img.src = dataSrc;
+					img.removeAttribute('data-src');
+				}
+			});
+			return;
+		}
+		if (!this.productImageObserver) {
+			this.productImageObserver = new IntersectionObserver((entries, observer) => {
+				entries.forEach(entry => {
+					if (entry.isIntersecting) {
+						const target = entry.target;
+						const dataSrc = target.getAttribute('data-src');
+						if (dataSrc) {
+							target.src = dataSrc;
+							target.removeAttribute('data-src');
+						}
+						observer.unobserve(target);
+					}
+				});
+			}, { rootMargin: '500px' });
+		}
+		const observer = this.productImageObserver;
+		images.forEach(img => observer.observe(img));
+	}
 	setupUI() {
 		// Modo vendas online: mostrar apenas produtos
 		if (this.isVendasOnline) {
 			// Não precisamos chamar setupUI para vendas online, pois a página já renderiza diretamente
 			return;
 		}
-
 		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
 		const isVendedor = role === 'sale' || role === 'vendedor';
-
 		// Controlar visibilidade dos menus na navbar
 		const navBtns = {
 			dashboard: document.querySelector('[data-section="dashboard"]'),
@@ -769,7 +861,6 @@ class DashboardApp {
 			estoque: document.querySelector('[data-section="estoque"]'),
 			entregas: document.querySelector('[data-section="entregas"]')
 		};
-
 		if (isVendedor) {
 			// Vendedor: Dashboard, Pedidos e Entregas
 			if (navBtns.dashboard) navBtns.dashboard.style.display = 'flex';
@@ -784,7 +875,6 @@ class DashboardApp {
 				if (btn) btn.style.display = 'flex';
 			});
 		}
-
 		// Configurar dropdown de usuário
 		const userNameEl = document.getElementById('dropdown-user-name');
 		const userAvatarEl = document.getElementById('user-avatar');
@@ -792,14 +882,12 @@ class DashboardApp {
 		const userType = document.getElementById('dropdown-user-type');
 		const configBtn = document.getElementById('config-btn');
 		const usuariosBtn = document.getElementById('usuarios-btn');
-
 		if (userNameEl) userNameEl.textContent = this.currentUser.nome;
 		if (userAvatarEl) {
 			userAvatarEl.src = this.currentUser.foto_url || 
 				`https://ui-avatars.com/api/?name=${encodeURIComponent(this.currentUser.nome)}&background=ff6b9d&color=fff&size=32`;
 		}
 		if (welcomeName) welcomeName.textContent = this.currentUser.nome;
-		
 		if (userType) {
 			if (role === 'admin') {
 				userType.textContent = this.currentLang === 'pt-BR' ? 'Administrador' : 'Administrator';
@@ -810,7 +898,6 @@ class DashboardApp {
 				userType.textContent = this.currentLang === 'pt-BR' ? 'Usuário' : 'User';
 			}
 		}
-
 		// Ocultar botão de configurações para vendedores
 		if (configBtn) {
 			if (isVendedor) {
@@ -819,7 +906,6 @@ class DashboardApp {
 				configBtn.style.display = 'flex';
 			}
 		}
-
 		// Configurar eventos do dropdown
 		const profileBtn = document.getElementById('profile-btn');
 		if (profileBtn) {
@@ -827,60 +913,49 @@ class DashboardApp {
 				window.dashboardApp.showEditUserModal();
 			};
 		}
-
 		// Configurações só são visíveis para admins (já controlado no display acima)
 		if (configBtn && !isVendedor) {
 			// Event listener movido para dashboard.html para evitar conflitos
 		}
-
 		if (usuariosBtn) {
 			// Event listener movido para dashboard.html para evitar conflitos
 		}
-		
 		const logoutBtn = document.getElementById('logout-btn');
 		if (logoutBtn) logoutBtn.onclick = () => {
 			window.authSystem.logout();
 			window.location.href = 'index.html';
 		};
-
 		this.updateWelcomeMessage();
 		const pageTitle = document.getElementById('page-title');
 		if (pageTitle) pageTitle.textContent = this.t('section.dashboard');
-
 		// Verificar se o usuário tem senha padrão e mostrar aviso
 		if (this.currentUser?.senha_padrao) {
 			this.showPasswordChangeWarning();
 		}
 	}
-
 	updateWelcomeMessage() {
 		const welcomeText = document.querySelector('.welcome-text');
 		if (welcomeText) {
 			welcomeText.innerHTML = `${this.t('dashboard.bem_vindo')}, <strong>${this.currentUser.nome}</strong>!`;
 		}
 	}
-
 	setupEventListeners() {
 		console.log('🎧 Configurando event listeners...');
-
 		// Pular configuração de elementos que não existem no modo vendas online
 		if (!this.isVendasOnline) {
 			const userMenuBtn = document.getElementById('user-menu-button');
 			const userDropdown = document.getElementById('user-dropdown');
-
 			if (userMenuBtn) {
 				userMenuBtn.addEventListener('click', (e) => {
 					e.stopPropagation();
 					userDropdown?.classList.toggle('show');
 				});
 			}
-
 			document.addEventListener('click', (e) => {
 				if (userDropdown && !userMenuBtn?.contains(e.target) && !userDropdown.contains(e.target)) {
 					userDropdown.classList.remove('show');
 				}
 			});
-
 			// Event listeners para botões de navegação
 			console.log('🔘 Configurando botões de navegação...');
 			document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -891,9 +966,15 @@ class DashboardApp {
 					this.switchSection(sectionName);
 				});
 			});
+			// Event listener específico para acompanhar pedidos
+			const acompanharBtn = document.getElementById('acompanhar-pedidos-btn');
+			if (acompanharBtn) {
+				acompanharBtn.addEventListener('click', () => {
+					window.open('acompanhar-pedido.html', '_blank');
+				});
+			}
 		}
 	}
-
 	setupLanguageSwitcher() {
 		const flagWrappers = document.querySelectorAll('.flag-wrapper');
 		flagWrappers.forEach(wrapper => {
@@ -901,39 +982,30 @@ class DashboardApp {
 				const lang = wrapper.getAttribute('data-lang') === 'pt' ? 'pt-BR' : 'en-US';
 				this.currentLang = lang;
 				localStorage.setItem('lang', lang);
-				
 				flagWrappers.forEach(fw => fw.style.opacity = '0.6');
 				wrapper.style.opacity = '1';
-				
 				if (typeof window.setLang === 'function') {
 					window.setLang(lang);
 				}
 			});
 		});
-
 		const langCode = this.currentLang === 'pt-BR' ? 'pt' : 'en';
 		const currentLangBtn = document.querySelector(`.flag-wrapper[data-lang="${langCode}"]`);
 		if (currentLangBtn) currentLangBtn.style.opacity = '1';
 	}
-
 	switchSection(section) {
 		document.querySelectorAll('.content-section').forEach(s => s.style.display = 'none');
 		document.querySelectorAll('.nav-btn').forEach(b => b.style.color = '#888');
-
 		const targetSection = document.getElementById(`${section}-section`);
 		if (targetSection) {
 			targetSection.style.display = 'block';
 		}
-
 		const activeBtn = document.querySelector(`[data-section="${section}"]`);
 		if (activeBtn) activeBtn.style.color = '#ff6b9d';
-
 		const pageTitle = document.getElementById('page-title');
 		if (pageTitle) pageTitle.textContent = this.t(`section.${section}`);
-		
 		// Definir seção ativa
 		this.activeSection = section;
-		
 		// Renderizar página específica
 		setTimeout(() => {
 			if (section === 'produtos') {
@@ -950,22 +1022,327 @@ class DashboardApp {
 			}
 		}, 0);
 	}
-
 	t(key) {
 		return typeof window.t === 'function' ? window.t(key) : key;
 	}
-
+	showAlert(key, replacements = {}) {
+		let message = this.t(key);
+		// Substituir placeholders {variavel} na mensagem
+		Object.keys(replacements).forEach(placeholder => {
+			message = message.replace(new RegExp(`\\{${placeholder}\\}`, 'g'), replacements[placeholder]);
+		});
+		alert(message);
+	}
 	formatCurrency(value) {
 		return `CAD$ ${parseFloat(value || 0).toFixed(2)}`;
 	}
-
 	formatDate(dateString) {
 		if (!dateString) return '';
 		const date = new Date(dateString + 'T00:00:00');
 		const lang = this.currentLang === 'pt-BR' ? 'pt-BR' : 'en-US';
 		return date.toLocaleDateString(lang, { day: '2-digit', month: 'long', year: 'numeric' });
 	}
+	normalizeOrderStatus(status) {
+		if (!status) return 'pendente';
+		const normalized = status.toString().toLowerCase();
+		if (normalized === 'pago') {
+			return 'producao';
+		}
+		return normalized;
+	}
+	getStatusOptions() {
+		const primaryStatuses = this.getTimelineStatuses().map(step => ({
+			value: step.key,
+			label: step.label,
+			color: step.color
+		}));
+		return [
+			...primaryStatuses,
+			{ value: 'cancelado', label: 'Pedido Cancelado', color: '#dc3545' }
+		];
+	}
+	getTimelineStatuses() {
+		return [
+			{ key: 'pendente', label: 'Pedido Recebido', emoji: '📥', color: '#ffc107', description: 'Pedido recebido e aguardando validação do time.' },
+			{ key: 'confirmado', label: 'Pedido Confirmado', emoji: '✅', color: '#28a745', description: 'Detalhes e agenda confirmados. Cliente deve finalizar o pagamento.' },
+			{ key: 'producao', label: 'Em Produção', emoji: '👩‍🍳', color: '#fd7e14', description: 'Pagamento validado e pedido em preparação.' },
+			{ key: 'saiu_entrega', label: 'Saiu para Entrega', emoji: '🚚', color: '#17a2b8', description: 'Pedido saiu para entrega ao cliente.' },
+			{ key: 'entregue', label: 'Pedido Entregue', emoji: '🎁', color: '#20c997', description: 'Pedido finalizado e entregue ao cliente.' }
+		];
+	}
+	getPaymentStatus(order) {
+		const total = Math.max(0, parseFloat(order?.valor_total || 0));
+		const paid = Math.max(0, parseFloat(order?.valor_pago || 0));
+		const remaining = Math.max(0, total - paid);
+		if (!total) {
+			return {
+				key: 'no_total',
+				label: 'Defina o valor total',
+				shortLabel: 'Sem valor',
+				color: '#6c757d',
+				textColor: '#ffffff',
+				progress: 0,
+				remaining,
+				totalAmount: total,
+				paidAmount: paid,
+				hint: 'Informe o valor para acompanhar pagamentos'
+			};
+		}
+		if (paid <= 0) {
+			return {
+				key: 'pending',
+				label: 'Pagamento Pendente',
+				shortLabel: '0%',
+				color: '#dc3545',
+				textColor: '#ffffff',
+				progress: 0,
+				remaining,
+				totalAmount: total,
+				paidAmount: paid,
+				hint: 'Aguardando confirmação do pagamento'
+			};
+		}
+		if (paid < total) {
+			const progress = Math.min(100, Math.round((paid / total) * 100));
+			return {
+				key: 'partial',
+				label: 'Pagamento Parcial',
+				shortLabel: `${progress}%`,
+				color: '#ffc107',
+				textColor: '#212529',
+				progress,
+				remaining,
+				totalAmount: total,
+				paidAmount: paid,
+				hint: `Faltam R$ ${remaining.toFixed(2)}`
+			};
+		}
+		return {
+			key: 'paid',
+			label: 'Pagamento Confirmado',
+			shortLabel: '100%',
+			color: '#28a745',
+			textColor: '#ffffff',
+			progress: 100,
+			remaining: 0,
+			totalAmount: total,
+			paidAmount: paid,
+			hint: 'Pagamento concluído'
+		};
+	}
+	getPaymentMethodLabel(method) {
+		const normalized = (method || '').toLowerCase();
+		const labels = {
+			dinheiro: this.t('finalizar.dinheiro') || 'Dinheiro',
+			transferencia: this.t('finalizar.transferencia') || 'Transferência',
+			cartao: this.t('finalizar.cartao') || 'Cartão'
+		};
+		return labels[normalized] || method || this.t('finalizar.forma_pagamento');
+	}
+	determineInitialStatus({ formaPagamento, tipoEntrega, fullPayment, sinal }) {
+		const metodo = (formaPagamento || '').toLowerCase();
+		const aceitaRegras = ['dinheiro', 'transferencia', 'cartao'].includes(metodo);
+		const hasPagamento = fullPayment || (parseFloat(sinal || 0) > 0);
+		if (!aceitaRegras) {
+			return 'pendente';
+		}
+		if (tipoEntrega === 'retirada' && fullPayment) {
+			return 'entregue';
+		}
+		if (tipoEntrega === 'entrega' && hasPagamento) {
+			return 'confirmado';
+		}
+		return 'pendente';
+	}
+	scheduleStatusEmail(orderId, statusKey, delayMs = 0) {
+		console.log(`📧 scheduleStatusEmail chamado: orderId=${orderId}, statusKey=${statusKey}, delayMs=${delayMs}`);
+		if (!orderId || !statusKey) {
+			console.log(`📧 scheduleStatusEmail: orderId ou statusKey inválidos`);
+			return;
+		}
+		if (!this.automatedEmailTimers) {
+			this.automatedEmailTimers = {};
+		}
+		const timerKey = `${orderId}-${statusKey}`;
+		if (this.automatedEmailTimers[timerKey]) {
+			clearTimeout(this.automatedEmailTimers[timerKey]);
+		}
+		const trigger = async () => {
+			console.log(`📧 Executando trigger para ${timerKey}`);
+			delete this.automatedEmailTimers[timerKey];
+			try {
+				await this.enviarEmailStatus(orderId, statusKey, true);
+			} catch (error) {
+				console.warn('Erro ao enviar email automático:', error);
+			}
+		};
+		if (delayMs <= 0) {
+			console.log(`📧 Executando trigger imediatamente`);
+			trigger();
+			return;
+		}
+		this.automatedEmailTimers[timerKey] = setTimeout(trigger, delayMs);
+	}
+	async triggerRecebimentoEmail(orderId) {
+		console.log(`📧 triggerRecebimentoEmail chamado: orderId=${orderId}`);
+		if (!orderId) {
+			console.log(`📧 triggerRecebimentoEmail: orderId inválido`);
+			return;
+		}
 
+		// Aguardar um pouco para garantir que os scripts sejam carregados
+		await new Promise(resolve => setTimeout(resolve, 100));
+
+		try {
+			await this.enviarEmailStatus(orderId, 'recebido');
+		} catch (error) {
+			console.warn('Erro ao enviar email de recebimento:', error);
+		}
+	}
+	async handleStatusEmailTriggers(orderId, newStatus) {
+		console.log(`📧 handleStatusEmailTriggers chamado: orderId=${orderId}, newStatus=${newStatus}`);
+		const normalized = this.normalizeOrderStatus(newStatus);
+		console.log(`📧 Status normalizado: ${normalized}`);
+		const fifteenMinutes = 15 * 60 * 1000;
+
+		// Buscar o pedido para verificar emails já enviados
+		let order;
+		try {
+			// Tentar buscar com email_sent_steps, se falhar, buscar sem
+			let query = this.supabase
+				.from('pedidos')
+				.select('id, email_sent_steps')
+				.eq('id', orderId);
+
+			let { data, error } = await query.single();
+
+			// Se a coluna não existir, buscar apenas o id
+			if (error && error.code === '42703') {
+				console.log('📧 Coluna email_sent_steps não existe, buscando apenas id');
+				const fallbackQuery = await this.supabase
+					.from('pedidos')
+					.select('id')
+					.eq('id', orderId)
+					.single();
+
+				if (fallbackQuery.error) {
+					console.error('Erro ao buscar pedido:', fallbackQuery.error);
+					return;
+				}
+
+				order = { ...fallbackQuery.data, email_sent_steps: [] };
+			} else if (error && error.code !== 'PGRST116') {
+				console.error('Erro ao buscar pedido para verificação de emails:', error);
+				return;
+			} else {
+				order = data || { email_sent_steps: [] };
+			}
+
+			console.log(`📧 Pedido encontrado:`, order);
+		} catch (error) {
+			console.error('Erro ao verificar emails enviados:', error);
+			return;
+		}
+
+		const emailAlreadySent = order.email_sent_steps && order.email_sent_steps.includes(normalized);
+		console.log(`📧 Email já enviado para ${normalized}? ${emailAlreadySent}`);
+
+		console.log(`📧 Verificando se status requer email: ${normalized}`);
+		const statusRequerEmail = ['confirmado', 'producao', 'saiu_entrega', 'entregue'].includes(normalized);
+		console.log(`📧 Status requer email? ${statusRequerEmail}`);
+
+		if (normalized === 'confirmado') {
+			console.log(`📧 Processando status confirmado`);
+			console.log(`📧 Email já enviado? ${emailAlreadySent}`);
+			if (emailAlreadySent) {
+				console.log(`📧 Mostrando notificação: email já enviado para confirmado`);
+				this.showEmailAlreadySentNotification('confirmado');
+			} else {
+				console.log(`📧 Agendando email para confirmado com delay 0`);
+				this.scheduleStatusEmail(orderId, 'confirmado', 0);
+			}
+		}
+		if (normalized === 'producao') {
+			if (emailAlreadySent) {
+				this.showEmailAlreadySentNotification('producao');
+			} else {
+				this.scheduleStatusEmail(orderId, 'producao', 0);
+			}
+		}
+		if (normalized === 'saiu_entrega') {
+			if (emailAlreadySent) {
+				this.showEmailAlreadySentNotification('saiu_entrega');
+			} else {
+				this.scheduleStatusEmail(orderId, 'saiu_entrega', 0);
+			}
+		}
+		if (normalized === 'entregue') {
+			if (emailAlreadySent) {
+				this.showEmailAlreadySentNotification('entregue');
+			} else {
+				// Temporariamente reduzido para 0ms para testes - depois voltar para fifteenMinutes
+				this.scheduleStatusEmail(orderId, 'entregue', 0); // Mudar de volta para fifteenMinutes após testes
+			}
+			// Email de agradecimento sempre é enviado após entrega, independente se já foi enviado
+			this.scheduleStatusEmail(orderId, 'agradecimento', 48 * 60 * 60 * 1000);
+		}
+	}
+	showEmailAlreadySentNotification(status) {
+		const statusLabels = {
+			'confirmado': 'Pedido Confirmado',
+			'producao': 'Em Produção',
+			'saiu_entrega': 'Saiu para Entrega',
+			'entregue': 'Entregue'
+		};
+
+		const statusLabel = statusLabels[status] || status;
+
+		// Criar notificação temporária
+		const notification = document.createElement('div');
+		notification.style.cssText = `
+			position: fixed;
+			top: 20px;
+			right: 20px;
+			background: linear-gradient(135deg, #ffc107, #ff8c00);
+			color: #000;
+			padding: 15px 20px;
+			border-radius: 8px;
+			box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+			z-index: 10000;
+			font-family: 'Segoe UI', Arial, sans-serif;
+			font-size: 14px;
+			max-width: 350px;
+			border-left: 4px solid #ff6b00;
+		`;
+
+		notification.innerHTML = `
+			<div style="display: flex; align-items: center; gap: 10px;">
+				<span style="font-size: 18px;">📧</span>
+				<div>
+					<strong>Email já enviado!</strong><br>
+					O email de "${statusLabel}" já foi enviado ao cliente anteriormente.
+				</div>
+			</div>
+		`;
+
+		document.body.appendChild(notification);
+
+		// Remover automaticamente após 5 segundos
+		setTimeout(() => {
+			if (notification.parentNode) {
+				notification.style.transition = 'opacity 0.5s ease-out';
+				notification.style.opacity = '0';
+				setTimeout(() => {
+					if (notification.parentNode) {
+						notification.parentNode.removeChild(notification);
+					}
+				}, 500);
+			}
+		}, 5000);
+
+		// Também mostrar no console
+		console.log(`📧 Email de "${statusLabel}" já foi enviado anteriormente para este pedido`);
+	}
 	getStockSummary() {
 		const minStock = parseInt(this.configuracoes.find(c => c.chave === 'estoque_minimo_warning')?.valor || 5);
 		const totalStock = this.products.reduce((sum, p) => sum + (p.estoque || 0), 0);
@@ -976,27 +1353,24 @@ class DashboardApp {
 			return totalStock.toString();
 		}
 	}
-
 	getStatusColor(status) {
 		const colors = {
 			'pendente': '#FFC107',
 			'confirmado': '#007bff',
 			'pago': '#28a745',
 			'producao': '#FF9800',
-			'entregue': '#17a2b8',
+			'saiu_entrega': '#17a2b8',
+			'entregue': '#20c997',
 			'cancelado': '#dc3545'
 		};
 		return colors[status] || '#6c757d';
 	}
-
 	createStatsCards() {
 		const statsGrid = document.getElementById('stats-grid');
 		if (!statsGrid) return;
-
 		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
 		const isVendedor = role === 'sale' || role === 'vendedor';
 		const isAdmin = role === 'admin';
-
 		// Filtrar dados baseado no role do usuário
 		let ordersToUse = this.orders;
 		if (isVendedor && this.currentUser?.id) {
@@ -1009,68 +1383,71 @@ class DashboardApp {
 			console.log('👑 Admin logado - mostrando todas as estatísticas');
 			ordersToUse = this.orders;
 		}
-
 		const despesasToUse = isVendedor ? [] : this.despesas; // Vendedores não veem despesas gerais
 		const receitasToUse = isVendedor ? [] : this.receitas; // Vendedores não veem receitas gerais
-
 		// Contagem por status
 		const statusCounts = {
-			pendente: ordersToUse.filter(o => o.status === 'pendente').length,
-			confirmado: ordersToUse.filter(o => o.status === 'confirmado').length,
-			producao: ordersToUse.filter(o => o.status === 'producao').length,
-			pago: ordersToUse.filter(o => o.status === 'pago').length,
-			entregue: ordersToUse.filter(o => o.status === 'entregue').length,
-			cancelado: ordersToUse.filter(o => o.status === 'cancelado').length
+			pendente: 0,
+			confirmado: 0,
+			producao: 0,
+			entregue: 0,
+			cancelado: 0
 		};
-
+		let legacyPago = 0;
+		ordersToUse.forEach(order => {
+			const normalized = this.normalizeOrderStatus(order.status);
+			if (statusCounts[normalized] !== undefined) {
+				statusCounts[normalized]++;
+			}
+			if (order.status === 'pago') {
+				legacyPago++;
+			}
+		});
 		// Cálculo valores
 		let totalPago = 0;
 		let totalAReceber = 0;
 		let totalCustos = 0;
 		let totalDespesas = 0;
 		let totalReceitas = 0;
-
 		const currentMonth = new Date().toISOString().slice(0, 7);
-
 		// Calcular receitas dos pedidos
 		ordersToUse.forEach(o => {
 			const valorTotal = parseFloat(o.valor_total || 0);
 			const valorPago = parseFloat(o.valor_pago || 0);
-
-			// Lógica baseada no status do pedido
-			if (o.status === 'cancelado' || o.status === 'pendente') {
-				// Pedidos cancelados ou pendentes não geram receita nem custos
+			const statusAtual = this.normalizeOrderStatus(o.status);
+			if (statusAtual === 'cancelado' || statusAtual === 'pendente') {
 				return;
 			}
-
-			// Para pedidos totalmente pagos, receita é o valor total
-			if (o.status === 'pago') {
-				totalPago += valorTotal;
-				totalReceitas += valorTotal;
-			}
-			// Para pedidos entregues, receita é o valor total (mesmo com pagamentos parciais)
-			else if (o.status === 'entregue') {
+			if (statusAtual === 'entregue') {
 				totalPago += valorPago;
 				totalReceitas += valorTotal;
 				if (valorPago < valorTotal) {
 					totalAReceber += (valorTotal - valorPago);
 				}
-			}
-			// Para pedidos em produção ou confirmados com pagamentos parciais
-			else if ((o.status === 'producao' || o.status === 'confirmado') && valorPago > 0) {
-				totalPago += valorPago;
-				totalAReceber += (valorTotal - valorPago);
-			}
-			// Para pedidos em produção ou confirmados sem pagamento ainda
-			else if (o.status === 'producao' || o.status === 'confirmado') {
-				totalAReceber += valorTotal;
+			} else if (statusAtual === 'producao') {
+				totalReceitas += valorTotal;
+				if (valorPago > 0) {
+					totalPago += valorPago;
+					if (valorPago < valorTotal) {
+						totalAReceber += (valorTotal - valorPago);
+					}
+				} else {
+					totalAReceber += valorTotal;
+				}
+			} else if (statusAtual === 'confirmado') {
+				if (valorPago > 0) {
+					totalPago += valorPago;
+					totalAReceber += (valorTotal - valorPago);
+				} else {
+					totalAReceber += valorTotal;
+				}
 			}
 		});
-
 		// Calcular custos dos produtos vendidos baseado nos custos dos produtos
 		// Para cada pedido pago/entregue/producao, calcular o custo dos produtos
 		ordersToUse.forEach(order => {
-			if (order.status === 'pago' || order.status === 'entregue' || order.status === 'producao') {
+			const statusAtual = this.normalizeOrderStatus(order.status);
+			if (statusAtual === 'entregue' || statusAtual === 'producao') {
 				// Aqui precisaríamos dos itens do pedido para calcular custos
 				// Por enquanto, vamos estimar baseado nos produtos
 				const produtosDoPedido = order.produtos || [];
@@ -1082,7 +1459,6 @@ class DashboardApp {
 				});
 			}
 		});
-
 		// Se não conseguiu calcular custos dos produtos, usar despesas com categoria 'produtos' como fallback
 		if (totalCustos === 0) {
 			despesasToUse.forEach(despesa => {
@@ -1092,7 +1468,6 @@ class DashboardApp {
 				}
 			});
 		}
-
 		// Somar despesas do mês atual
 		despesasToUse.forEach(despesa => {
 			const despesaMonth = despesa.data_despesa.slice(0, 7);
@@ -1100,7 +1475,6 @@ class DashboardApp {
 				totalDespesas += parseFloat(despesa.valor || 0);
 			}
 		});
-
 		// Somar receitas adicionais
 		receitasToUse.forEach(receita => {
 			const receitaMonth = receita.data_recebimento.slice(0, 7);
@@ -1108,7 +1482,6 @@ class DashboardApp {
 				totalReceitas += parseFloat(receita.valor || 0);
 			}
 		});
-
 		// Cards Monetários - filtrar baseado no role
 		let monetaryCards = [];
 		if (isVendedor) {
@@ -1129,7 +1502,6 @@ class DashboardApp {
 				{ icon: 'fa-boxes', label: 'Estoque', value: this.getStockSummary(), id: 'card-estoque' }
 			];
 		}
-
 		// Cards Operacionais - filtrar baseado no role
 		let operationalCards = [];
 		if (isVendedor) {
@@ -1139,7 +1511,7 @@ class DashboardApp {
 				{ icon: 'fa-clock', label: 'Pendentes', value: statusCounts.pendente },
 				{ icon: 'fa-user-check', label: 'Confirmados', value: statusCounts.confirmado },
 				{ icon: 'fa-cog', label: 'Em Produção', value: this.getOrdersInProduction() },
-				{ icon: 'fa-money-bill-wave', label: 'Pago', value: statusCounts.pago },
+				{ icon: 'fa-money-bill-wave', label: 'Em Produção', value: statusCounts.producao || legacyPago },
 				{ icon: 'fa-check-circle', label: 'Entregue', value: statusCounts.entregue },
 				{ icon: 'fa-times-circle', label: 'Cancelados', value: statusCounts.cancelado }
 			];
@@ -1152,12 +1524,11 @@ class DashboardApp {
 				{ icon: 'fa-clock', label: 'Pendentes', value: statusCounts.pendente },
 				{ icon: 'fa-user-check', label: 'Confirmados', value: statusCounts.confirmado },
 				{ icon: 'fa-cog', label: 'Em Produção', value: this.getOrdersInProduction() },
-				{ icon: 'fa-money-bill-wave', label: 'Pago', value: statusCounts.pago },
+				{ icon: 'fa-money-bill-wave', label: 'Em Produção', value: statusCounts.producao || legacyPago },
 				{ icon: 'fa-check-circle', label: 'Entregue', value: statusCounts.entregue },
 				{ icon: 'fa-times-circle', label: 'Cancelados', value: statusCounts.cancelado }
 			];
 		}
-
 		// Renderizar os 4 cards principais
 		statsGrid.innerHTML = `
 			<!-- Card 1: Indicadores Financeiros -->
@@ -1179,7 +1550,6 @@ class DashboardApp {
 					</div>
 				</div>
 			</div>
-
 			<!-- Card 2: Indicadores Operacionais -->
 			<div class="main-dashboard-card">
 				<div class="card-header">
@@ -1199,7 +1569,6 @@ class DashboardApp {
 					</div>
 				</div>
 			</div>
-
 			<!-- Card 3: Lista Pedidos e Status -->
 			<div class="main-dashboard-card">
 				<div class="card-header">
@@ -1211,7 +1580,6 @@ class DashboardApp {
 					</div>
 				</div>
 			</div>
-
 			<!-- Card 4: Follow-up de Entregas -->
 			<div class="main-dashboard-card">
 				<div class="card-header">
@@ -1224,21 +1592,17 @@ class DashboardApp {
 				</div>
 			</div>
 		`;
-
 		// Carregar conteúdo dos cards
 		this.loadPedidosStatusList();
-		
 		// Adicionar event listeners para cards clicáveis
 		this.setupCardClickListeners();
 	}
-
 	setupCardClickListeners() {
 		// Remover listeners anteriores
 		document.querySelectorAll('.clickable-card').forEach(card => {
 			const newCard = card.cloneNode(true);
 			card.parentNode.replaceChild(newCard, card);
 		});
-
 		// Adicionar novos listeners
 		const self = this; // Referência à instância
 		document.querySelectorAll('.clickable-card').forEach(card => {
@@ -1256,21 +1620,17 @@ class DashboardApp {
 			card.style.cursor = 'pointer';
 		});
 	}
-
 	showReceitasModal() {
 		// Verificar se o usuário é admin
 		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
 		const isAdmin = role === 'admin';
-		
 		if (!isAdmin) {
 			alert('Acesso negado. Apenas administradores podem gerenciar receitas.');
 			return;
 		}
-
 		const modalsContainer = document.getElementById('modals-container');
 		if (!modalsContainer) return;
 		modalsContainer.innerHTML = '';
-
 		const modalId = 'receitas-modal';
 		const modal = document.createElement('div');
 		modal.id = modalId;
@@ -1278,24 +1638,20 @@ class DashboardApp {
 		modal.onclick = (e) => {
 			if (e.target === modal) closeModalOverlay(e);
 		};
-
 		// Obter meses disponíveis
 		const mesesDisponiveis = [...new Set(this.receitas.map(r => r.data_recebimento.slice(0, 7)))].sort().reverse();
 		const currentMonth = new Date().toISOString().slice(0, 7);
 		if (!mesesDisponiveis.includes(currentMonth)) mesesDisponiveis.unshift(currentMonth);
-
 		const mesOptions = mesesDisponiveis.map(mes => {
 			const [ano, mesNum] = mes.split('-');
 			const data = new Date(ano, mesNum - 1);
 			const label = data.toLocaleDateString('pt-BR', { year: 'numeric', month: 'long' });
 			return `<option value="${mes}" ${mes === currentMonth ? 'selected' : ''}>${label}</option>`;
 		}).join('');
-
 		// Função para renderizar tabela
 		const renderTable = (mesSelecionado) => {
 			const receitasFiltradas = mesSelecionado === 'todos' ? this.receitas : this.receitas.filter(r => r.data_recebimento.slice(0, 7) === mesSelecionado);
 			const total = receitasFiltradas.reduce((sum, r) => sum + parseFloat(r.valor || 0), 0);
-
 			let rows = '';
 			if (receitasFiltradas.length) {
 				rows = receitasFiltradas.map(r => `
@@ -1309,16 +1665,12 @@ class DashboardApp {
 			} else {
 				rows = '<tr><td colspan="4" style="text-align:center;padding:1rem;">Nenhuma receita encontrada</td></tr>';
 			}
-
 			return { rows, total };
 		};
-
 		const { rows, total } = renderTable(currentMonth);
-
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="padding:2rem;max-width:700px;">
 				<h2 style="margin-bottom:1rem;color:#28a745;"><i class="fas fa-chart-line"></i> Receitas</h2>
-				
 				<div style="margin-bottom:1rem;display:flex;gap:1rem;align-items:center;">
 					<label style="font-weight:600;">Filtrar por mês:</label>
 					<select id="receitas-mes-filter" style="padding:0.5rem;border:2px solid #e9ecef;border-radius:8px;">
@@ -1326,11 +1678,9 @@ class DashboardApp {
 						${mesOptions}
 					</select>
 				</div>
-				
 				<div style="margin-bottom:1rem;font-size:1.2rem;font-weight:600;">
 					Total: <span id="receitas-total">${this.formatCurrency(total)}</span>
 				</div>
-				
 				<div style="margin-bottom:2rem;max-height:400px;overflow-y:auto;">
 					<table style="width:100%;border-collapse:collapse;">
 						<thead>
@@ -1346,7 +1696,6 @@ class DashboardApp {
 						</tbody>
 					</table>
 				</div>
-
 				<div style="display:flex;justify-content:flex-end;gap:1rem;">
 					<button onclick="window.dashboardApp.showAddReceitaModal()" 
 							style="background:#28a745;color:white;border:none;padding:0.75rem 1.5rem;border-radius:8px;font-weight:600;">
@@ -1357,9 +1706,7 @@ class DashboardApp {
 				</div>
 			</div>
 		`;
-
 		modalsContainer.appendChild(modal);
-
 		// Event listener para o filtro
 		document.getElementById('receitas-mes-filter').addEventListener('change', (e) => {
 			const mesSelecionado = e.target.value;
@@ -1368,12 +1715,10 @@ class DashboardApp {
 			document.getElementById('receitas-total').textContent = this.formatCurrency(total);
 		});
 	}
-
 	showAddReceitaModal() {
 		const modalsContainer = document.getElementById('modals-container');
 		if (!modalsContainer) return;
 		modalsContainer.innerHTML = '';
-
 		const modalId = 'add-receita-modal';
 		const modal = document.createElement('div');
 		modal.id = modalId;
@@ -1381,29 +1726,24 @@ class DashboardApp {
 		modal.onclick = (e) => {
 			if (e.target === modal) closeModalOverlay(e);
 		};
-
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="padding:2rem;max-width:500px;">
 				<h2 style="margin-bottom:1.5rem;color:#28a745;"><i class="fas fa-plus"></i> Adicionar Receita</h2>
-				
 				<div style="margin-bottom:1rem;">
 					<label style="display:block;margin-bottom:0.5rem;font-weight:600;">Descrição</label>
 					<input type="text" id="receita-descricao" placeholder="Ex: Venda adicional, Comissão, etc." 
 						   style="width:100%;padding:0.75rem;border:2px solid #e9ecef;border-radius:8px;font-size:1rem;">
 				</div>
-
 				<div style="margin-bottom:1rem;">
 					<label style="display:block;margin-bottom:0.5rem;font-weight:600;">Valor (R$)</label>
 					<input type="text" id="receita-valor" placeholder="0,00" 
 						   style="width:100%;padding:0.75rem;border:2px solid #e9ecef;border-radius:8px;font-size:1rem;">
 				</div>
-
 				<div style="margin-bottom:1rem;">
 					<label style="display:block;margin-bottom:0.5rem;font-weight:600;">Data</label>
 					<input type="date" id="receita-data" value="${new Date().toISOString().split('T')[0]}"
 						   style="width:100%;padding:0.75rem;border:2px solid #e9ecef;border-radius:8px;font-size:1rem;">
 				</div>
-
 				<div style="margin-bottom:2rem;">
 					<label style="display:block;margin-bottom:0.5rem;font-weight:600;">Categoria</label>
 					<select id="receita-categoria" style="width:100%;padding:0.75rem;border:2px solid #e9ecef;border-radius:8px;font-size:1rem;">
@@ -1413,7 +1753,6 @@ class DashboardApp {
 						<option value="outros">Outros</option>
 					</select>
 				</div>
-
 				<div style="display:flex;justify-content:flex-end;gap:1rem;">
 					<button onclick="closeModal('${modalId}')" 
 							style="background:#6c757d;color:white;border:none;padding:0.75rem 1.5rem;border-radius:8px;font-weight:600;">Cancelar</button>
@@ -1424,24 +1763,19 @@ class DashboardApp {
 				</div>
 			</div>
 		`;
-
 		modalsContainer.appendChild(modal);
 	}
-
 	showDespesasModal() {
 		// Verificar se o usuário é admin
 		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
 		const isAdmin = role === 'admin';
-		
 		if (!isAdmin) {
 			alert('Acesso negado. Apenas administradores podem gerenciar despesas.');
 			return;
 		}
-
 		const modalsContainer = document.getElementById('modals-container');
 		if (!modalsContainer) return;
 		modalsContainer.innerHTML = '';
-
 		const modalId = 'despesas-modal';
 		const modal = document.createElement('div');
 		modal.id = modalId;
@@ -1449,24 +1783,20 @@ class DashboardApp {
 		modal.onclick = (e) => {
 			if (e.target === modal) closeModalOverlay(e);
 		};
-
 		// Obter meses disponíveis
 		const mesesDisponiveis = [...new Set(this.despesas.map(d => d.data_despesa.slice(0, 7)))].sort().reverse();
 		const currentMonth = new Date().toISOString().slice(0, 7);
 		if (!mesesDisponiveis.includes(currentMonth)) mesesDisponiveis.unshift(currentMonth);
-
 		const mesOptions = mesesDisponiveis.map(mes => {
 			const [ano, mesNum] = mes.split('-');
 			const data = new Date(ano, mesNum - 1);
 			const label = data.toLocaleDateString('pt-BR', { year: 'numeric', month: 'long' });
 			return `<option value="${mes}" ${mes === currentMonth ? 'selected' : ''}>${label}</option>`;
 		}).join('');
-
 		// Função para renderizar tabela
 		const renderTable = (mesSelecionado) => {
 			const despesasFiltradas = mesSelecionado === 'todos' ? this.despesas : this.despesas.filter(d => d.data_despesa.slice(0, 7) === mesSelecionado);
 			const total = despesasFiltradas.reduce((sum, d) => sum + parseFloat(d.valor || 0), 0);
-
 			let rows = '';
 			if (despesasFiltradas.length) {
 				rows = despesasFiltradas.map(d => `
@@ -1480,16 +1810,12 @@ class DashboardApp {
 			} else {
 				rows = '<tr><td colspan="4" style="text-align:center;padding:1rem;">Nenhuma despesa encontrada</td></tr>';
 			}
-
 			return { rows, total };
 		};
-
 		const { rows, total } = renderTable(currentMonth);
-
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="padding:2rem;max-width:700px;">
 				<h2 style="margin-bottom:1rem;color:#dc3545;"><i class="fas fa-file-invoice-dollar"></i> Despesas</h2>
-				
 				<div style="margin-bottom:1rem;display:flex;gap:1rem;align-items:center;">
 					<label style="font-weight:600;">Filtrar por mês:</label>
 					<select id="despesas-mes-filter" style="padding:0.5rem;border:2px solid #e9ecef;border-radius:8px;">
@@ -1497,11 +1823,9 @@ class DashboardApp {
 						${mesOptions}
 					</select>
 				</div>
-				
 				<div style="margin-bottom:1rem;font-size:1.2rem;font-weight:600;">
 					Total: <span id="despesas-total">${this.formatCurrency(total)}</span>
 				</div>
-				
 				<div style="margin-bottom:2rem;max-height:400px;overflow-y:auto;">
 					<table style="width:100%;border-collapse:collapse;">
 						<thead>
@@ -1517,7 +1841,6 @@ class DashboardApp {
 						</tbody>
 					</table>
 				</div>
-
 				<div style="display:flex;justify-content:flex-end;gap:1rem;">
 					<button onclick="window.dashboardApp.showAddDespesaModal()" 
 							style="background:#dc3545;color:white;border:none;padding:0.75rem 1.5rem;border-radius:8px;font-weight:600;">
@@ -1528,9 +1851,7 @@ class DashboardApp {
 				</div>
 			</div>
 		`;
-
 		modalsContainer.appendChild(modal);
-
 		// Event listener para o filtro
 		document.getElementById('despesas-mes-filter').addEventListener('change', (e) => {
 			const mesSelecionado = e.target.value;
@@ -1539,12 +1860,10 @@ class DashboardApp {
 			document.getElementById('despesas-total').textContent = this.formatCurrency(total);
 		});
 	}
-
 	showAddDespesaModal() {
 		const modalsContainer = document.getElementById('modals-container');
 		if (!modalsContainer) return;
 		modalsContainer.innerHTML = '';
-
 		const modalId = 'add-despesa-modal';
 		const modal = document.createElement('div');
 		modal.id = modalId;
@@ -1552,29 +1871,24 @@ class DashboardApp {
 		modal.onclick = (e) => {
 			if (e.target === modal) closeModalOverlay(e);
 		};
-
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="padding:2rem;max-width:500px;">
 				<h2 style="margin-bottom:1.5rem;color:#dc3545;"><i class="fas fa-plus"></i> Adicionar Despesa</h2>
-				
 				<div style="margin-bottom:1rem;">
 					<label style="display:block;margin-bottom:0.5rem;font-weight:600;">Descrição</label>
 					<input type="text" id="despesa-descricao" placeholder="Ex: Aluguel, Energia, Ingredientes, etc." 
 						   style="width:100%;padding:0.75rem;border:2px solid #e9ecef;border-radius:8px;font-size:1rem;">
 				</div>
-
 				<div style="margin-bottom:1rem;">
 					<label style="display:block;margin-bottom:0.5rem;font-weight:600;">Valor (R$)</label>
 					<input type="text" id="despesa-valor" placeholder="0,00" 
 						   style="width:100%;padding:0.75rem;border:2px solid #e9ecef;border-radius:8px;font-size:1rem;">
 				</div>
-
 				<div style="margin-bottom:1rem;">
 					<label style="display:block;margin-bottom:0.5rem;font-weight:600;">Data</label>
 					<input type="date" id="despesa-data" value="${new Date().toISOString().split('T')[0]}"
 						   style="width:100%;padding:0.75rem;border:2px solid #e9ecef;border-radius:8px;font-size:1rem;">
 				</div>
-
 				<div style="margin-bottom:2rem;">
 					<label style="display:block;margin-bottom:0.5rem;font-weight:600;">Categoria</label>
 					<select id="despesa-categoria" style="width:100%;padding:0.75rem;border:2px solid #e9ecef;border-radius:8px;font-size:1rem;">
@@ -1591,7 +1905,6 @@ class DashboardApp {
 						<option value="outros">Outros</option>
 					</select>
 				</div>
-
 				<div style="display:flex;justify-content:flex-end;gap:1rem;">
 					<button onclick="closeModal('${modalId}')" 
 							style="background:#6c757d;color:white;border:none;padding:0.75rem 1.5rem;border-radius:8px;font-weight:600;">Cancelar</button>
@@ -1602,24 +1915,19 @@ class DashboardApp {
 				</div>
 			</div>
 		`;
-
 		modalsContainer.appendChild(modal);
 	}
-
 	async saveReceita(modalId) {
 		const descricao = document.getElementById('receita-descricao').value.trim();
 		const valorStr = document.getElementById('receita-valor').value.trim();
 		const data = document.getElementById('receita-data').value;
 		const categoria = document.getElementById('receita-categoria').value;
-
 		// Converter vírgula para ponto
 		const valor = parseFloat(valorStr.replace(',', '.'));
-
 		if (!descricao || isNaN(valor) || !data) {
 			alert('Por favor, preencha todos os campos obrigatórios com valores válidos.');
 			return;
 		}
-
 		try {
 			const { data: result, error } = await this.supabase
 				.from('receitas')
@@ -1630,35 +1938,28 @@ class DashboardApp {
 					categoria,
 					created_at: new Date().toISOString()
 				}]);
-
 			if (error) throw error;
-
 			alert('Receita cadastrada com sucesso!');
 			closeModal(modalId);
 			await this.loadData(); // Recarregar dados
 			this.createStatsCards(); // Atualizar estatísticas
 			this.showReceitasModal(); // Reabrir modal de receitas
-
 		} catch (error) {
 			console.error('Erro ao salvar receita:', error);
 			alert('Erro ao salvar receita: ' + error.message);
 		}
 	}
-
 	async saveDespesa(modalId) {
 		const descricao = document.getElementById('despesa-descricao').value.trim();
 		const valorStr = document.getElementById('despesa-valor').value.trim();
 		const data = document.getElementById('despesa-data').value;
 		const categoria = document.getElementById('despesa-categoria').value;
-
 		// Converter vírgula para ponto
 		const valor = parseFloat(valorStr.replace(',', '.'));
-
 		if (!descricao || isNaN(valor) || !data) {
 			alert('Por favor, preencha todos os campos obrigatórios com valores válidos.');
 			return;
 		}
-
 		try {
 			const { data: result, error } = await this.supabase
 				.from('despesas')
@@ -1669,21 +1970,17 @@ class DashboardApp {
 					categoria,
 					created_at: new Date().toISOString()
 				}]);
-
 			if (error) throw error;
-
 			alert('Despesa cadastrada com sucesso!');
 			closeModal(modalId);
 			await this.loadData(); // Recarregar dados
 			this.createStatsCards(); // Atualizar estatísticas
 			this.showDespesasModal(); // Reabrir modal de despesas
-
 		} catch (error) {
 			console.error('Erro ao salvar despesa:', error);
 			alert('Erro ao salvar despesa: ' + error.message);
 		}
 	}
-
 	showEstoqueModal() {
 		const modalsContainer = document.getElementById('modals-container');
 		if (!modalsContainer) return;
@@ -1695,9 +1992,7 @@ class DashboardApp {
 		modal.onclick = (e) => {
 			if (e.target === modal) closeModal(modalId);
 		};
-
 		const minStock = parseInt(this.configuracoes.find(c => c.chave === 'estoque_minimo_warning')?.valor || 5);
-
 		let tableRows = '';
 		this.products.forEach(p => {
 			const stockEntries = this.stock.filter(s => s.produto_id === p.id);
@@ -1713,7 +2008,6 @@ class DashboardApp {
 				</tr>
 			`;
 		});
-
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="padding:2rem;max-width:800px;">
 				<h2>Gerenciamento de Estoque</h2>
@@ -1746,7 +2040,6 @@ class DashboardApp {
 		`;
 		modalsContainer.appendChild(modal);
 	}
-
 	addStock(productId) {
 		const product = this.products.find(p => p.id === productId);
 		if (!product) return;
@@ -1755,14 +2048,12 @@ class DashboardApp {
 		const modal = document.createElement('div');
 		modal.id = modalId;
 		modal.className = 'modal-overlay show';
-
 		// Adicionar event listener após o modal ser inserido no DOM
 		const handleModalClick = (e) => {
 			if (e.target === modal) {
 				closeModal(modalId);
 			}
 		};
-
 		modal.addEventListener('click', handleModalClick);
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="padding:2rem;max-width:400px;">
@@ -1779,7 +2070,6 @@ class DashboardApp {
 		`;
 		modalsContainer.appendChild(modal);
 	}
-
 	async saveStock(productId) {
 		const quantity = parseInt(document.getElementById('add-quantity').value);
 		const cost = parseFloat(document.getElementById('add-cost').value);
@@ -1802,7 +2092,6 @@ class DashboardApp {
 			this.showEstoqueModal();
 		}
 	}
-
 	async saveEstoqueConfig() {
 		const minStock = parseInt(document.getElementById('estoque-minimo').value);
 		if (isNaN(minStock) || minStock < 0) {
@@ -1835,21 +2124,18 @@ class DashboardApp {
 			alert('Erro ao salvar: ' + error.message);
 		}
 	}
-
 	addNewProduct() {
 		const modalsContainer = document.getElementById('modals-container');
 		const modalId = 'add-product-modal';
 		const modal = document.createElement('div');
 		modal.id = modalId;
 		modal.className = 'modal-overlay show';
-
 		// Adicionar event listener após o modal ser inserido no DOM
 		const handleModalClick = (e) => {
 			if (e.target === modal) {
 				closeModal(modalId);
 			}
 		};
-
 		modal.addEventListener('click', handleModalClick);
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="padding:2rem;max-width:400px;">
@@ -1870,7 +2156,6 @@ class DashboardApp {
 		`;
 		modalsContainer.appendChild(modal);
 	}
-
 	async saveNewProduct() {
 		const nome = document.getElementById('new-nome').value;
 		const quantity = parseInt(document.getElementById('new-quantity').value);
@@ -1899,21 +2184,18 @@ class DashboardApp {
 		console.log('✅ Dados recarregados após criação de produto');
 		this.showEstoqueModal();
 	}
-
 	showConfigModal() {
 		const modalsContainer = document.getElementById('modals-container');
 		const modalId = 'config-modal';
 		const modal = document.createElement('div');
 		modal.id = modalId;
 		modal.className = 'modal-overlay show';
-
 		// Adicionar event listener após o modal ser inserido no DOM
 		const handleModalClick = (e) => {
 			if (e.target === modal) {
 				closeModal(modalId);
 			}
 		};
-
 		modal.addEventListener('click', handleModalClick);
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="padding:2rem;max-width:800px;">
@@ -1932,31 +2214,25 @@ class DashboardApp {
 			</div>
 		`;
 		modalsContainer.appendChild(modal);
-
 		// Eventos
 		document.getElementById('config-estoque-btn').onclick = () => this.loadConfigEstoque();
 		document.getElementById('config-promocoes-btn').onclick = () => this.loadConfigPromocoes();
 		document.getElementById('config-usuarios-btn').onclick = () => this.loadConfigUsuarios();
-
 		// Carregar promoções por padrão
 		this.loadConfigPromocoes();
 	}
-
 	showPromocoesModal() {
 		const modalsContainer = document.getElementById('modals-container');
 		const modalId = 'promocoes-modal';
-
 		// Remover modal existente se já estiver aberto (importante para evitar camadas)
 		const existingModal = document.getElementById(modalId);
 		if (existingModal) {
 			console.log('🧹 Removendo modal existente:', modalId);
 			existingModal.remove();
 		}
-
 		const modal = document.createElement('div');
 		modal.id = modalId;
 		modal.className = 'modal-overlay show';
-
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="padding:2rem;max-width:800px;">
 				<h2 data-i18n="modal.promocoes">Promoções</h2>
@@ -1968,33 +2244,27 @@ class DashboardApp {
 				</div>
 			</div>
 		`;
-
 		modalsContainer.appendChild(modal);
-
 		// Adicionar event listeners após o modal ser inserido no DOM
 		modal.onclick = (e) => {
 			if (e.target === modal) {
 				closeModal(modalId);
 			}
 		};
-
 		const closeBtn = modal.querySelector('#close-promocoes-btn');
 		if (closeBtn) {
 			closeBtn.onclick = () => {
 				closeModal(modalId);
 			};
 		}
-
 		this.loadPromocoesContent();
 	}
-
 	async loadPromocoesContent() {
 		const content = document.getElementById('promocoes-content');
 		const { data: promocoes, error } = await this.supabase
 			.from('promocoes')
 			.select('*')
 			.order('data_inicio', { ascending: false });
-
 		let tableRows = '';
 		if (promocoes && promocoes.length) {
 			tableRows = promocoes.map(p => `
@@ -2011,7 +2281,6 @@ class DashboardApp {
 		} else {
 			tableRows = '<tr><td colspan="4" style="text-align:center;">Nenhuma promoção encontrada</td></tr>';
 		}
-
 		content.innerHTML = `
 			<table style="width:100%;border-collapse:collapse;margin-bottom:2rem;">
 				<thead>
@@ -2029,7 +2298,6 @@ class DashboardApp {
 			<button onclick="window.dashboardApp.addPromocao()">Adicionar Promoção</button>
 		`;
 	}
-
 	loadConfigEstoque() {
 		const content = document.getElementById('config-content');
 		content.innerHTML = `
@@ -2039,14 +2307,12 @@ class DashboardApp {
 			<button onclick="window.dashboardApp.saveEstoqueConfig()" style="margin-left:1rem; background:#667eea; color:white; border:none; padding:0.5rem 1rem; border-radius:6px;">Salvar Config</button>
 		`;
 	}
-
 	async loadConfigUsuarios() {
 		const content = document.getElementById('config-content');
 		const { data: usuarios, error } = await this.supabase
 			.from('usuarios')
 			.select('*')
 			.order('created_at', { ascending: false });
-
 		let rows = '';
 		if (usuarios && usuarios.length) {
 			rows = usuarios.map(u => `
@@ -2064,7 +2330,6 @@ class DashboardApp {
 		} else {
 			rows = '<tr><td colspan="4" style="text-align:center;padding:1rem;">Nenhum usuário encontrado</td></tr>';
 		}
-
 		content.innerHTML = `
 			<h3>Usuários</h3>
 			<div style="margin-bottom:2rem;">
@@ -2085,7 +2350,6 @@ class DashboardApp {
 			<button onclick="window.dashboardApp.adicionarUsuario()">Adicionar Usuário</button>
 		`;
 	}
-
 	async loadConfigPromocoes() {
 		const content = document.getElementById('config-content');
 		if (!content) {
@@ -2096,7 +2360,6 @@ class DashboardApp {
 			.from('promocoes')
 			.select('*')
 			.order('data_inicio', { ascending: false });
-
 		let tableRows = '';
 		if (promocoes && promocoes.length) {
 			tableRows = promocoes.map(p => `
@@ -2114,7 +2377,6 @@ class DashboardApp {
 		} else {
 			tableRows = '<tr><td colspan="5" style="text-align:center;">Nenhuma promoção encontrada</td></tr>';
 		}
-
 		content.innerHTML = `
 			<h3>Promoções</h3>
 			<table style="width:100%;border-collapse:collapse;margin-bottom:2rem;">
@@ -2134,19 +2396,16 @@ class DashboardApp {
 			<button onclick="window.dashboardApp.addPromocao()">Adicionar Promoção</button>
 		`;
 	}
-
 	addPromocao() {
 		// Fechar modal de configurações antes de abrir modal de promoção
 		closeModal('config-modal');
 		this.showPromocaoModal();
 	}
-
 	editPromocao(id) {
 		// Fechar modal de configurações antes de abrir modal de promoção
 		closeModal('config-modal');
 		this.showPromocaoModal(id);
 	}
-
 	async deletePromocao(id) {
 		if (confirm('Tem certeza que deseja excluir esta promoção?')) {
 			const { error } = await this.supabase
@@ -2161,7 +2420,6 @@ class DashboardApp {
 			}
 		}
 	}
-
 	async showPromocaoModal(id = null) {
 		let promocao = null;
 		if (id) {
@@ -2176,13 +2434,11 @@ class DashboardApp {
 			}
 			promocao = data;
 		}
-
 		const modalsContainer = document.getElementById('modals-container');
 		const modalId = 'promocao-modal';
 		const modal = document.createElement('div');
 		modal.id = modalId;
 		modal.className = 'modal-overlay show';
-
 		// Adicionar event listeners após o modal ser inserido no DOM
 		// Usar uma função nomeada para poder removê-la depois se necessário
 		const handleModalClick = (e) => {
@@ -2190,9 +2446,7 @@ class DashboardApp {
 				closeModal(modalId);
 			}
 		};
-
 		modal.addEventListener('click', handleModalClick);
-
 		// Opções de produtos
 		let produtoOptions = `<option value="" ${!promocao || !promocao.produto_id ? 'selected' : ''}>Todos os produtos</option>`;
 		if (this.products) {
@@ -2200,19 +2454,15 @@ class DashboardApp {
 				produtoOptions += `<option value="${p.id}" ${promocao && promocao.produto_id === p.id ? 'selected' : ''}>${p.nome}</option>`;
 			});
 		}
-
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="padding:2rem;max-width:900px;max-height:90vh;overflow-y:auto;">
 				<h2>${id ? 'Editar' : 'Adicionar'} Promoção</h2>
-
 				<div style="display:flex;gap:2rem;">
 					<!-- Formulário -->
 					<div style="flex:1;">
 						<h3>Configurações da Promoção</h3>
-
 						<label>Nome da Promoção <span style="color:red;">*</span></label>
 						<input type="text" id="promocao-nome" value="${promocao ? promocao.nome : ''}" required style="width:100%;margin-bottom:1rem;">
-
 						<div style="display:flex;gap:1rem;margin-bottom:1rem;">
 							<div style="flex:1;">
 								<label>Data Início <span style="color:red;">*</span></label>
@@ -2223,27 +2473,21 @@ class DashboardApp {
 								<input type="date" id="promocao-data-fim" value="${promocao ? promocao.data_fim.split('T')[0] : ''}" required style="width:100%;">
 							</div>
 						</div>
-
 						<label>Status</label>
 						<select id="promocao-status" style="width:100%;margin-bottom:1rem;">
 							<option value="ativo" ${promocao && promocao.status === 'ativo' ? 'selected' : ''}>Ativo</option>
 							<option value="inativo" ${promocao && promocao.status === 'inativo' ? 'selected' : ''}>Inativo</option>
 						</select>
-
 						<label>Canal de Venda</label>
 						<select id="promocao-canal" style="width:100%;margin-bottom:1rem;">
 							<option value="ambos" ${promocao && (!promocao.canal || promocao.canal === 'ambos') ? 'selected' : ''}>Ambos (Físico e Online)</option>
 							<option value="fisico" ${promocao && promocao.canal === 'fisico' ? 'selected' : ''}>Apenas Vendas Físicas</option>
 							<option value="online" ${promocao && promocao.canal === 'online' ? 'selected' : ''}>Apenas Vendas Online</option>
 						</select>
-
 						<hr style="margin:1.5rem 0;border:none;border-top:1px solid #eee;">
-
 						<h4>Condições da Promoção <small style="color:#666;">(pelo menos uma)</small></h4>
-
 						<label>Produto Específico (opcional)</label>
 						<select id="promocao-produto" style="width:100%;margin-bottom:1rem;">${produtoOptions}</select>
-
 						<div style="display:flex;gap:1rem;margin-bottom:1rem;">
 							<div style="flex:1;">
 								<label>Quantidade Mínima</label>
@@ -2256,14 +2500,10 @@ class DashboardApp {
 								<small style="color:#666;">Deixe vazio se usar Quantidade Mínima</small>
 							</div>
 						</div>
-
 						<label>Regiões (separadas por vírgula, opcional)</label>
 						<input type="text" id="promocao-regioes" value="${promocao ? promocao.regioes || '' : ''}" placeholder="Ex: São Paulo, Rio de Janeiro" style="width:100%;margin-bottom:1rem;">
-
 						<hr style="margin:1.5rem 0;border:none;border-top:1px solid #eee;">
-
 						<h4>Benefícios da Promoção <small style="color:#666;">(pelo menos um)</small></h4>
-
 						<div style="display:flex;gap:1rem;margin-bottom:1rem;">
 							<div style="flex:1;">
 								<label>Tipo de Desconto</label>
@@ -2278,14 +2518,12 @@ class DashboardApp {
 								<small style="color:#666;">Deixe vazio se usar apenas Frete Grátis</small>
 							</div>
 						</div>
-
 						<label style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;">
 							<input type="checkbox" id="promocao-frete" ${promocao && promocao.frete_gratis ? 'checked' : ''}>
 							Frete Grátis
 							<small style="color:#666;">(pode ser usado junto com desconto)</small>
 						</label>
 					</div>
-
 					<!-- Visualizador -->
 					<div style="flex:1;">
 						<h3>Visualização do Banner</h3>
@@ -2297,12 +2535,9 @@ class DashboardApp {
 						</div>
 					</div>
 				</div>
-
 				<hr style="margin:1.5rem 0;border:none;border-top:1px solid #eee;">
-
 				<label>Informações Adicionais (opcional)</label>
 				<textarea id="promocao-observacoes" rows="3" placeholder="Adicione informações adicionais sobre a promoção..." style="width:100%;margin-bottom:1rem;padding:0.5rem;border:1px solid #ddd;border-radius:4px;resize:vertical;">${promocao ? promocao.observacoes || '' : ''}</textarea>
-
 				<div style="display:flex;justify-content:flex-end;gap:1rem;margin-top:2rem;border-top:1px solid #eee;padding-top:1rem;">
 					<button onclick="closeModal('${modalId}')">Cancelar</button>
 					<button onclick="window.dashboardApp.savePromocao(${id ? `'${id}'` : 'null'})" style="background:#28a745;color:white;">Salvar Promoção</button>
@@ -2310,11 +2545,9 @@ class DashboardApp {
 			</div>
 		`;
 		modalsContainer.appendChild(modal);
-
 		// Adicionar event listeners para atualizar preview em tempo real
 		this.setupPromocaoPreview();
 	}
-
 	setupPromocaoPreview() {
 		const fields = [
 			'promocao-nome', 'promocao-data-inicio', 'promocao-data-fim',
@@ -2323,7 +2556,6 @@ class DashboardApp {
 			'promocao-frete', 'promocao-regioes', 'promocao-status',
 			'promocao-observacoes'
 		];
-
 		fields.forEach(fieldId => {
 			const element = document.getElementById(fieldId);
 			if (element) {
@@ -2331,11 +2563,9 @@ class DashboardApp {
 				element.addEventListener('change', () => this.updatePromocaoPreview());
 			}
 		});
-
 		// Atualizar preview inicial
 		this.updatePromocaoPreview();
 	}
-
 	updatePromocaoPreview() {
 		const nome = document.getElementById('promocao-nome')?.value || '';
 		const dataInicio = document.getElementById('promocao-data-inicio')?.value || '';
@@ -2349,9 +2579,7 @@ class DashboardApp {
 		const regioes = document.getElementById('promocao-regioes')?.value || '';
 		const status = document.getElementById('promocao-status')?.value || 'ativo';
 		const observacoes = document.getElementById('promocao-observacoes')?.value || '';
-
 		const preview = document.getElementById('promocao-preview');
-
 		if (!nome && !dataInicio && !dataFim) {
 			preview.innerHTML = `
 				<div style="text-align:center;color:#888;margin-top:100px;">
@@ -2361,11 +2589,9 @@ class DashboardApp {
 			`;
 			return;
 		}
-
 		// Construir descrição da promoção
 		let titulo = nome || 'Nome da Promoção';
 		let descricao = '';
-
 		// Condições (apenas as que foram preenchidas)
 		let condicoes = [];
 		if (produtoId) {
@@ -2375,7 +2601,6 @@ class DashboardApp {
 		if (quantidade && parseInt(quantidade) > 0) condicoes.push(`Quantidade mínima: ${quantidade}`);
 		if (valor && parseFloat(valor) > 0) condicoes.push(`Valor mínimo: R$ ${this.formatCurrency(parseFloat(valor))}`);
 		if (regioes.trim()) condicoes.push(`Regiões: ${regioes.trim()}`);
-
 		// Benefícios (apenas os que foram preenchidos)
 		let beneficios = [];
 		if (descontoValor && parseFloat(descontoValor) > 0) {
@@ -2386,11 +2611,9 @@ class DashboardApp {
 			}
 		}
 		if (freteGratis) beneficios.push('Frete grátis');
-
 		// Status
 		const statusColor = status === 'ativo' ? '#28a745' : '#6c757d';
 		const statusText = status === 'ativo' ? 'ATIVA' : 'INATIVA';
-
 		// Datas
 		let periodo = '';
 		if (dataInicio && dataFim) {
@@ -2398,7 +2621,6 @@ class DashboardApp {
 			const fim = new Date(dataFim).toLocaleDateString('pt-BR');
 			periodo = `${inicio} até ${fim}`;
 		}
-
 		preview.innerHTML = `
 			<div style="background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
 				<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
@@ -2410,7 +2632,6 @@ class DashboardApp {
 						${statusText}
 					</div>
 				</div>
-
 				${condicoes.length > 0 ? `
 					<div style="margin-bottom: 1rem;">
 						<h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; opacity: 0.9;">📋 Condições:</h4>
@@ -2419,7 +2640,6 @@ class DashboardApp {
 						</ul>
 					</div>
 				` : ''}
-
 				${beneficios.length > 0 ? `
 					<div style="margin-bottom: 1rem;">
 						<h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; opacity: 0.9;">🎁 Benefícios:</h4>
@@ -2428,14 +2648,12 @@ class DashboardApp {
 						</ul>
 					</div>
 				` : ''}
-
 				${observacoes.trim() ? `
 					<div style="margin-bottom: 1rem;">
 						<h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; opacity: 0.9;">ℹ️ Informações:</h4>
 						<p style="margin: 0; font-size: 0.9rem; font-style: italic; opacity: 0.9;">${observacoes.trim()}</p>
 					</div>
 				` : ''}
-
 				<div style="text-align: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.3);">
 					<button style="background: white; color: #ff6b9d; border: none; padding: 0.8rem 2rem; border-radius: 25px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
 						🛒 APROVEITAR OFERTA
@@ -2444,7 +2662,6 @@ class DashboardApp {
 			</div>
 		`;
 	}
-
 	async savePromocao(id) {
 		const nome = document.getElementById('promocao-nome').value;
 		const dataInicio = document.getElementById('promocao-data-inicio').value;
@@ -2459,50 +2676,40 @@ class DashboardApp {
 		const status = document.getElementById('promocao-status').value;
 		const canal = document.getElementById('promocao-canal').value;
 		const observacoes = document.getElementById('promocao-observacoes').value.trim() || null;
-
 		// Validações inteligentes
 		const erros = [];
-
 		// Campos obrigatórios básicos
 		if (!nome.trim()) erros.push('Nome da promoção é obrigatório');
 		if (!dataInicio) erros.push('Data de início é obrigatória');
 		if (!dataFim) erros.push('Data de fim é obrigatória');
-
 		// Pelo menos uma condição deve ser especificada
 		if (!quantidadeMinima && !valorMinimo) {
 			erros.push('Especifique pelo menos uma condição: Quantidade Mínima OU Valor Mínimo');
 		}
-
 		// Pelo menos um benefício deve ser especificado
 		if (!descontoValor && !freteGratis) {
 			erros.push('Especifique pelo menos um benefício: Desconto OU Frete Grátis');
 		}
-
 		// Se especificou desconto, o valor deve ser válido
 		if (descontoValor !== null && descontoValor <= 0) {
 			erros.push('Valor do desconto deve ser maior que zero');
 		}
-
 		// Se especificou quantidade, deve ser válida
 		if (quantidadeMinima !== null && quantidadeMinima <= 0) {
 			erros.push('Quantidade mínima deve ser maior que zero');
 		}
-
 		// Se especificou valor mínimo, deve ser válido
 		if (valorMinimo !== null && valorMinimo <= 0) {
 			erros.push('Valor mínimo deve ser maior que zero');
 		}
-
 		// Validar período
 		if (dataInicio && dataFim && new Date(dataInicio) > new Date(dataFim)) {
 			erros.push('Data de início deve ser anterior à data de fim');
 		}
-
 		if (erros.length > 0) {
 			alert('Erros encontrados:\n\n' + erros.join('\n'));
 			return;
 		}
-
 		// Preparar dados para salvar
 		const data = {
 			nome: nome.trim(),
@@ -2518,12 +2725,10 @@ class DashboardApp {
 			canal: canal,
 			observacoes: observacoes
 		};
-
 		// Adicionar produto_id apenas se foi selecionado
 		if (produtoId && produtoId !== '' && produtoId !== 'null') {
 			data.produto_id = produtoId;
 		}
-
 		let result;
 		try {
 			if (id) {
@@ -2531,7 +2736,6 @@ class DashboardApp {
 			} else {
 				result = await this.saveToSupabase('promocoes', data);
 			}
-
 			if (result) {
 				alert('Promoção salva com sucesso!');
 				closeModal('promocao-modal');
@@ -2544,7 +2748,6 @@ class DashboardApp {
 			alert('Erro ao salvar promoção: ' + (error.message || 'Erro desconhecido'));
 		}
 	}
-
 	async loadActivePromocoes() {
 		const today = new Date().toISOString().split('T')[0];
 		let query = this.supabase
@@ -2553,21 +2756,17 @@ class DashboardApp {
 			.eq('status', 'ativo')
 			.lte('data_inicio', today)
 			.gte('data_fim', today);
-
 		// Filtrar por canal se não for admin (no dashboard)
 		if (!this.isVendasOnline && !this.isAdmin) {
 			query = query.or('canal.eq.ambos,canal.eq.fisico');
 		} else if (this.isVendasOnline) {
 			query = query.or('canal.eq.ambos,canal.eq.online');
 		}
-
 		const { data: promocoes, error } = await query;
-
 		if (error) {
 			console.error('Erro ao carregar promoções ativas:', error);
 			return;
 		}
-
 		if (promocoes && promocoes.length > 0) {
 			this.activePromocoes = promocoes; // Armazenar promoções ativas
 			this.showPromocoesPopup(promocoes);
@@ -2575,18 +2774,15 @@ class DashboardApp {
 			this.activePromocoes = [];
 		}
 	}
-
 	// Verificar se o carrinho atual é elegível a promoções
 	checkCartPromocoes(cartTotal, cartItems) {
 		if (!this.activePromocoes || this.activePromocoes.length === 0) {
 			return null;
 		}
-
 		// Calcular informações do carrinho
 		const produtosNoCarrinho = new Set(Object.keys(cartItems));
 		const totalItens = Object.values(cartItems).reduce((sum, item) => sum + (item.quantidade || 0), 0);
 		const totalValor = cartTotal;
-
 		// Verificar cada promoção
 		for (const promocao of this.activePromocoes) {
 			// Verificar se a promoção é aplicável ao canal atual
@@ -2594,9 +2790,7 @@ class DashboardApp {
 			if (promocao.canal && promocao.canal !== 'ambos' && promocao.canal !== canalAtual) {
 				continue; // Pular promoções que não são para este canal
 			}
-
 			let elegivel = false;
-
 			// Verificar condições da promoção
 			if (promocao.produto_id) {
 				// Promoção específica para um produto
@@ -2609,7 +2803,6 @@ class DashboardApp {
 					elegivel = true;
 				}
 			}
-
 			if (elegivel) {
 				// Retornar os benefícios da promoção
 				let beneficios = [];
@@ -2623,7 +2816,6 @@ class DashboardApp {
 				if (promocao.frete_gratis) {
 					beneficios.push('Frete grátis');
 				}
-
 				return {
 					nome: promocao.nome,
 					beneficios: beneficios,
@@ -2631,13 +2823,18 @@ class DashboardApp {
 				};
 			}
 		}
-
 		return null;
 	}
-
 	showPromocoesPopup(promocoes) {
 		const modalsContainer = document.getElementById('modals-container');
 		const modalId = 'promocoes-popup';
+		const existing = document.getElementById(modalId);
+		if (existing) {
+			existing.remove();
+		}
+		if (!modalsContainer) {
+			return;
+		}
 		const modal = document.createElement('div');
 		modal.id = modalId;
 		modal.className = 'modal-overlay show';
@@ -2655,8 +2852,6 @@ class DashboardApp {
 			pointer-events: auto;
 		`;
 
-		modal.addEventListener('click', closeModalOverlay);
-
 		let promocoesHtml = '';
 		promocoes.forEach(p => {
 			let condicoes = [];
@@ -2667,7 +2862,6 @@ class DashboardApp {
 			if (p.quantidade_minima) condicoes.push(`${t('promocoes.quantidade_minima')}: ${p.quantidade_minima}`);
 			if (p.valor_minimo) condicoes.push(`${t('promocoes.valor_minimo')}: R$ ${this.formatCurrency(p.valor_minimo)}`);
 			if (p.regioes) condicoes.push(`${t('promocoes.regioes')}: ${p.regioes}`);
-
 			let beneficios = [];
 			if (p.desconto_valor) {
 				if (p.desconto_tipo === 'percentual') {
@@ -2677,7 +2871,6 @@ class DashboardApp {
 				}
 			}
 			if (p.frete_gratis) beneficios.push(t('promocoes.frete_gratis'));
-
 			promocoesHtml += `
 				<div style="background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 1rem; position: relative; overflow: hidden;">
 					${p.produto_id ? (() => {
@@ -2714,7 +2907,6 @@ class DashboardApp {
 							${t('promocoes.ativa')}
 						</div>
 					</div>
-
 					${condicoes.length > 0 ? `
 						<div style="margin-bottom: 1rem;">
 							<h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; opacity: 0.9;">📋 ${t('promocoes.condicoes')}</h4>
@@ -2723,7 +2915,6 @@ class DashboardApp {
 							</ul>
 						</div>
 					` : ''}
-
 					${beneficios.length > 0 ? `
 						<div style="margin-bottom: 1rem;">
 							<h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; opacity: 0.9;">🎁 ${t('promocoes.beneficios')}</h4>
@@ -2732,7 +2923,6 @@ class DashboardApp {
 							</ul>
 						</div>
 					` : ''}
-
 					${p.observacoes && p.observacoes.trim() ? `
 						<div style="margin-bottom: 1rem;">
 							<h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; opacity: 0.9;">📝 ${t('promocoes.observacoes')}</h4>
@@ -2742,7 +2932,6 @@ class DashboardApp {
 				</div>
 			`;
 		});
-
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="padding:2rem;max-width:600px;max-height:80vh;overflow-y:auto;border-radius:16px;">
 				<div style="text-align: center; margin-bottom: 2rem;">
@@ -2756,10 +2945,8 @@ class DashboardApp {
 			</div>
 		`;
 		modalsContainer.appendChild(modal);
-
 		modal.onclick = closeModalOverlay;
 	}
-
 	async updateStockForOrder(action, orderId) {
 		const { data: itens, error } = await this.supabase
 			.from('pedido_itens')
@@ -2817,16 +3004,13 @@ class DashboardApp {
 				.eq('id', produtoId);
 		}
 	}
-
 	loadPedidosStatusList() {
 		const container = document.getElementById('pedidos-status-list');
 		if (!container) return;
-
 		// Verificar role do usuário atual
 		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
 		const isVendedor = role === 'sale' || role === 'vendedor';
 		const isAdmin = role === 'admin';
-
 		// Filtrar pedidos baseado no role do usuário
 		let pedidosFiltrados = this.orders;
 		if (isVendedor && this.currentUser?.id) {
@@ -2839,63 +3023,130 @@ class DashboardApp {
 			console.log('👑 Admin logado - mostrando todos os pedidos');
 			pedidosFiltrados = this.orders;
 		}
-
 		// Status disponíveis para os pedidos
-		const statusOptions = [
-			{ value: 'pendente', label: 'Pendente', color: '#ffc107' },
-			{ value: 'confirmado', label: 'Confirmado', color: '#17a2b8' },
-			{ value: 'producao', label: 'Em Produção', color: '#fd7e14' },
-			{ value: 'pago', label: 'Pago', color: '#28a745' },
-			{ value: 'entregue', label: 'Entregue', color: '#20c997' },
-			{ value: 'cancelado', label: 'Cancelado', color: '#dc3545' }
-		];
-
+		const statusOptions = this.getStatusOptions();
 		// Mostrar lista resumida de pedidos com status editável
 		const pedidosList = pedidosFiltrados.slice(0, 10).map(order => {
 			// Verificar se o pedido tem entrega associada
 			const temEntrega = this.entregas.some(entrega => entrega.pedido_id == order.id);
 			const tipoIcon = temEntrega ? '🚚' : '🏪';
 			const tipoLabel = temEntrega ? 'Entrega' : 'Retirada';
-			
+
+			// Timeline horizontal com status
+			const statusSteps = this.getTimelineStatuses();
+			const orderStatus = this.normalizeOrderStatus(order.status);
+			const paymentStatus = this.getPaymentStatus(order);
+			const valorPago = order.valor_pago ? parseFloat(order.valor_pago).toFixed(2) : '0.00';
+			const valorTotal = order.valor_total ? parseFloat(order.valor_total).toFixed(2) : '0.00';
+			const paymentProgressColor = paymentStatus.textColor === '#212529' ? '#212529' : 'rgba(255,255,255,0.95)';
+			const formaPagamentoLabel = order.forma_pagamento ? this.getPaymentMethodLabel(order.forma_pagamento) : '';
+			const isPendingOrPartial = paymentStatus.key === 'pending' || paymentStatus.key === 'partial';
+			const paymentSummary = `
+				<div class="payment-status-card" 
+					onclick="${isPendingOrPartial ? `event.stopPropagation(); window.dashboardApp.abrirModalPagamento('${order.id}')` : ''}"
+					style="width: 100%; background: ${paymentStatus.color}; color: ${paymentStatus.textColor}; border-radius: 10px; padding: 0.55rem 0.65rem; display: flex; flex-direction: column; gap: 0.4rem; box-shadow: 0 2px 6px rgba(0,0,0,0.08); ${isPendingOrPartial ? 'cursor: pointer; transition: transform 0.2s;' : ''}"
+					${isPendingOrPartial ? 'onmouseover="this.style.transform=\'scale(1.02)\'" onmouseout="this.style.transform=\'scale(1)\'"' : ''}>
+					<div style="display: flex; align-items: center; justify-content: space-between; width: 100%; font-size: 0.75rem; font-weight: 600;">
+						<span>${paymentStatus.label}${isPendingOrPartial ? ' 💳' : ''}</span>
+						<span>R$ ${valorPago} / R$ ${valorTotal}</span>
+					</div>
+					<div style="width: 100%; height: 6px; background: rgba(255,255,255,0.25); border-radius: 4px;">
+						<div style="height: 100%; width: ${paymentStatus.progress}%; background: ${paymentProgressColor}; border-radius: 4px; transition: width 0.3s ease;"></div>
+					</div>
+					<div style="font-size: 0.65rem; font-weight: 500; color: ${paymentStatus.textColor === '#212529' ? '#212529' : 'rgba(255,255,255,0.9)'};">
+						${paymentStatus.hint}${isPendingOrPartial ? ' (Clique para adicionar)' : ''}
+					</div>
+				</div>
+				${formaPagamentoLabel ? `<div style="font-size: 0.7rem; color: #6c757d; text-transform: capitalize;">${formaPagamentoLabel}</div>` : ''}
+			`;
+
+			const currentStatusIndex = statusSteps.findIndex(s => s.key === orderStatus);
+			const timelineHtml = statusSteps.map((step, index) => {
+				   const isCompleted = index <= currentStatusIndex;
+				   const isCurrent = index === currentStatusIndex;
+				   const canAdvance = index === currentStatusIndex + 1;
+				   const hasBannerSent = order.email_sent_steps && order.email_sent_steps.includes(step.key);
+
+				   return `
+					   <div class="timeline-step" style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; position: relative; flex: 1; min-width: 60px;">
+						   ${hasBannerSent ? `<div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); color: #28a745; font-size: 0.7rem; font-weight: bold;">${step.emoji}</div>` : ''}
+						   <div class="timeline-icon" style="
+							   width: 32px; height: 32px; border-radius: 50%;
+							   background: ${isCompleted ? step.color : '#e9ecef'};
+							   color: ${isCompleted ? 'white' : '#6c757d'};
+							   display: flex; align-items: center; justify-content: center;
+							   font-size: 0.9rem; border: 2px solid ${isCurrent ? step.color : 'transparent'};
+							   cursor: ${canAdvance ? 'pointer' : 'default'};
+							   transition: all 0.3s ease;
+							   position: relative;
+							   box-shadow: ${isCompleted ? '0 2px 6px rgba(0,0,0,0.1)' : 'none'};
+						   "
+						   onclick="${canAdvance ? `window.dashboardApp.avancarStatusPedido('${order.id}', '${step.key}')` : ''}"
+						   onmouseover="${canAdvance ? `this.style.transform='scale(1.1)'; this.style.boxShadow='0 3px 8px rgba(0,0,0,0.15)'` : ''}"
+						   onmouseout="${canAdvance ? `this.style.transform='scale(1)'; this.style.boxShadow='${isCompleted ? '0 2px 6px rgba(0,0,0,0.1)' : 'none'}'` : ''}"
+						   title="${canAdvance ? `Avançar para: ${step.label}` : step.label}"
+						   >
+							   ${step.emoji}
+						   </div>
+						   <div class="timeline-label" style="
+							   font-size: 0.65rem; text-align: center; color: ${isCompleted ? step.color : '#6c757d'};
+							   font-weight: ${isCurrent ? '700' : isCompleted ? '600' : '400'}; max-width: 50px;
+							   line-height: 1.1;
+						   ">
+							   ${step.label}
+						   </div>
+						   ${canAdvance ? `<button class="banner-btn" style="background: #007bff; color: white; border: none; border-radius: 3px; padding: 0.15rem 0.3rem; font-size: 0.55rem; cursor: pointer; margin-top: 0.05rem; opacity: 0.9; font-weight: 600; transition: all 0.2s ease;" onclick="event.stopPropagation(); window.dashboardApp.abrirBannerStatus('${order.id}', '${step.key}')" title="Abrir banner profissional">🎫 Banner</button>` : ''}
+					   </div>
+				`;
+			}).join('');
+
 			return `
-			<div class="pedido-item" data-order-id="${order.id}" style="cursor: pointer;">
-				<div class="pedido-info">
-					<strong>#${order.numero_pedido || order.id}</strong>
-					<span class="tipo-entrega" style="font-size: 0.8rem; color: #666; margin-left: 0.5rem;">${tipoIcon} ${tipoLabel}</span>
-					<span>${order.cliente_nome || 'Cliente'}</span>
-					<div class="pedido-valor">R$ ${order.valor_total ? parseFloat(order.valor_total).toFixed(2) : '0.00'}</div>
-				</div>
-				<div class="pedido-status">
-					<span class="status-badge status-${order.status}">${this.getStatusLabel(order.status)}</span>
-				</div>
-				<div class="pedido-actions">
-					<select class="status-dropdown" data-order-id="${order.id}" onchange="window.dashboardApp.updateOrderStatus(this)">
-						${statusOptions.map(option => `
-							<option value="${option.value}" ${order.status === option.value ? 'selected' : ''}>
-								${option.label}
-							</option>
-						`).join('')}
-					</select>
+			<div class="pedido-item" data-order-id="${order.id}" style="cursor: pointer; padding: 0.75rem; margin-bottom: 1rem; border: 1px solid #e9ecef; border-radius: 8px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+				<div class="pedido-info" style="display: grid; grid-template-columns: 1fr 3fr 1fr; gap: 0.75rem; align-items: start; margin-bottom: 0.1rem;">
+					<!-- Coluna 1: Informações do pedido -->
+					<div style="display: flex; flex-direction: column;">
+						<strong style="font-size: 1.1rem; color: #333;">#${order.numero_pedido || order.id}</strong>
+						<span class="tipo-entrega" style="font-size: 0.8rem; color: #666; margin-top: 0.25rem;">${tipoIcon} ${tipoLabel}</span>
+						<div style="margin-top: 0.25rem; color: #666;">${order.cliente_nome || 'Cliente'}</div>
+					</div>
+
+					<!-- Coluna 2: Timeline -->
+					<div class="pedido-timeline" style="
+						display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+						padding: 0.6rem; background: #f8f9fa; border-radius: 6px;
+						border: 1px solid #e9ecef; flex-wrap: wrap; width: 100%;
+					">
+						${timelineHtml}
+					</div>
+
+					<!-- Coluna 3: Status e valor -->
+					<div style="display: flex; flex-direction: column; align-items: stretch; gap: 0.5rem;">
+						${paymentSummary}
+						<div class="pedido-valor" style="font-size: 1.2rem; font-weight: 600; color: #28a745;">R$ ${order.valor_total ? parseFloat(order.valor_total).toFixed(2) : '0.00'}</div>
+						<select class="status-dropdown" data-order-id="${order.id}" onchange="window.dashboardApp.updateOrderStatus(this)" style="padding: 0.4rem 0.8rem; border-radius: 6px; border: 1px solid #dee2e6; font-size: 0.8rem; background: white; min-width: 120px;">
+							${statusOptions.map(option => `
+								<option value="${option.value}" ${orderStatus === option.value ? 'selected' : ''}>
+									${option.label}
+								</option>
+							`).join('')}
+						</select>
+					</div>
 				</div>
 			</div>
 		`}).join('');
-
 		container.innerHTML = pedidosList || '<p style="text-align: center; color: #666; padding: 2rem;">Nenhum pedido encontrado</p>';
-		
 		// Usar event delegation para evitar múltiplos listeners
 		// Remover listener anterior se existir
 		const existingListener = container._pedidoClickListener;
 		if (existingListener) {
 			container.removeEventListener('click', existingListener);
 		}
-		
 		// Adicionar listener único ao container
 		container._pedidoClickListener = (e) => {
 			// Não abrir modal se clicar no select de status
 			if (e.target.closest('.status-dropdown')) {
 				return;
 			}
-			
 			const pedidoItem = e.target.closest('.pedido-item');
 			if (pedidoItem) {
 				const orderId = pedidoItem.getAttribute('data-order-id');
@@ -2904,20 +3155,178 @@ class DashboardApp {
 				}
 			}
 		};
-		
 		container.addEventListener('click', container._pedidoClickListener);
 	}
-
 	getStatusLabel(status) {
+		const normalized = this.normalizeOrderStatus(status);
 		const statusLabels = {
-			'pendente': 'Pendente',
-			'confirmado': 'Confirmado',
-			'pago': 'Pago',
+			'pendente': 'Pedido Recebido',
+			'confirmado': 'Pedido Confirmado',
 			'producao': 'Em Produção',
-			'entregue': 'Entregue',
-			'cancelado': 'Cancelado'
+			'saiu_entrega': 'Saiu para Entrega',
+			'entregue': 'Pedido Entregue',
+			'cancelado': 'Pedido Cancelado',
+			'recebido': 'Pedido Recebido',
+			'agradecimento': 'Agradecimento'
 		};
-		return statusLabels[status] || status;
+		return statusLabels[normalized] || status;
+	}
+	
+	abrirModalPagamento(orderId) {
+		const order = this.orders.find(o => o.id === orderId);
+		if (!order) {
+			alert('Pedido não encontrado');
+			return;
+		}
+
+		const valorTotal = parseFloat(order.valor_total || 0);
+		const valorPago = parseFloat(order.valor_pago || 0);
+		const valorRestante = Math.max(0, valorTotal - valorPago);
+
+		const modalsContainer = document.getElementById('modals-container');
+		if (!modalsContainer) return;
+
+		const modalId = 'modal-pagamento-' + orderId;
+		
+		const existingModal = document.getElementById(modalId);
+		if (existingModal) {
+			existingModal.remove();
+		}
+
+		const modal = document.createElement('div');
+		modal.id = modalId;
+		modal.className = 'modal-overlay show';
+		modal.onclick = (e) => {
+			if (e.target === modal) {
+				modal.remove();
+			}
+		};
+
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="padding: 2rem; max-width: 500px;" onclick="event.stopPropagation()">
+				<h2 style="margin-bottom: 1.5rem; color: #333;">💳 Adicionar Pagamento</h2>
+				
+				<div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid #ff6b9d;">
+					<p style="margin: 0.5rem 0; font-size: 0.95rem;">
+						<strong>Pedido:</strong> #${order.numero_pedido || order.id}
+					</p>
+					<p style="margin: 0.5rem 0; font-size: 0.95rem;">
+						<strong>Cliente:</strong> ${order.cliente_nome || 'N/A'}
+					</p>
+					<p style="margin: 0.5rem 0; font-size: 0.95rem;">
+						<strong>Valor Total:</strong> <span style="color: #28a745; font-weight: bold;">R$ ${valorTotal.toFixed(2)}</span>
+					</p>
+					<p style="margin: 0.5rem 0; font-size: 0.95rem;">
+						<strong>Valor Pago:</strong> R$ ${valorPago.toFixed(2)}
+					</p>
+					<p style="margin: 0.5rem 0; font-size: 1.1rem; color: #dc3545; font-weight: bold;">
+						<strong>Valor Restante:</strong> R$ ${valorRestante.toFixed(2)}
+					</p>
+				</div>
+
+				<div style="margin-bottom: 1.5rem;">
+					<label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #333;">
+						Valor do Pagamento:
+					</label>
+					<input 
+						type="number" 
+						id="valor-pagamento-${orderId}" 
+						step="0.01" 
+						min="0.01" 
+						max="${valorRestante}"
+						value="${valorRestante.toFixed(2)}"
+						style="width: 100%; padding: 0.75rem; border: 2px solid #dee2e6; border-radius: 6px; font-size: 1.1rem; font-weight: bold;"
+						placeholder="0.00"
+					>
+					<small style="color: #6c757d; display: block; margin-top: 0.5rem;">
+						Valor máximo: R$ ${valorRestante.toFixed(2)}
+					</small>
+				</div>
+
+				<div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem;">
+					<button 
+						onclick="document.getElementById('${modalId}').remove()" 
+						style="background: #eee; color: #333; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-weight: 600; transition: background 0.2s;"
+						onmouseover="this.style.background='#ddd'"
+						onmouseout="this.style.background='#eee'">
+						Cancelar
+					</button>
+					<button 
+						onclick="window.dashboardApp.confirmarPagamento('${orderId}')" 
+						style="background: #28a745; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-weight: 600; transition: background 0.2s;"
+						onmouseover="this.style.background='#218838'"
+						onmouseout="this.style.background='#28a745'">
+						💰 Confirmar Pagamento
+					</button>
+				</div>
+			</div>
+		`;
+
+		modalsContainer.appendChild(modal);
+
+		const input = document.getElementById(`valor-pagamento-${orderId}`);
+		if (input) {
+			input.focus();
+			input.select();
+		}
+	}
+
+	async confirmarPagamento(orderId) {
+		const input = document.getElementById(`valor-pagamento-${orderId}`);
+		const valorPagamento = parseFloat(input?.value || 0);
+
+		if (!valorPagamento || valorPagamento <= 0) {
+			alert('Por favor, informe um valor válido para o pagamento.');
+			return;
+		}
+
+		const order = this.orders.find(o => o.id === orderId);
+		if (!order) {
+			alert('Pedido não encontrado');
+			return;
+		}
+
+		const valorTotal = parseFloat(order.valor_total || 0);
+		const valorPagoAtual = parseFloat(order.valor_pago || 0);
+		const valorRestante = valorTotal - valorPagoAtual;
+
+		if (valorPagamento > valorRestante) {
+			alert(`O valor informado (R$ ${valorPagamento.toFixed(2)}) é maior que o valor restante (R$ ${valorRestante.toFixed(2)}).`);
+			return;
+		}
+
+		const novoValorPago = valorPagoAtual + valorPagamento;
+
+		try {
+			const { error } = await this.supabase
+				.from('pedidos')
+				.update({ 
+					valor_pago: novoValorPago,
+					updated_at: new Date().toISOString()
+				})
+				.eq('id', orderId);
+
+			if (error) {
+				console.error('Erro ao atualizar pagamento:', error);
+				alert('Erro ao atualizar pagamento: ' + error.message);
+				return;
+			}
+
+			order.valor_pago = novoValorPago;
+
+			const modal = document.getElementById(`modal-pagamento-${orderId}`);
+			if (modal) {
+				modal.remove();
+			}
+
+			alert(`✅ Pagamento de R$ ${valorPagamento.toFixed(2)} adicionado com sucesso!\n\nNovo valor pago: R$ ${novoValorPago.toFixed(2)}\nValor total: R$ ${valorTotal.toFixed(2)}`);
+
+			await this.loadData();
+
+		} catch (error) {
+			console.error('Erro ao confirmar pagamento:', error);
+			alert('Erro ao confirmar pagamento. Tente novamente.');
+		}
 	}
 
 	async showOrderDetails(orderId) {
@@ -2927,57 +3336,46 @@ class DashboardApp {
 			console.log('⚠️ Modal de detalhes já está aberto, ignorando clique');
 			return;
 		}
-
 		const order = this.orders.find(o => o.id === orderId);
 		if (!order) {
 			console.error('❌ Pedido não encontrado:', orderId);
 			alert('Pedido não encontrado');
 			return;
 		}
-
 		console.log('✅ Pedido encontrado:', order);
-
 		// Verificar permissões de acesso
 		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
 		const isAdmin = role === 'admin';
 		const isVendedor = role === 'sale' || role === 'vendedor';
-
 		// Vendedores só podem ver pedidos próprios
 		if (isVendedor && order.vendedor_id && order.vendedor_id != this.currentUser.id) {
 			alert('Você só pode visualizar detalhes dos seus próprios pedidos.');
 			return;
 		}
-
 		// Pedidos sem vendedor_id (antigos) só podem ser vistos por admins
 		if (!isAdmin && !order.vendedor_id) {
 			alert('Este pedido não pode ser visualizado. Contate o administrador.');
 			return;
 		}
-
 		// Criar modal
 		const modalId = 'order-details-modal';
-		
 		// Remover TODOS os modais existentes para evitar sobreposição
 		document.querySelectorAll('.modal-overlay').forEach(modal => modal.remove());
-		
 		// Remover modal específico se ainda existir
 		const existingModal = document.getElementById(modalId);
 		if (existingModal) {
 			existingModal.remove();
 		}
-
 		const modal = document.createElement('div');
 		modal.id = modalId;
 		modal.className = 'modal-overlay show';
 		modal.style.zIndex = '2000'; // Garantir z-index alto
-		
 		// Event listener para fechar modal
 		modal.addEventListener('click', (e) => {
 			if (e.target === modal || e.target.classList.contains('modal-overlay')) {
 				closeModal(modalId);
 			}
 		});
-
 		// Buscar itens do pedido se disponíveis
 		let orderItems = [];
 		try {
@@ -2985,7 +3383,6 @@ class DashboardApp {
 				.from('pedido_itens')
 				.select('*, produtos(id, nome, fotos)')
 				.eq('pedido_id', orderId);
-
 			if (!error && items) {
 				orderItems = items;
 				console.log('📦 Itens do pedido:', items.map(item => ({
@@ -3004,7 +3401,6 @@ class DashboardApp {
 		} catch (e) {
 			console.warn('Erro ao buscar itens do pedido:', e);
 		}
-
 		// Buscar cliente completo se necessário
 		let clienteCompleto = null;
 		if (order.cliente_id) {
@@ -3016,7 +3412,6 @@ class DashboardApp {
 						.select('*')
 						.eq('id', order.cliente_id)
 						.single();
-
 					if (!error && clienteData) {
 						clienteCompleto = clienteData;
 					}
@@ -3025,11 +3420,9 @@ class DashboardApp {
 				}
 			}
 		}
-
 		// Formatar data
 		const dataCriacao = order.created_at ? new Date(order.created_at).toLocaleString('pt-BR') : 'N/A';
 		const dataEntrega = order.data_entrega ? new Date(order.data_entrega).toLocaleString('pt-BR') : 'N/A';
-
 		// Conteúdo do modal
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" onclick="event.stopPropagation()" style="max-width: 800px; width: 100%; padding: 1.5rem;">
@@ -3039,7 +3432,6 @@ class DashboardApp {
 						<button onclick="closeModal('${modalId}')" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #888; line-height: 1;">&times;</button>
 					</div>
 				</div>
-				
 				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
 					<!-- Informações do Pedido -->
 					<div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
@@ -3053,7 +3445,6 @@ class DashboardApp {
 							<div><strong>Valor Pago:</strong> R$ ${order.valor_pago ? parseFloat(order.valor_pago).toFixed(2) : '0.00'}</div>
 						</div>
 					</div>
-
 					<!-- Informações do Cliente -->
 					<div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
 						<h4 style="margin: 0 0 1rem 0; color: #333;">👤 Informações do Cliente</h4>
@@ -3065,7 +3456,6 @@ class DashboardApp {
 						</div>
 					</div>
 				</div>
-
 				<!-- Itens do Pedido -->
 				${orderItems.length > 0 ? `
 					<div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
@@ -3074,7 +3464,6 @@ class DashboardApp {
 							${orderItems.map(item => {
 								const produto = item.produtos || {};
 								let fotoUrl = null;
-								
 								if (produto.fotos) {
 									try {
 										const fotos = JSON.parse(produto.fotos);
@@ -3085,7 +3474,6 @@ class DashboardApp {
 										console.warn('Erro ao parsear fotos do produto:', produto.nome, e);
 									}
 								}
-								
 								return `
 									<div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: white; border-radius: 4px;">
 										<div style="display: flex; align-items: center; gap: 0.75rem;">
@@ -3106,14 +3494,12 @@ class DashboardApp {
 						</div>
 					</div>
 				` : '<p style="color: #666; font-style: italic;">Itens do pedido não disponíveis</p>'}
-
 				<!-- Ações -->
 				<div style="display: flex; gap: 1rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid #eee;">
 					<button onclick="closeModal('${modalId}')" style="background: #6c757d; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">Fechar</button>
 				</div>
 			</div>
 		`;
-
 		// Adicionar ao container de modais
 		let modalsContainer = document.getElementById('modals-container');
 		if (!modalsContainer) {
@@ -3123,26 +3509,21 @@ class DashboardApp {
 		}
 		modalsContainer.appendChild(modal);
 	}
-
 	async updateOrderStatus(selectElement) {
 		const orderId = selectElement.getAttribute('data-order-id');
 		const newStatus = selectElement.value;
-
 		console.log(`🔄 updateOrderStatus chamado - Pedido: ${orderId}, Novo status: ${newStatus}`);
-
+		const statusOptions = this.getStatusOptions();
 		// Encontrar o pedido
 		const order = this.orders.find(o => o.id == orderId);
 		if (!order) {
 			alert('Pedido não encontrado');
 			return;
 		}
-
 		console.log(`📋 Pedido encontrado: ${order.numero_pedido || order.id}, Status atual: ${order.status}`);
-
 		// Verificar se o usuário é administrador
 		const isAdmin = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase() === 'admin';
 		const isVendedor = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase() === 'sale' || (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase() === 'vendedor';
-
 		// Se for vendedor, verificar se o pedido é dele
 		if (isVendedor && order.user_id && order.user_id != this.currentUser.id) {
 			alert('Você só pode atualizar pedidos criados por você.');
@@ -3150,22 +3531,36 @@ class DashboardApp {
 			selectElement.value = order.status;
 			return;
 		}
+		// Validação de pagamento para status 'entregue'
+		const normalizedNew = this.normalizeOrderStatus(newStatus);
+		if (normalizedNew === 'entregue') {
+			const valorTotal = parseFloat(order.valor_total || 0);
+			const valorPago = parseFloat(order.valor_pago || 0);
+			
+			if (valorPago < valorTotal) {
+				const valorRestante = (valorTotal - valorPago).toFixed(2);
+				alert(`❌ Não é possível marcar como entregue!\n\nO pagamento não está completo.\n\nValor Total: R$ ${valorTotal.toFixed(2)}\nValor Pago: R$ ${valorPago.toFixed(2)}\nValor Restante: R$ ${valorRestante}\n\nPor favor, registre o pagamento restante antes de marcar como entregue.`);
+				selectElement.value = order.status;
+				return;
+			}
+		}
 
 		// Se não for admin, aplicar validações de ordem cronológica
 		if (!isAdmin) {
 			// Validações de ordem cronológica dos status
-			const statusOrder = ['pendente', 'confirmado', 'producao', 'pago', 'entregue', 'cancelado'];
-			const currentIndex = statusOrder.indexOf(order.status);
-			const newIndex = statusOrder.indexOf(newStatus);
-
+			const statusOrder = ['pendente', 'confirmado', 'producao', 'saiu_entrega', 'entregue', 'cancelado'];
+			const normalizedCurrent = this.normalizeOrderStatus(order.status);
+			const currentIndex = statusOrder.indexOf(normalizedCurrent);
+			const newIndex = statusOrder.indexOf(normalizedNew);
 			// Cancelado pode ser aplicado a qualquer status
-			if (newStatus === 'cancelado') {
+			if (normalizedNew === 'cancelado') {
 				// Permitir cancelamento de qualquer status
 			}
 			// Não permitir voltar para status anteriores (exceto cancelado)
-			else if (newIndex < currentIndex) {
-				alert(`Não é possível voltar para "${statusOptions.find(s => s.value === newStatus).label}". O pedido deve seguir a ordem cronológica.`);
-				selectElement.value = order.status;
+			else if (newIndex !== -1 && currentIndex !== -1 && newIndex < currentIndex) {
+				const optionLabel = statusOptions.find(s => s.value === newStatus)?.label || newStatus;
+				alert(`Não é possível voltar para "${optionLabel}". O pedido deve seguir a ordem cronológica.`);
+				selectElement.value = normalizedCurrent;
 				return;
 			}
 			// Permitir progressões na ordem cronológica (pode pular etapas para frente)
@@ -3174,58 +3569,38 @@ class DashboardApp {
 			}
 		}
 		// Se for admin, permitir qualquer transição de status sem validações
-
 		try {
 			// Preparar dados para atualização
 			const updateData = {
 				status: newStatus,
 				updated_at: new Date().toISOString()
 			};
-
-			// Se estiver marcando como pago, garantir que valor_pago seja atualizado se necessário
-			if (newStatus === 'pago' && parseFloat(order.valor_pago || 0) < parseFloat(order.valor_total || 0)) {
-				updateData.valor_pago = order.valor_total;
-			}
-
 			const { data, error } = await this.supabase
 				.from('pedidos')
 				.update(updateData)
 				.eq('id', orderId);
-
 			if (error) {
 				console.error('Erro do Supabase:', error);
 				throw error;
 			}			// Atualizar o pedido na memória
 			const oldStatus = order.status;
 			order.status = newStatus;
-
-			// Se foi atualizado o valor_pago no banco, atualizar também na memória
-			if (updateData.valor_pago !== undefined) {
-				order.valor_pago = updateData.valor_pago;
-			}
-
-			// Enviar email baseado na mudança de status
-			await this.enviarEmailPorStatus(order, oldStatus, newStatus);
-
+			this.handleStatusEmailTriggers(orderId, newStatus);
 			// Atualizar status das entregas relacionadas se necessário
 			if (newStatus === 'entregue' || newStatus === 'cancelado') {
 				console.log(`🔄 CONDIÇÃO ATENDIDA: Atualizando status da entrega para pedido #${orderId} - newStatus: ${newStatus}`);
-
 				try {
 					const entregaStatus = newStatus === 'entregue' ? 'entregue' : 'cancelada';
-
 					// Verificar se existe entrega para este pedido
 					const { data: existingEntrega, error: checkError } = await this.supabase
 						.from('entregas')
 						.select('id, status')
 						.eq('pedido_id', orderId)
 						.single();
-
 					if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = not found
 						console.warn('⚠️ Erro ao verificar entrega existente:', checkError);
 					} else if (existingEntrega) {
 						console.log(`📦 Entrega encontrada: ${existingEntrega.id}, status atual: ${existingEntrega.status}`);
-
 						// Atualizar entrega no banco
 						const { data: entregaData, error: entregaError } = await this.supabase
 							.from('entregas')
@@ -3235,12 +3610,10 @@ class DashboardApp {
 							})
 							.eq('pedido_id', orderId)
 							.select();
-
 						if (entregaError) {
 							console.warn('⚠️ Erro ao atualizar status da entrega:', entregaError);
 						} else {
 							console.log(`✅ Status da entrega atualizado para: ${entregaStatus}`, entregaData);
-
 							// Atualizar entrega na memória local imediatamente
 							const entregaIndex = this.entregas.findIndex(e => e.pedido_id == orderId);
 							if (entregaIndex !== -1) {
@@ -3262,18 +3635,15 @@ class DashboardApp {
 			} else {
 				console.log(`ℹ️ Status ${newStatus} não requer atualização de entrega`);
 			}
-
-			// Update stock if confirmed or paid (reserve)
-			if (newStatus === 'confirmado' || newStatus === 'pago') {
+			// Update stock if confirmed (reserve)
+			if (newStatus === 'confirmado') {
 				await this.updateStockForOrder('reserve', orderId);
 			}
-
 			// Update stock if delivered
 			if (newStatus === 'entregue') {
 				await this.updateStockForOrder('sell', orderId);
 				await this.loadData(); // Recarregar dados imediatamente após atualizar estoque
 			}
-
 			// Mostrar feedback visual
 			selectElement.style.backgroundColor = '#d4edda';
 			selectElement.style.borderColor = '#c3e6cb';
@@ -3281,7 +3651,6 @@ class DashboardApp {
 				selectElement.style.backgroundColor = '';
 				selectElement.style.borderColor = '';
 			}, 1000);
-
 			// Atualizar telas imediatamente (antes do loadData para evitar conflitos)
 			this.createStatsCards();
 			this.loadPedidosStatusList(); // Atualizar lista de pedidos no dashboard
@@ -3291,7 +3660,6 @@ class DashboardApp {
 			if (this.activeSection === 'entregas') {
 				this.renderEntregasPage(); // Update deliveries page if active
 			}
-
 			// Recarregar dados em background para manter sincronização
 			this.loadData().then(() => {
 				console.log('🔄 Dados recarregados após atualização de status');
@@ -3307,13 +3675,10 @@ class DashboardApp {
 			}).catch(error => {
 				console.warn('⚠️ Erro ao recarregar dados:', error);
 			});
-
 			console.log(`✅ Status do pedido #${orderId} atualizado para: ${newStatus}`);
-
 		} catch (error) {
 			console.error('❌ Erro ao atualizar status do pedido:', error);
 			alert('Erro ao atualizar status do pedido: ' + error.message);
-
 			// Reverter visual em caso de erro
 			selectElement.style.backgroundColor = '#f8d7da';
 			selectElement.style.borderColor = '#f5c6cb';
@@ -3323,15 +3688,12 @@ class DashboardApp {
 			}, 2000);
 		}
 	}
-
 	loadEntregasHojeContent() {
 		if (!container) return;
-
 		// Verificar role do usuário atual
 		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
 		const isVendedor = role === 'sale' || role === 'vendedor';
 		const isAdmin = role === 'admin';
-
 		// Filtrar pedidos baseado no role do usuário
 		let pedidosFiltrados = this.orders;
 		if (isVendedor && this.currentUser?.id) {
@@ -3344,17 +3706,14 @@ class DashboardApp {
 			console.log('👑 Admin logado - mostrando todas as entregas de hoje');
 			pedidosFiltrados = this.orders;
 		}
-
 		const hoje = new Date().toISOString().split('T')[0];
 		const entregasHoje = pedidosFiltrados.filter(order => 
 			order.data_entrega && order.data_entrega.startsWith(hoje) && order.status !== 'cancelado'
 		);
-
 		if (entregasHoje.length === 0) {
 			container.innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">Nenhuma entrega agendada para hoje</p>';
 			return;
 		}
-
 		const entregasList = entregasHoje.map(order => `
 			<div class="entrega-item">
 				<div class="entrega-info">
@@ -3366,10 +3725,8 @@ class DashboardApp {
 				</div>
 			</div>
 		`).join('');
-
 		container.innerHTML = entregasList;
 	}
-
 	createDataCards() {
 		// Só renderizar páginas se elas estiverem ativas ou forem necessárias para o dashboard
 		// Não renderizar seções individuais aqui, pois switchSection cuida disso
@@ -3381,16 +3738,13 @@ class DashboardApp {
 		}
 		// Para seções individuais, deixar que switchSection cuide da renderização
 	}
-
 	updateStats() {
 		this.createStatsCards();
 	}
-
 	countDeliveriesToday() {
 		const today = new Date().toISOString().split('T')[0];
 		return this.orders.filter(o => o.data_entrega === today).length;
 	}
-
 	updateFollowUpEntregas() {
 		console.log('🔄 updateFollowUpEntregas() chamada');
 		const entregasHoje = document.getElementById('entregas-hoje');
@@ -3398,15 +3752,12 @@ class DashboardApp {
 			console.log('ℹ️ Elemento entregas-hoje ainda não existe, pulando atualização');
 			return;
 		}
-
 		// Verificar role do usuário atual
 		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
 		const isVendedor = role === 'sale' || role === 'vendedor';
 		const isAdmin = role === 'admin';
-
 		console.log('🔍 Atualizando follow-up de entregas. Total de entregas:', this.entregas?.length || 0);
 		console.log('🔍 Status das entregas:', this.entregas?.map(e => ({id: e.id, pedido_id: e.pedido_id, status: e.status, data_entrega: e.data_entrega})));
-
 		// Filtrar entregas baseado no role do usuário
 		let entregasFiltradas = this.entregas;
 		if (isVendedor && this.currentUser?.id) {
@@ -3421,21 +3772,17 @@ class DashboardApp {
 			console.log('👑 Admin logado - mostrando todas as entregas');
 			entregasFiltradas = this.entregas;
 		}
-
 		// Filtrar apenas entregas não canceladas e não entregues antigas
 		const hoje = new Date();
 		hoje.setHours(0, 0, 0, 0);
 		const seteDiasAtras = new Date(hoje);
 		seteDiasAtras.setDate(hoje.getDate() - 7);
-
 		const entregasAtivas = entregasFiltradas
 			.filter(entrega => {
 				// Incluir entregas não canceladas
 				if (entrega.status === 'cancelada') return false;
-				
 				// Incluir todas as entregas não entregues
 				if (entrega.status !== 'entregue') return true;
-				
 				// Para entregas já entregues, não incluir na lista (removidas imediatamente)
 				return false;
 			})
@@ -3444,16 +3791,12 @@ class DashboardApp {
 				const statusPriority = { 'saiu_entrega': 1, 'agendada': 2, 'entregue': 3 };
 				const aPriority = statusPriority[a.status] || 4;
 				const bPriority = statusPriority[b.status] || 4;
-				
 				if (aPriority !== bPriority) return aPriority - bPriority;
-				
 				// Segundo critério: data (mais próximas primeiro)
 				return new Date(a.data_entrega) - new Date(b.data_entrega);
 			})
 			.slice(0, 10); // Limitar a 10 entregas
-
 		console.log('📅 Entregas no follow-up encontradas:', entregasAtivas.length);
-
 		if (entregasAtivas.length === 0) {
 			entregasHoje.innerHTML = `<div style="text-align: center; color: #888; padding: 2rem;"><i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 1rem;"></i><p>${this.t('msg.nenhuma_entrega')}</p></div>`;
 		} else {
@@ -3469,14 +3812,11 @@ class DashboardApp {
 						hoje.setHours(0, 0, 0, 0);
 						const dataEntregaNorm = new Date(dataEntrega);
 						dataEntregaNorm.setHours(0, 0, 0, 0);
-						
 						const diffTime = dataEntregaNorm.getTime() - hoje.getTime();
 						const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-						
 						// Lógica de cores baseada na urgência
 						let cardColor = '#f9f9f9'; // padrão (cinza claro)
 						let borderColor = '#6c757d'; // padrão
-						
 						if (diffDays > 5) {
 							// Verde: acima de 5 dias
 							borderColor = '#28a745';
@@ -3495,21 +3835,17 @@ class DashboardApp {
 								cardColor = '#fff8f8';
 							}
 						}
-						
 						const isHoje = dataEntregaNorm.getTime() === hoje.getTime();
 						const isAmanha = dataEntregaNorm.getTime() === (hoje.getTime() + 24 * 60 * 60 * 1000);
-						
 						let dataLabel = dataEntrega.toLocaleDateString('pt-BR');
 						if (isHoje) dataLabel = 'HOJE';
 						else if (isAmanha) dataLabel = 'AMANHÃ';
-						
 						const statusColors = {
 							'agendada': '#17a2b8',
 							'saiu_entrega': '#ffc107',
 							'entregue': '#28a745',
 							'cancelada': '#dc3545'
 						};
-						
 						return `
 							<div style="background: ${cardColor}; padding: 0.6rem; border-left: 4px solid ${borderColor}; border-radius: 4px; cursor: pointer;" onclick="window.dashboardApp.showOrderDetails(${pedido.id})">
 								<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.2rem;">
@@ -3537,15 +3873,12 @@ class DashboardApp {
 			`;
 		}
 	}
-
 	getDeliveriesToday() {
 		const today = new Date().toISOString().split('T')[0];
-		
 		// Verificar role do usuário atual
 		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
 		const isVendedor = role === 'sale' || role === 'vendedor';
 		const isAdmin = role === 'admin';
-
 		// Filtrar pedidos baseado no role do usuário
 		let pedidosFiltrados = this.orders;
 		if (isVendedor && this.currentUser?.id) {
@@ -3556,7 +3889,6 @@ class DashboardApp {
 		} else if (isAdmin) {
 			pedidosFiltrados = this.orders;
 		}
-
 		return pedidosFiltrados.filter(o => 
 			o.data_entrega === today && 
 			o.status !== 'cancelado' && 
@@ -3564,13 +3896,11 @@ class DashboardApp {
 			// TODO: Filtrar por tipo_entrega quando campo for adicionado ao schema
 		).length;
 	}
-
 	getOrdersInProduction() {
 		return this.orders.filter(o => 
-			o.status === 'producao'
+			this.normalizeOrderStatus(o.status) === 'producao'
 		).length;
 	}
-
 	updateAllTranslations() {
 		this.createStatsCards();
 		this.createDataCards();
@@ -3579,14 +3909,11 @@ class DashboardApp {
 			this.updateFollowUpEntregas();
 		}
 	}
-
 	// PÁGINA DE PEDIDOS - VENDA PRESENCIAL
 	renderPedidosPage() {
 		const container = document.getElementById('pedidos-container');
 		if (!container) return;
-
 		if (!this.cart) this.cart = {};
-
 		// Calcular total do carrinho
 		let cartTotal = 0;
 		Object.values(this.cart).forEach(item => {
@@ -3594,20 +3921,16 @@ class DashboardApp {
 				cartTotal += item.quantidade * item.preco;
 			}
 		});
-
 		// Não carregar promoções na página de pedidos (apenas vendas online)
 		let promocoesBanner = '';
-
 		// Dropdown de categorias + Botão Cliente + Total Carrinho
 		const categorias = [...new Set(this.products.map(p => p.categoria).filter(Boolean))];
 		let categoriaSelecionada = this.selectedCategoria || '';
-
 		const topBar = `
 			<div style="width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
 				<button onclick="window.dashboardApp.openQuickAddClientModal()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; box-shadow: 0 4px 12px rgba(102,126,234,0.3); display: flex; align-items: center; gap: 0.5rem;">
 					<i class="fas fa-user-plus"></i> <span data-i18n="vendas_online.adicionar_cliente"></span>
 				</button>
-				
 				<div style="display: flex; align-items: center; gap: 0.5rem;">
 					<label for="dropdown-categoria" style="font-weight: 600;" data-i18n="vendas_online.filtrar"></label>
 					<select id="dropdown-categoria" style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid #eee; font-size: 1rem;">
@@ -3615,21 +3938,18 @@ class DashboardApp {
 						${categorias.map(cat => `<option value="${cat}" ${cat === categoriaSelecionada ? 'selected' : ''}>${cat}</option>`).join('')}
 					</select>
 				</div>
-				
 				<div style="font-size: 1.15rem; font-weight: 700; color: #28a745; background: #f8f9fa; border-radius: 8px; padding: 0.5rem 1.2rem;">
 					<span data-i18n="vendas_online.total"></span> <span class="pedidos-cart-total">${this.formatCurrency(cartTotal)}</span>
 				</div>
 			</div>
 		`;
-
 		// Produtos
 		let produtosHtml = '';
 		const produtosFiltrados = categoriaSelecionada 
 			? this.products.filter(p => p.categoria === categoriaSelecionada)
 			: this.products;
-
 		if (produtosFiltrados.length === 0) {
-			produtosHtml = `<div style="text-align: center; padding: 3rem; color: #888;"><i class="fas fa-box-open" style="font-size: 3rem; margin-bottom: 1rem;"></i><p>Nenhum produto disponível para venda</p></div>`;
+			produtosHtml = `<div style="text-align: center; padding: 3rem; color: #888;"><i class="fas fa-box-open" style="font-size: 3rem; margin-bottom: 1rem;"></i><p data-i18n="vendas_online.nenhum_produto"></p></div>`;
 		} else {
 			produtosHtml = `
 				<div style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center;">
@@ -3649,7 +3969,7 @@ class DashboardApp {
 								</div>
 								<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
 									<div id="market-carousel-${id}" data-current="0" style="display: flex; transition: transform 0.3s ease;">
-										${fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;">`).join('')}
+										${fotos.length > 0 ? fotos.map(foto => `<img loading="lazy" data-src="${foto}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;" alt="${translateProductName(produto.nome)}">`).join('') : `<div style="width: 100%; height: 100%; background: #f8f9fa; display: flex; align-items: center; justify-content: center; color: #666;">${t('vendas_online.sem_imagem')}</div>`}
 									</div>
 									${fotos.length > 1 ? `
 										<button data-action="prev-produto-photo" data-id="${id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
@@ -3671,12 +3991,10 @@ class DashboardApp {
 				</div>
 			`;
 		}
-
 		container.innerHTML = topBar + produtosHtml;
-
+		this.lazyLoadProductImages();
 		// Tooltip
 		this.setupProductTooltip();
-
 		// Dropdown evento
 		const dropdown = container.querySelector('#dropdown-categoria');
 		if (dropdown) {
@@ -3685,32 +4003,25 @@ class DashboardApp {
 				this.renderPedidosPage();
 			};
 		}
-
 		// Eventos dos produtos
 		this.setupPedidosEventDelegation();
 		// Atualizar valor total do carrinho no topo
 		this.updatePedidosCartTotal();
-
 		// Aplicar traduções aos elementos recém-criados
 		setTimeout(() => applyTranslations(), 100);
 	}
-
 	// PÁGINA DE VENDAS ONLINE
 	async renderVendasOnlinePage() {
 		console.log('🎨 Iniciando renderVendasOnlinePage()');
 		console.log('📊 Produtos disponíveis:', this.products?.length || 0);
 		console.log('📊 Primeiro produto:', this.products?.[0]);
-		
 		const container = document.getElementById('vendas-online-container');
 		console.log('📦 Container encontrado:', !!container);
-
 		if (!container) {
 			console.error('❌ Container vendas-online-container não encontrado!');
 			return;
 		}
-
 		if (!this.cart) this.cart = {};
-
 		// Calcular total do carrinho
 		let cartTotal = 0;
 		Object.values(this.cart).forEach(item => {
@@ -3718,7 +4029,6 @@ class DashboardApp {
 				cartTotal += item.quantidade * item.preco;
 			}
 		});
-
 		// Carregar promoções ativas para banner
 		let promocoesBanner = '';
 		try {
@@ -3730,13 +4040,11 @@ class DashboardApp {
 				.lte('data_inicio', today)
 				.gte('data_fim', today)
 				.limit(3); // Limitar a 3 promoções no banner
-
 			if (!error && promocoesAtivas && promocoesAtivas.length > 0) {
 				// Filtrar promoções por canal (Vendas Online ou Todos ou sem canal definido)
 				const promocoesFiltradas = promocoesAtivas.filter(p =>
 					!p.canal || p.canal === 'Vendas Online' || p.canal === 'Todos'
 				);
-
 				if (promocoesFiltradas.length > 0) {
 					// Criar pop-up flutuante para promoções
 					setTimeout(() => {
@@ -3747,11 +4055,9 @@ class DashboardApp {
 		} catch (error) {
 			console.warn('Erro ao carregar promoções para pop-up:', error);
 		}
-
 		// Dropdown de categorias + Total Carrinho (mesmo layout da página de pedidos)
 		const categorias = [...new Set(this.products.map(p => p.categoria).filter(Boolean))];
 		let categoriaSelecionada = this.selectedCategoria || '';
-
 		const topBar = `
 			<div style="width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
 				<div style="display: flex; align-items: center; gap: 0.5rem;">
@@ -3761,22 +4067,18 @@ class DashboardApp {
 						${categorias.map(cat => `<option value="${cat}" ${cat === categoriaSelecionada ? 'selected' : ''}>${cat}</option>`).join('')}
 					</select>
 				</div>
-
 				<div style="font-size: 1.15rem; font-weight: 700; color: #28a745; background: #f8f9fa; border-radius: 8px; padding: 0.5rem 1.2rem;">
 					${t('vendas_online.total_label')} <span class="vendas-online-cart-total">${this.formatCurrency(cartTotal)}</span>
 				</div>
 			</div>
 		`;
-
 		// Produtos (mesmo layout da página de pedidos)
 		let produtosHtml = '';
 		const produtosFiltrados = categoriaSelecionada
 			? this.products.filter(p => p.categoria === categoriaSelecionada)
 			: this.products;
-
 		console.log('🔍 Produtos filtrados:', produtosFiltrados.length, 'de', this.products.length);
 		console.log('🔍 Categoria selecionada:', categoriaSelecionada);
-
 		if (produtosFiltrados.length === 0) {
 			produtosHtml = `<div style="text-align: center; padding: 3rem; color: #888;"><i class="fas fa-box-open" style="font-size: 3rem; margin-bottom: 1rem;"></i><p>${t('vendas_online.nenhum_produto')}</p></div>`;
 		} else {
@@ -3787,6 +4089,7 @@ class DashboardApp {
 						if (produto.fotos) {
 							try { fotos = JSON.parse(produto.fotos); } catch {}
 						}
+						console.log('📸 Produto vendas online', produto.id, '(', produto.nome, ') tem', fotos.length, 'fotos');
 						return `
 							<div class="card-produto" style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.2rem; max-width: 320px; width: 100%; display: flex; flex-direction: column; align-items: center;" data-descricao="${produto.descricao || ''}">
 								<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
@@ -3798,36 +4101,34 @@ class DashboardApp {
 								<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
 									<div id="online-carousel-${produto.id}" data-current="0" style="display: flex; width: 100%; height: 100%; transition: transform 0.3s ease;">
 										${fotos.length > 0 ? 
-											fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;" onerror="console.error('Erro ao carregar imagem:', '${foto}')">`).join('') :
+											fotos.map(foto => `<img loading="lazy" data-src="${foto}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;" alt="${translateProductName(produto.nome)}">`).join('') :
 											`<div style="width: 100%; height: 100%; background: #f8f9fa; display: flex; align-items: center; justify-content: center; color: #666;">${t('vendas_online.sem_imagem')}</div>`
 										}
 									</div>
 									${fotos.length > 1 ? `
-										<button data-action="prev-online-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
-										<button data-action="next-online-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">›</button>
+										<button data-action="prev-online-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; z-index: 10;">‹</button>
+										<button data-action="next-online-photo" data-id="${produto.id}" data-total="${fotos.length}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; z-index: 10;">›</button>
 									` : ''}
 								</div>
 								<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
 									<span style="font-size: 1.1rem; font-weight: 700; color: #ff6b9d;">${this.formatCurrency(produto.preco)}</span>
 								</div>
 								<div style="display: flex; align-items: center; justify-content: center; gap: 1rem; width: 100%; margin-bottom: 0.5rem;">
-									<button data-action="decrement-produto" data-id="${produto.id}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.1rem; cursor: pointer;">-</button>
+									<button type="button" data-action="decrement-produto" data-id="${produto.id}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.1rem; cursor: pointer;">-</button>
 									<span id="contador-produto-${produto.id}" style="font-size: 1.1rem; font-weight: 600; min-width: 32px; text-align: center;">${this.cart[produto.id]?.quantidade || 0}</span>
-									<button data-action="increment-produto" data-id="${produto.id}" data-preco="${produto.preco}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.1rem; cursor: pointer;">+</button>
+									<button type="button" data-action="increment-produto" data-id="${produto.id}" data-preco="${produto.preco}" style="background: #eee; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.1rem; cursor: pointer;">+</button>
 								</div>
-								<button data-action="adicionar-carrinho" data-id="${produto.id}" data-preco="${produto.preco}" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 0; font-size: 1.1rem; font-weight: 700; cursor: pointer;" data-i18n="vendas_online.adicionar_carrinho"></button>
+								<button type="button" data-action="adicionar-carrinho" data-id="${produto.id}" data-preco="${produto.preco}" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 0; font-size: 1.1rem; font-weight: 700; cursor: pointer;" data-i18n="vendas_online.adicionar_carrinho"></button>
 							</div>
 						`;
 					}).join('')}
 				</div>
 			`;
 		}
-
 		container.innerHTML = topBar + produtosHtml;
-
+		this.lazyLoadProductImages();
 		// Tooltip (mesmo da página de pedidos)
 		this.setupProductTooltip();
-
 		// Eventos do dropdown de categoria
 		const dropdown = document.getElementById('dropdown-categoria-online');
 		if (dropdown) {
@@ -3836,45 +4137,40 @@ class DashboardApp {
 				this.renderVendasOnlinePage();
 			};
 		}
-
 		// Eventos dos produtos
 		this.setupVendasOnlineEventDelegation();
 		// Atualizar valor total do carrinho no topo
 		this.updatePedidosCartTotal();
-
 		// Aplicar traduções aos elementos recém-criados
 		setTimeout(() => applyTranslations(), 100);
-
 		console.log('✅ renderVendasOnlinePage() concluído');
 	}
-
 	setupVendasOnlineEventDelegation() {
 		const container = document.getElementById('vendas-online-container');
 		if (!container) return;
-
 		if (container._delegationAttached) {
 			container.removeEventListener('click', container._delegationHandler);
 		}
-
 		const handler = (e) => {
 			// Não processar eventos que vêm de dentro de modais
 			if (e.target.closest('.modal-overlay') || e.target.closest('.modal-content-wrapper')) {
 				return;
 			}
-
 			// Só processar se o target for um botão ou estiver dentro de um botão
 			if (!e.target.matches('button[data-action]') && !e.target.closest('button[data-action]')) {
 				return;
 			}
-
 			const btn = e.target.closest('button[data-action]');
-
 			const action = btn.getAttribute('data-action');
+			
+			// Prevenir comportamento padrão e propagação
+			e.preventDefault();
+			e.stopPropagation();
+			
 			console.log('🎬 Ação executada (Vendas Online):', action);
 			const produtoId = btn.getAttribute('data-id');
 			const preco = parseFloat(btn.getAttribute('data-preco'));
 			const total = parseInt(btn.getAttribute('data-total'));
-
 			switch (action) {
 				case 'prev-produto-photo':
 				case 'prev-online-photo':
@@ -3898,27 +4194,22 @@ class DashboardApp {
 					break;
 			}
 		};
-
 		container.addEventListener('click', handler);
 		container._delegationAttached = true;
 		container._delegationHandler = handler;
 	}
-
 	incrementVendasProdutoCarrinho(produtoId, preco) {
 		this.incrementProdutoCarrinho(produtoId, preco);
 		this.updateVendasContadores();
 	}
-
 	decrementVendasProdutoCarrinho(produtoId) {
 		this.decrementProdutoCarrinho(produtoId);
 		this.updateVendasContadores();
 	}
-
 	adicionarVendasAoCarrinho(produtoId, preco) {
 		this.adicionarAoCarrinho(produtoId, preco);
 		this.updateVendasContadores();
 	}
-
 	updateVendasContadores() {
 		// Atualizar contadores visuais na página de vendas online
 		Object.keys(this.cart).forEach(produtoId => {
@@ -3928,17 +4219,12 @@ class DashboardApp {
 			}
 		});
 	}
-
 	prevVendasProdutoPhoto(produtoId, totalPhotos) {
 		this.prevProdutoPhoto(produtoId, totalPhotos);
 	}
-
 	nextVendasProdutoPhoto(produtoId, totalPhotos) {
 		this.nextProdutoPhoto(produtoId, totalPhotos);
 	}
-
-
-
 	setupProductTooltip() {
 		let tooltip = document.getElementById('produto-tooltip-global');
 		if (!tooltip) {
@@ -3947,7 +4233,6 @@ class DashboardApp {
 			tooltip.className = 'produto-tooltip-global hidden';
 			document.body.appendChild(tooltip);
 		}
-
 		document.querySelectorAll('.card-produto').forEach(card => {
 			card.addEventListener('mouseenter', function(e) {
 				const descricao = card.getAttribute('data-descricao');
@@ -3961,14 +4246,12 @@ class DashboardApp {
 					const tooltipWidth = 200; // Largura aproximada do tooltip
 					const screenWidth = window.innerWidth;
 					const cursorX = e.clientX;
-					
 					// Se o cursor estiver próximo do lado direito (menos de 250px do fim), posiciona à esquerda
 					if (cursorX + tooltipWidth + 50 > screenWidth) {
 						tooltip.style.left = (cursorX - tooltipWidth - 18) + 'px';
 					} else {
 						tooltip.style.left = (cursorX + 18) + 'px';
 					}
-					
 					tooltip.style.top = (e.clientY + 18) + 'px';
 				}
 			});
@@ -3977,34 +4260,27 @@ class DashboardApp {
 			});
 		});
 	}
-
 	setupPedidosEventDelegation() {
 		const container = document.getElementById('pedidos-container');
 		if (!container) return;
-
 		if (container._delegationAttached) {
 			container.removeEventListener('click', container._delegationHandler);
 		}
-
 		const handler = (e) => {
 			// Não processar eventos que vêm de dentro de modais
 			if (e.target.closest('.modal-overlay') || e.target.closest('.modal-content-wrapper')) {
 				return;
 			}
-
 			// Só processar se o target for um botão ou estiver dentro de um botão
 			if (!e.target.matches('button[data-action]') && !e.target.closest('button[data-action]')) {
 				return;
 			}
-
 			const btn = e.target.closest('button[data-action]');
-			
 			const action = btn.getAttribute('data-action');
 			console.log('🎬 Ação executada:', action);
 			const produtoId = btn.getAttribute('data-id');
 			const preco = parseFloat(btn.getAttribute('data-preco'));
 			const total = parseInt(btn.getAttribute('data-total'));
-
 			switch (action) {
 				case 'prev-produto-photo':
 				case 'prev-online-photo':
@@ -4028,12 +4304,10 @@ class DashboardApp {
 					break;
 			}
 		};
-
 		container.addEventListener('click', handler);
 		container._delegationAttached = true;
 		container._delegationHandler = handler;
 	}
-
 	incrementProdutoCarrinho(produtoId, preco) {
 		// Esta função serve para:
 		// 1. Contador visual no mercado (produtos não adicionados)
@@ -4056,7 +4330,6 @@ class DashboardApp {
 		}
 		this.updateCartBadge();
 	}
-
 	decrementProdutoCarrinho(produtoId) {
 		// Decrementa o contador visual
 		const contadorEl = document.getElementById(`contador-produto-${produtoId}`);
@@ -4082,10 +4355,8 @@ class DashboardApp {
 		}
 		this.updateCartBadge();
 	}
-
 	adicionarAoCarrinho(produtoId, preco) {
 		console.log('Adicionando ao carrinho:', produtoId, preco);
-		
 		// Se o produto já está no carrinho, apenas incrementa a quantidade
 		if (this.cart[produtoId] && this.cart[produtoId].adicionado) {
 			this.cart[produtoId].quantidade++;
@@ -4115,7 +4386,6 @@ class DashboardApp {
 		}
 		this.updateCartBadge();
 	}
-
 	updatePedidosCartTotal() {
 		// Atualiza apenas o valor total do carrinho no topo da página de pedidos ou vendas online
 		let cartTotal = 0;
@@ -4134,22 +4404,17 @@ class DashboardApp {
 			vendasOnlineEl.textContent = this.formatCurrency(cartTotal);
 		}
 	}
-
 	async updateCartHeader() {
 		const header = document.querySelector('header.header');
 		if (!header) return;
-
 		// Calcular total de itens no carrinho
 		let cartCount = Object.values(this.cart).filter(item => item.quantidade > 0 && item.adicionado).reduce((acc, item) => acc + item.quantidade, 0);
-		
 		let headCart = document.getElementById('head-cart');
-		
 		// Remover se carrinho vazio
 		if (cartCount === 0 && headCart) {
 			headCart.remove();
 			return;
 		}
-
 		// Criar/atualizar carrinho no header
 		if (cartCount > 0) {
 			if (!headCart) {
@@ -4171,14 +4436,12 @@ class DashboardApp {
 				headCart.style.zIndex = '1000';
 				header.appendChild(headCart);
 			}
-
 			headCart.innerHTML = `
 				<div style="position: relative;">
 					<i class='fas fa-shopping-cart' style='font-size: 1.5rem; color: #ff6b9d;'></i>
 					<span style="position: absolute; top: -8px; right: -8px; background: #dc3545; color: #fff; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">${cartCount}</span>
 				</div>
 			`;
-
 			headCart.onclick = async (e) => {
 				e.preventDefault();
 				e.stopPropagation();
@@ -4190,7 +4453,6 @@ class DashboardApp {
 			};
 		}
 	}
-
 	removerProdutoCarrinho(produtoId) {
 		if (this.cart[produtoId]) {
 			delete this.cart[produtoId];
@@ -4207,7 +4469,6 @@ class DashboardApp {
 		// Em vez de recriar o modal, apenas atualizar o conteúdo
 		this.atualizarConteudoModalPedido();
 	}
-
 	incrementProdutoCarrinhoModal(produtoId) {
 		// Esta função é para editar produtos JÁ adicionados ao carrinho (no modal)
 		if (this.cart[produtoId] && this.cart[produtoId].adicionado) {
@@ -4225,12 +4486,10 @@ class DashboardApp {
 			this.atualizarConteudoModalPedido();
 		}
 	}
-
 	decrementProdutoCarrinhoModal(produtoId) {
 		// Esta função é para editar produtos JÁ adicionados ao carrinho (no modal)
 		if (this.cart[produtoId] && this.cart[produtoId].adicionado && this.cart[produtoId].quantidade > 0) {
 			this.cart[produtoId].quantidade--;
-			
 			if (this.cart[produtoId].quantidade > 0) {
 				// Ainda há quantidade, apenas atualizar
 				// Sincronizar contador visual na página de produtos
@@ -4261,45 +4520,40 @@ class DashboardApp {
 			}
 		}
 	}
-
 	atualizarConteudoModalPedido() {
 		// Atualiza apenas o conteúdo dinâmico do modal sem recriá-lo completamente
 		const modal = document.getElementById('modal-finalizar-pedido');
 		if (!modal) return;
-
 		// Verificar se ainda há produtos no carrinho
 		const produtosNoCarrinho = Object.entries(this.cart)
 			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado);
-
 		if (produtosNoCarrinho.length === 0) {
 			// Se não há produtos, fechar o modal
 			closeModal('modal-finalizar-pedido');
 			return;
 		}
-
 		// Recriar a tabela de produtos
 		const produtosCarrinho = produtosNoCarrinho
 			.map(([id, item]) => {
 				const produto = this.products.find(p => p.id == id);
 				return produto ? `
-					<tr style="border-bottom:1px solid #eee;">
+					<tr style="border-bottom:1px solid #eee;" data-produto-id="${id}">
 						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#222; font-weight:600;">${translateProductName(produto.nome)}</td>
 						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#764ba2; text-align:right;">${this.formatCurrency(item.preco)}</td>
 						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; text-align:center;">
 							<div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-								<button onclick="window.dashboardApp.decrementProdutoCarrinhoModal('${id}')" style="background: #eee; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">-</button>
+								<button type="button" class="btn-decrement-modal" data-produto-id="${id}" style="background: #eee; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">-</button>
 								<span class="produto-quantidade-${id}" style="font-weight: 600; min-width: 20px; text-align: center;">${item.quantidade}</span>
-								<button onclick="window.dashboardApp.incrementProdutoCarrinhoModal('${id}')" style="background: #eee; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">+</button>
+								<button type="button" class="btn-increment-modal" data-produto-id="${id}" style="background: #eee; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">+</button>
 							</div>
 						</td>
 						<td class="produto-subtotal-${id}" style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#28a745; text-align:right; font-weight:600;">${this.formatCurrency(item.preco * item.quantidade)}</td>
 						<td style="padding:0.35rem 0.5rem; text-align:center;">
-							<button onclick="window.dashboardApp.removerProdutoCarrinho('${id}')" style="background: #dc3545; color: white; border: none; border-radius: 4px; padding: 0.2rem 0.4rem; font-size: 0.8rem; cursor: pointer;">×</button>
+							<button type="button" class="btn-remover-modal" data-produto-id="${id}" style="background: #dc3545; color: white; border: none; border-radius: 4px; padding: 0.2rem 0.4rem; font-size: 0.8rem; cursor: pointer;">×</button>
 						</td>
 					</tr>
 				` : '';
 			}).join('');
-
 		// Encontrar e substituir apenas a tabela de produtos
 		const tabelaContainer = modal.querySelector('.produtos-tabela-container');
 		if (tabelaContainer) {
@@ -4319,18 +4573,47 @@ class DashboardApp {
 					</tbody>
 				</table>
 			`;
+			
+			// Adicionar event listeners aos novos botões
+			this.attachModalButtonListeners(tabelaContainer);
 		}
-
 		// Atualizar total geral
 		const totalCarrinho = produtosNoCarrinho
 			.reduce((acc, [_, item]) => acc + item.preco * item.quantidade, 0);
-
 		const totalElement = modal.querySelector('.modal-total-valor');
 		if (totalElement) {
 			totalElement.textContent = this.formatCurrency(totalCarrinho);
 		}
 	}
-
+	attachModalButtonListeners(container) {
+		// Incrementar
+		container.querySelectorAll('.btn-increment-modal').forEach(btn => {
+			btn.addEventListener('click', (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				const produtoId = btn.getAttribute('data-produto-id');
+				this.incrementProdutoCarrinhoModal(produtoId);
+			});
+		});
+		// Decrementar
+		container.querySelectorAll('.btn-decrement-modal').forEach(btn => {
+			btn.addEventListener('click', (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				const produtoId = btn.getAttribute('data-produto-id');
+				this.decrementProdutoCarrinhoModal(produtoId);
+			});
+		});
+		// Remover
+		container.querySelectorAll('.btn-remover-modal').forEach(btn => {
+			btn.addEventListener('click', (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				const produtoId = btn.getAttribute('data-produto-id');
+				this.removerProdutoCarrinho(produtoId);
+			});
+		});
+	}
 	limparCarrinho() {
 		// Resetar todos os contadores visuais quando limpar o carrinho
 		Object.keys(this.cart).forEach(produtoId => {
@@ -4348,57 +4631,51 @@ class DashboardApp {
 		// Atualizar o modal atual se estiver aberto, em vez de abrir um novo
 		this.atualizarConteudoModalPedido();
 	}
-
 	atualizarModalFinalizarPedido() {
 		const modal = document.getElementById('modal-finalizar-pedido');
 		if (!modal) return; // Modal não está aberto, não faz nada
-
 		// Produtos do carrinho
 		const produtosCarrinho = Object.entries(this.cart)
 			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado)
 			.map(([id, item]) => {
 				const produto = this.products.find(p => p.id == id);
 				return produto ? `
-					<tr style="border-bottom:1px solid #eee;">
+					<tr style="border-bottom:1px solid #eee;" data-produto-id="${id}">
 						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#222; font-weight:600;">${translateProductName(produto.nome)}</td>
 						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#764ba2; text-align:right;">${this.formatCurrency(item.preco)}</td>
 						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; text-align:center;">
 							<div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-								<button onclick="window.dashboardApp.decrementProdutoCarrinhoModal('${id}')" style="background: #eee; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">-</button>
+								<button type="button" class="btn-decrement-modal" data-produto-id="${id}" style="background: #eee; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">-</button>
 								<span class="produto-quantidade-${id}" style="font-weight: 600; min-width: 20px; text-align: center;">${item.quantidade}</span>
-								<button onclick="window.dashboardApp.incrementProdutoCarrinhoModal('${id}')" style="background: #eee; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">+</button>
+								<button type="button" class="btn-increment-modal" data-produto-id="${id}" style="background: #eee; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">+</button>
 							</div>
 						</td>
 						<td class="produto-subtotal-${id}" style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#28a745; text-align:right; font-weight:600;">${this.formatCurrency(item.preco * item.quantidade)}</td>
 						<td style="padding:0.35rem 0.5rem; text-align:center;">
-							<button onclick="window.dashboardApp.removerProdutoCarrinho('${id}')" style="background: #dc3545; color: white; border: none; border-radius: 4px; padding: 0.2rem 0.4rem; font-size: 0.8rem; cursor: pointer;">×</button>
+							<button type="button" class="btn-remover-modal" data-produto-id="${id}" style="background: #dc3545; color: white; border: none; border-radius: 4px; padding: 0.2rem 0.4rem; font-size: 0.8rem; cursor: pointer;">×</button>
 						</td>
 					</tr>
 				` : '';
 			}).join('');
-
 		const totalCarrinho = Object.entries(this.cart)
 			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado)
 			.reduce((acc, [_, item]) => acc + item.preco * item.quantidade, 0);
-
 		// Atualiza o valor do topo da página de pedidos para refletir o total do carrinho
 		const pedidosCartTotalEl = document.querySelector('.pedidos-cart-total');
 		if (pedidosCartTotalEl) {
 			pedidosCartTotalEl.textContent = this.formatCurrency(totalCarrinho);
 		}
-
 		// Atualizar apenas a tabela de produtos e o total no modal existente
 		const produtosTbody = modal.querySelector('.produtos-tabela-container tbody');
 		const modalTotalValor = modal.querySelector('.modal-total-valor');
-
 		if (produtosTbody) {
 			produtosTbody.innerHTML = produtosCarrinho;
+			// Adicionar event listeners aos novos botões
+			this.attachModalButtonListeners(produtosTbody.parentElement);
 		}
-
 		if (modalTotalValor) {
 			modalTotalValor.textContent = this.formatCurrency(totalCarrinho);
 		}
-
 		// Se o carrinho estiver vazio, mostrar mensagem
 		if (Object.keys(this.cart).length === 0 || Object.values(this.cart).every(item => !item.adicionado || item.quantidade === 0)) {
 			const produtosContainer = modal.querySelector('.produtos-tabela-container');
@@ -4413,7 +4690,6 @@ class DashboardApp {
 			}
 		}
 	}
-
 	prevProdutoPhoto(produtoId, totalPhotos) {
 		const carousel = document.getElementById(`market-carousel-${produtoId}`) || document.getElementById(`online-carousel-${produtoId}`);
 		if (!carousel) {
@@ -4426,7 +4702,6 @@ class DashboardApp {
 		carousel.dataset.current = prev;
 		console.log('Navegando para foto anterior:', prev, 'de', totalPhotos);
 	}
-
 	nextProdutoPhoto(produtoId, totalPhotos) {
 		const carousel = document.getElementById(`market-carousel-${produtoId}`) || document.getElementById(`online-carousel-${produtoId}`);
 		if (!carousel) {
@@ -4439,11 +4714,9 @@ class DashboardApp {
 		carousel.dataset.current = next;
 		console.log('Navegando para próxima foto:', next, 'de', totalPhotos);
 	}
-
 	// MODAL RÁPIDO ADICIONAR CLIENTE
 	openQuickAddClientModal() {
 		const modal = this.createModal('modal-quick-add-client', 'Adicionar Cliente Rápido', true);
-		
 		modal.querySelector('.modal-content-wrapper').innerHTML += `
 			<form id="form-quick-add-client" style="display: flex; flex-direction: column; gap: 1rem;">
 				<div class="form-group">
@@ -4468,25 +4741,20 @@ class DashboardApp {
 				</div>
 			</form>
 		`;
-
 		document.getElementById('modals-container').appendChild(modal);
 		modal.classList.add('show');
-
 		modal.querySelector('#form-quick-add-client').addEventListener('submit', async (e) => {
 			e.preventDefault();
 			const nome = modal.querySelector('#quick-client-nome').value.trim();
 			const telefone = modal.querySelector('#quick-client-telefone').value.trim();
 			const email = modal.querySelector('#quick-client-email').value.trim();
 			const endereco = modal.querySelector('#quick-client-endereco').value.trim();
-
 			if (!nome || !telefone || !endereco) {
 				alert('Preencha todos os campos obrigatórios');
 				return;
 			}
-
 			const clientData = { nome, telefone, email, endereco };
 			const result = await this.saveToSupabaseInsert('clientes', clientData);
-			
 			if (result) {
 				this.clients.unshift(result);
 				alert('Cliente adicionado com sucesso!');
@@ -4494,7 +4762,6 @@ class DashboardApp {
 			}
 		});
 	}
-
 	// MODAL FINALIZAR PEDIDO - VENDA PRESENCIAL
 	abrirFinalizarPedidoModal(clienteIdPreSelecionado = null) {
 		console.log('🛒 Abrindo modal de finalização');
@@ -4504,14 +4771,12 @@ class DashboardApp {
 			if (existingModal) {
 				existingModal.remove();
 			}
-
 			const modalId = 'modal-finalizar-pedido';
 			document.querySelectorAll('.modal-overlay').forEach(modal => modal.remove());
 			const modal = document.createElement('div');
 			modal.id = modalId;
 			modal.className = 'modal-overlay show';
 			modal.onclick = closeModalOverlay;
-
 		let modalsContainer = document.getElementById('modals-container');
 		if (!modalsContainer) {
 			modalsContainer = document.createElement('div');
@@ -4519,47 +4784,42 @@ class DashboardApp {
 			document.body.appendChild(modalsContainer);
 		}
 		modalsContainer.appendChild(modal);
-
 		// Produtos do carrinho
 		const produtosCarrinho = Object.entries(this.cart)
 			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado)
 			.map(([id, item]) => {
 				const produto = this.products.find(p => p.id == id);
 				return produto ? `
-					<tr style="border-bottom:1px solid #eee;">
+					<tr style="border-bottom:1px solid #eee;" data-produto-id="${id}">
 						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#222; font-weight:600;">${translateProductName(produto.nome)}</td>
 						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#764ba2; text-align:right;">${this.formatCurrency(item.preco)}</td>
 						<td style="padding:0.35rem 0.5rem; font-size:0.92rem; text-align:center;">
 							<div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-								<button onclick="window.dashboardApp.decrementProdutoCarrinhoModal('${id}')" style="background: #eee; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">-</button>
+								<button type="button" class="btn-decrement-modal" data-produto-id="${id}" style="background: #eee; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">-</button>
 								<span class="produto-quantidade-${id}" style="font-weight: 600; min-width: 20px; text-align: center;">${item.quantidade}</span>
-								<button onclick="window.dashboardApp.incrementProdutoCarrinhoModal('${id}')" style="background: #eee; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">+</button>
+								<button type="button" class="btn-increment-modal" data-produto-id="${id}" style="background: #eee; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">+</button>
 							</div>
 						</td>
 						<td class="produto-subtotal-${id}" style="padding:0.35rem 0.5rem; font-size:0.92rem; color:#28a745; text-align:right; font-weight:600;">${this.formatCurrency(item.preco * item.quantidade)}</td>
 						<td style="padding:0.35rem 0.5rem; text-align:center;">
-							<button onclick="window.dashboardApp.removerProdutoCarrinho('${id}')" style="background: #dc3545; color: white; border: none; border-radius: 4px; padding: 0.2rem 0.4rem; font-size: 0.8rem; cursor: pointer;">×</button>
+							<button type="button" class="btn-remover-modal" data-produto-id="${id}" style="background: #dc3545; color: white; border: none; border-radius: 4px; padding: 0.2rem 0.4rem; font-size: 0.8rem; cursor: pointer;">×</button>
 						</td>
 					</tr>
 				` : '';
 			}).join('');
-
 		const totalCarrinho = Object.entries(this.cart)
 			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado)
 			.reduce((acc, [_, item]) => acc + item.preco * item.quantidade, 0);
-
 		// Atualiza o valor do topo da página de pedidos para refletir o total do carrinho
 		const pedidosCartTotalEl = document.querySelector('.pedidos-cart-total');
 		if (pedidosCartTotalEl) {
 			pedidosCartTotalEl.textContent = this.formatCurrency(totalCarrinho);
 		}
-
 		// Determinar se é vendas online
 		const isVendasOnline = this.isVendasOnline;
 		let clienteHTML = '';
 		let clienteSelecionado = null;
 		let clienteSelecionadoData = null;
-
 		if (isVendasOnline) {
 			// Para vendas online, usar o cliente recém-cadastrado ou logado
 			if (typeof clienteIdPreSelecionado === 'object' && clienteIdPreSelecionado?.id) {
@@ -4602,22 +4862,19 @@ class DashboardApp {
 				</div>
 			`;
 		}
-
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 500px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 1.3rem; max-height: 90vh; overflow-y: auto;">
 				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
 					<h3 style="margin: 0; font-size: 1.5rem; color: #333;">🛒 ${isVendasOnline ? t('finalizar.finalizar_venda') : t('finalizar.finalizar_pedido')}</h3>
 					<button id="close-finalizar-pedido" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
 				</div>
-
 				<form id="form-finalizar-pedido" style="display: flex; flex-direction: column; gap: 1.2rem;">
 					<!-- Produtos -->
 					<div style="background: #f8f9fa; padding: 1rem; border-radius: 10px;">
 						<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
 							<h4 style="margin: 0; font-size: 1.05rem; color: #764ba2;">${t('finalizar.produtos')}</h4>
-							<button type="button" onclick="window.dashboardApp.limparCarrinho()" style="background: #dc3545; color: white; border: none; border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.8rem; cursor: pointer;">${t('finalizar.limpar_carrinho')}</button>
+							<button type="button" class="btn-limpar-carrinho" style="background: #dc3545; color: white; border: none; border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.8rem; cursor: pointer;">${t('finalizar.limpar_carrinho')}</button>
 						</div>
-
 						${(() => {
 							// Verificar promoções elegíveis
 							const promocaoElegivel = this.checkCartPromocoes(totalCarrinho, this.cart);
@@ -4633,7 +4890,6 @@ class DashboardApp {
 							}
 							return '';
 						})()}
-
 						<div class="produtos-tabela-container" style="overflow-x: auto;">
 							<table style="width:100%; border-collapse:collapse;">
 								<thead>
@@ -4649,10 +4905,18 @@ class DashboardApp {
 							</table>
 						</div>
 					</div>
-
 					<!-- Cliente -->
 					${clienteHTML}
-
+					<!-- Idioma para E-mails (apenas vendas online) -->
+					${isVendasOnline ? `
+					<div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 1rem; border-radius: 10px; color: white;">
+						<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">Which language do you prefer for emails? / Qual idioma você prefere para os e-mails?</h4>
+						<select id="finalizar-idioma" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem;">
+							<option value="pt" ${clienteSelecionado?.idioma === 'pt' || !clienteSelecionado?.idioma ? 'selected' : ''}>Português</option>
+							<option value="en" ${clienteSelecionado?.idioma === 'en' ? 'selected' : ''}>English</option>
+						</select>
+					</div>
+					` : ''}
 					<!-- Pagamento -->
 					<div style="background: linear-gradient(135deg, #f093fb, #f5576c); padding: 1rem; border-radius: 10px; color: white;">
 						<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">${t('finalizar.forma_pagamento')}</h4>
@@ -4661,19 +4925,16 @@ class DashboardApp {
 							<option value="transferencia">${t('finalizar.transferencia')}</option>
 							<option value="cartao">${t('finalizar.cartao')}</option>
 						</select>
-						
 						<label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500;">
 							<input type="checkbox" id="finalizar-full-payment" checked style="width: 18px; height: 18px;"> 
 							${t('finalizar.pagamento_total')}
 						</label>
-						
 						<div id="finalizar-sinal-group" style="display: none; margin-top: 0.75rem;">
 							<label style="display: block; margin-bottom: 0.25rem;">${t('finalizar.valor_sinal')}</label>
 							<input type="text" id="finalizar-sinal" placeholder="0.00" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none;">
 							<p id="finalizar-restante" style="margin: 0.5rem 0 0 0; font-size: 0.9rem;"></p>
 						</div>
 					</div>
-
 					<!-- Tipo de Entrega -->
 					<div style="background: linear-gradient(135deg, #4facfe, #00f2fe); padding: 1rem; border-radius: 10px; color: white;">
 						<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">${t('finalizar.tipo_entrega')}</h4>
@@ -4681,17 +4942,14 @@ class DashboardApp {
 							<option value="retirada">${t('finalizar.retirada_loja')}</option>
 							<option value="entrega">${t('finalizar.entrega')}</option>
 						</select>
-						
 						<div id="entrega-detalhes" style="display: none; margin-top: 0.75rem;">
 							<label style="display: block; margin-bottom: 0.25rem;">${t('finalizar.data_entrega')}</label>
-							<input type="date" id="finalizar-data-entrega" onchange="window.dashboardApp.updateHorariosDisponiveis(this.value)" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none; margin-bottom: 0.5rem;">
-							
+							<input type="date" id="finalizar-data-entrega" onchange="window.dashboardApp.updateHorariosDisponiveis(this.value)" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none; margin-bottom: 0.5rem;" min="${new Date().toISOString().split('T')[0]}" value="${new Date().toISOString().split('T')[0]}">
 							<label style="display: block; margin-bottom: 0.25rem;">${t('finalizar.horario')}</label>
 							<select id="finalizar-horario-entrega" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none; margin-bottom: 0.5rem;">
 								<option value="">${t('finalizar.selecione_horario')}</option>
 								<!-- Opções serão carregadas dinamicamente baseada na data selecionada -->
 							</select>
-							
 							<!-- Opções de endereço -->
 							<div id="endereco-options" style="margin-top: 0.75rem;">
 								<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">${t('finalizar.endereco_entrega')}</label>
@@ -4705,11 +4963,9 @@ class DashboardApp {
 										<span style="font-size: 0.9rem;">${t('finalizar.novo_endereco')}</span>
 									</label>
 								</div>
-								
 								<div id="endereco-cadastro-display" style="background: rgba(255,255,255,0.1); padding: 0.5rem; border-radius: 4px; margin-bottom: 0.5rem; font-size: 0.85rem;">
 									<!-- Endereço do cadastro será inserido aqui -->
 								</div>
-								
 								<div id="endereco-novo-input" style="display: none;">
 									<label style="display: block; margin-bottom: 0.25rem; font-size: 0.9rem;">${t('finalizar.novo_endereco_label')}</label>
 									<textarea id="finalizar-endereco-novo" placeholder="${t('finalizar.digite_novo_endereco')}" style="width: 100%; padding: 0.5rem; border-radius: 6px; border: none; resize: vertical; min-height: 60px;" rows="3"></textarea>
@@ -4717,26 +4973,43 @@ class DashboardApp {
 							</div>
 						</div>
 					</div>
-
 					<!-- Total -->
 					<div style="background: #28a745; padding: 1rem; border-radius: 10px; text-align: center; color: white;">
 						<h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; font-weight: 400; opacity: 0.9;">${t('finalizar.valor_total')}</h4>
 						<h2 class="modal-total-valor" style="margin: 0; font-size: 2rem; font-weight: 700;">${this.formatCurrency(totalCarrinho)}</h2>
 					</div>
-
 					<!-- Observações -->
 					<div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 1rem; border-radius: 10px; color: white;">
-						<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">📝 ${t('finalizar.observacoes')}</h4>
-						<textarea id="finalizar-observacoes" placeholder="${t('finalizar.observacoes_placeholder')}" style="width: 100%; padding: 0.75rem; border: none; border-radius: 6px; resize: vertical; min-height: 80px; font-family: inherit; font-size: 1rem;" rows="3"></textarea>
+						<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">📝 ${t('finalizar.observacao')}</h4>
+						<textarea id="finalizar-observacoes" placeholder="${t('finalizar.observacao_placeholder')}" style="width: 100%; padding: 0.75rem; border: none; border-radius: 6px; resize: vertical; min-height: 80px; font-family: inherit; font-size: 1rem;" rows="3"></textarea>
 					</div>
-
 					<button type="submit" style="width: 100%; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 1rem; font-size: 1.2rem; font-weight: 700; cursor: pointer;">
 						✓ ${t('finalizar.finalizar_venda')}
 					</button>
 				</form>
 			</div>
 		`;
-
+		// Adicionar event listeners aos botões do carrinho
+		const tabelaContainer = modal.querySelector('.produtos-tabela-container');
+		if (tabelaContainer) {
+			this.attachModalButtonListeners(tabelaContainer);
+		}
+		// Event listener para o botão de limpar carrinho
+		const btnLimparCarrinho = modal.querySelector('.btn-limpar-carrinho');
+		if (btnLimparCarrinho) {
+			btnLimparCarrinho.addEventListener('click', (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				this.limparCarrinho();
+			});
+		}
+		// Inicializar horários disponíveis para a data padrão
+		setTimeout(() => {
+			const dataInput = document.getElementById('finalizar-data-entrega');
+			if (dataInput && dataInput.value) {
+				this.updateHorariosDisponiveis(dataInput.value);
+			}
+		}, 100);
 		// Event listener para o botão de fechar
 		setTimeout(() => {
 			const closeButton = document.getElementById('close-finalizar-pedido');
@@ -4744,7 +5017,6 @@ class DashboardApp {
 				// Remove event listeners anteriores
 				const newCloseButton = closeButton.cloneNode(true);
 				closeButton.parentNode.replaceChild(newCloseButton, closeButton);
-				
 				// Adiciona novo event listener
 				newCloseButton.addEventListener('click', (e) => {
 					e.preventDefault();
@@ -4753,7 +5025,6 @@ class DashboardApp {
 				});
 			}
 		}, 100);
-
 		// Eventos do formulário
 		const fullPaymentCheckbox = modal.querySelector('#finalizar-full-payment');
 		const sinalGroup = modal.querySelector('#finalizar-sinal-group');
@@ -4765,7 +5036,6 @@ class DashboardApp {
 		const enderecoCadastroDisplay = modal.querySelector('#endereco-cadastro-display');
 		const enderecoNovoInput = modal.querySelector('#endereco-novo-input');
 		const enderecoOptions = modal.querySelector('#endereco-options');
-
 		// Função para atualizar endereço do cliente selecionado
 		function atualizarEnderecoCliente() {
 			let clienteId;
@@ -4793,55 +5063,50 @@ class DashboardApp {
 				enderecoCadastroDisplay.style.display = 'none';
 			}
 		}
-
 		// Event listener para mudança de cliente (apenas para vendas presenciais)
 		if (!isVendasOnline && clienteSelect) {
 			clienteSelect.addEventListener('change', atualizarEnderecoCliente);
 		}
-
 		// Inicializar endereço
 		if ((clienteIdPreSelecionado && (typeof clienteIdPreSelecionado === 'object' || clienteSelecionado)) || (isVendasOnline && clienteSelecionado)) {
 			atualizarEnderecoCliente();
 		}
-
 		fullPaymentCheckbox.addEventListener('change', () => {
 			sinalGroup.style.display = fullPaymentCheckbox.checked ? 'none' : 'block';
 			updateRestante();
 		});
-
 		sinalInput.addEventListener('input', (e) => {
 			// Formatar valor enquanto digita
 			let value = e.target.value.replace(/[^0-9.,]/g, ''); // Permitir apenas números, ponto e vírgula
-			
 			// Substituir vírgula por ponto para cálculo
 			value = value.replace(',', '.');
-			
 			// Limitar a 2 casas decimais
 			const parts = value.split('.');
 			if (parts.length > 1) {
 				parts[1] = parts[1].substring(0, 2);
 				value = parts.join('.');
 			}
-			
 			// Atualizar o valor no campo
 			e.target.value = value;
-			
 			// Atualizar cálculo do restante
 			updateRestante();
 		});
-
 		function updateRestante() {
 			const sinal = parseFloat(sinalInput.value) || 0;
 			const restante = totalCarrinho - sinal;
 			restanteLabel.textContent = restante > 0 ? `Restante: ${window.dashboardApp.formatCurrency(restante)}` : '';
 		}
-
-		entregaSelect.addEventListener('change', () => {
+		entregaSelect.addEventListener('change', async () => {
 			const isEntrega = entregaSelect.value === 'entrega';
 			entregaDetalhes.style.display = isEntrega ? 'block' : 'none';
 			enderecoOptions.style.display = isEntrega ? 'block' : 'none';
+			if (isEntrega) {
+				const dataInput = document.getElementById('finalizar-data-entrega');
+				if (dataInput && dataInput.value) {
+					await this.updateHorariosDisponiveis(dataInput.value);
+				}
+			}
 		});
-
 		// Event listeners para opções de endereço
 		modal.querySelectorAll('input[name="endereco-opcao"]').forEach(radio => {
 			radio.addEventListener('change', (e) => {
@@ -4849,7 +5114,6 @@ class DashboardApp {
 				enderecoNovoInput.style.display = isNovoEndereco ? 'block' : 'none';
 			});
 		});
-
 		// Submit
 		modal.querySelector('#form-finalizar-pedido').addEventListener('submit', async (e) => {
 			e.preventDefault();
@@ -4859,7 +5123,6 @@ class DashboardApp {
 				const tipoEntrega = entregaSelect.value;
 				let enderecoEntrega = null;
 				let dataEntrega = null;
-
 				if (tipoEntrega === 'entrega') {
 					const enderecoOpcao = document.querySelector('input[name="endereco-opcao"]:checked').value;
 					if (enderecoOpcao === 'cadastro') {
@@ -4869,30 +5132,28 @@ class DashboardApp {
 					}
 					dataEntrega = document.getElementById('finalizar-data-entrega').value;
 				}
-
 				await this.finalizarPedidoOnline(clienteSelecionado, tipoEntrega, dataEntrega, enderecoEntrega, formaPagamento);
 			} else {
 				await this.finalizarVendaPresencial();
 			}
 		});
 		console.log('✅ Modal de finalização criado com sucesso');
+		// Aplicar traduções aos elementos dinâmicos do modal
+		setTimeout(() => applyTranslations(), 100);
 		} catch (error) {
 			console.error('Erro ao abrir modal finalizar pedido:', error);
 		}
 	}
-
 	async finalizarVendaPresencial() {
 		const clienteId = document.getElementById('finalizar-cliente').value;
 		const formaPagamento = document.getElementById('finalizar-pagamento').value;
 		const tipoEntrega = document.getElementById('finalizar-entrega').value;
 		const fullPayment = document.getElementById('finalizar-full-payment').checked;
 		const sinal = fullPayment ? 0 : (parseFloat(document.getElementById('finalizar-sinal').value) || 0);
-
 		if (!clienteId) {
-			alert('Selecione um cliente!');
+			this.showAlert('alert.selecione_cliente');
 			return;
 		}
-
 		// Determinar endereço de entrega
 		let enderecoEntrega = null;
 		if (tipoEntrega === 'entrega') {
@@ -4903,45 +5164,38 @@ class DashboardApp {
 			} else {
 				enderecoEntrega = document.getElementById('finalizar-endereco-novo').value.trim() || null;
 			}
-			
 			if (!enderecoEntrega) {
-				alert('Por favor, informe o endereço de entrega!');
+				this.showAlert('alert.endereco_entrega');
 				return;
 			}
 		}
-
 		const produtos = Object.entries(this.cart)
 			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado)
 			.map(([id, item]) => ({ produto_id: id, quantidade: item.quantidade, preco_unitario: item.preco }));
-
 		const valor_total = produtos.reduce((acc, p) => acc + p.preco_unitario * p.quantidade, 0);
 		const valor_pago = fullPayment ? valor_total : sinal;
-
-		// Status baseado no pagamento
-		let status = 'pago'; // Padrão: pagamento total
-		if (!fullPayment && sinal < valor_total) {
-			status = 'confirmado'; // Pagamento parcial
-		}
-
+		const status = this.determineInitialStatus({
+			formaPagamento,
+			tipoEntrega,
+			fullPayment,
+			sinal
+		});
 		const cliente = this.clients.find(c => c.id == clienteId);
 		const hoje = new Date();
 		const dataStr = hoje.toISOString().slice(0,10).replace(/-/g, '');
 		const randomNum = Math.floor(Math.random() * 9000) + 1000;
 		const numeroPedido = `PED-${dataStr}-${randomNum}`;
-
 		// Data de entrega
 		let dataEntrega = hoje.toISOString().slice(0,10);
 		let horarioEntrega = null;
-		
 		if (tipoEntrega === 'entrega') {
 			dataEntrega = document.getElementById('finalizar-data-entrega').value || dataEntrega;
 			horarioEntrega = document.getElementById('finalizar-horario-entrega').value || null;
 		}
-
 		const pedidoData = {
 			numero_pedido: numeroPedido,
 			cliente_id: clienteId,
-			user_id: this.currentUser?.id, // Adicionar ID do usuário que criou o pedido
+			vendedor_id: this.currentUser?.id || null,
 			data_pedido: hoje.toISOString(),
 			data_entrega: dataEntrega,
 			hora_entrega: horarioEntrega,
@@ -4952,10 +5206,8 @@ class DashboardApp {
 			observacoes: '',
 			idioma: cliente?.idioma || 'pt'
 		};
-
 		// Salvar pedido
 		const pedidoSalvo = await this.saveToSupabaseInsert('pedidos', pedidoData);
-		
 		if (pedidoSalvo && pedidoSalvo.id) {
 			// Salvar itens do pedido
 			for (const item of produtos) {
@@ -4968,7 +5220,6 @@ class DashboardApp {
 				};
 				await this.saveToSupabaseInsert('pedido_itens', itemData);
 			}
-
 			// Criar entrega se necessário
 			if (tipoEntrega === 'entrega') {
 				const entregaData = {
@@ -4981,43 +5232,25 @@ class DashboardApp {
 				};
 				await this.saveToSupabaseInsert('entregas', entregaData);
 			}
-
 			// Registrar custos automaticamente dos produtos vendidos
 			await this.registrarCustosProdutosVendidos(pedidoSalvo.id, produtos);
-
-			// Enviar email apropriado
-			if (cliente && cliente.email) {
-				if (status === 'pago') {
-					// Pagamento total -> Recibo
-					this.enviarReciboPorEmail(pedidoSalvo, produtos, cliente.email);
-				} else {
-					// Pagamento parcial -> Confirmação
-					this.enviarConfirmacaoCompraPorEmail(pedidoSalvo, produtos, cliente.email);
-				}
-			}
-
 			// Limpar carrinho
 			this.cart = {};
 			this.updateCartBadge(); // Atualizar badge do carrinho
-			
 			closeModal('modal-finalizar-pedido'); // Fechar modal ANTES das atualizações
-			
 			// Recarregar dados
 			await this.loadData();
-			
+			this.triggerRecebimentoEmail(pedidoSalvo.id);
 			// Atualizar seções do dashboard ANTES de renderizar a página
 			this.loadPedidosStatusList(); // Atualizar lista de pedidos no dashboard
 			if (document.getElementById('entregas-hoje')) {
 				this.updateFollowUpEntregas(); // Atualizar follow-up de entregas
 			}
 			this.updateStats(); // Atualizar estatísticas
-			
 			this.renderPedidosPage(); // Mostrar página de pedidos após venda
-			
-			alert('Venda finalizada com sucesso!');
+			this.showAlert('alert.venda_finalizada');
 		}
 		console.log('✅ Modal de finalização criado');
-		
 		// Forçar atualização de horários se já houver uma data selecionada
 		const dataInput = document.getElementById('finalizar-data-entrega');
 		if (dataInput && dataInput.value) {
@@ -5025,7 +5258,6 @@ class DashboardApp {
 			this.updateHorariosDisponiveis(dataInput.value);
 		}
 	}
-
 	async abrirVerificacaoClienteModal() {
 		// Verificar se há validação em cache válida (10 minutos)
 		const validacaoCache = this.getValidacaoClienteCache();
@@ -5034,26 +5266,21 @@ class DashboardApp {
 			await this.abrirFinalizarPedidoModal(validacaoCache.cliente);
 			return;
 		}
-
 		// Verificar se há produtos no carrinho
 		const produtosNoCarrinho = Object.entries(this.cart)
 			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado);
-
 		if (produtosNoCarrinho.length === 0) {
-			alert('Seu carrinho está vazio!');
+			this.showAlert('alert.carrinho_vazio');
 			return;
 		}
-
 		const modalId = 'modal-verificacao-cliente';
 		document.querySelectorAll('.modal-overlay').forEach(modal => modal.remove());
 		const existingModal = document.getElementById(modalId);
 		if (existingModal) existingModal.remove();
-
 		const modal = document.createElement('div');
 		modal.id = modalId;
 		modal.className = 'modal-overlay show';
 		modal.style.zIndex = '2000';
-
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="max-width: 500px;">
 				<div class="modal-content">
@@ -5075,57 +5302,44 @@ class DashboardApp {
 				</div>
 			</div>
 		`;
-
 		document.getElementById('modals-container').appendChild(modal);
 		modal.classList.add('show');
-
 		document.getElementById('form-verificacao-cliente').addEventListener('submit', async (e) => {
 			e.preventDefault();
 			let contato = document.getElementById('cliente-contato').value.trim();
 			if (!contato) return;
-
 			// Normalizar contato: remover espaços, hífens, parênteses
 			contato = contato.replace(/[\s\-\(\)]/g, '');
-
 			// Determinar se é e-mail ou telefone
 			const isEmail = contato.includes('@');
-
 			// Se for telefone e tiver 10 dígitos, formatar
 			if (!isEmail && contato.length === 10) {
 				contato = this.formatarTelefone(contato);
 			}
-
 			const searchField = isEmail ? 'email' : 'telefone';
-
 			// Buscar cliente
 			const { data: cliente, error } = await this.supabase
 				.from('clientes')
 				.select('*')
 				.eq(searchField, contato)
 				.single();
-
 			if (error || !cliente) {
 				alert(t('verificacao.cliente_nao_encontrado_alert'));
 				closeModal(modalId);
 				this.abrirCadastroClienteModal();
 				return;
 			}
-
 			// Cliente encontrado, iniciar verificação
 			closeModal(modalId);
 			this.iniciarVerificacaoCliente(cliente, isEmail);
 		});
 	}
-
 	iniciarVerificacaoCliente(cliente, inputFoiEmail) {
 		let tentativas = 0;
 		const maxTentativas = 2;
-
 		// Se input foi e-mail, verificar telefone primeiro; senão, verificar e-mail primeiro
 		const verificarTelefonePrimeiro = inputFoiEmail;
-
 		const self = this;
-
 		function mostrarVerificacaoEmail() {
 			const emails = self.gerarOpcoesEmail(cliente.email);
 			// Encontrar o índice da opção correta após embaralhamento
@@ -5138,7 +5352,6 @@ class DashboardApp {
 			modal.id = modalId;
 			modal.className = 'modal-overlay show';
 			modal.style.zIndex = '2000';
-
 			modal.innerHTML = `
 				<div class="modal-content-wrapper" style="max-width: 500px;">
 					<div class="modal-content">
@@ -5158,10 +5371,8 @@ class DashboardApp {
 					</div>
 				</div>
 			`;
-
 			document.getElementById('modals-container').appendChild(modal);
 			modal.classList.add('show');
-
 			document.querySelectorAll('.opcao-verificacao').forEach(btn => {
 				btn.addEventListener('click', (e) => {
 					const index = parseInt(e.target.dataset.index);
@@ -5184,7 +5395,6 @@ class DashboardApp {
 				});
 			});
 		}
-
 		function mostrarVerificacaoTelefone() {
 			const telefones = self.gerarOpcoesTelefone(self.formatarTelefone(cliente.telefone));
 			// Encontrar o índice da opção correta após embaralhamento
@@ -5197,7 +5407,6 @@ class DashboardApp {
 			modal.id = modalId;
 			modal.className = 'modal-overlay show';
 			modal.style.zIndex = '2000';
-
 			modal.innerHTML = `
 				<div class="modal-content-wrapper" style="max-width: 500px;">
 					<div class="modal-content">
@@ -5217,10 +5426,8 @@ class DashboardApp {
 					</div>
 				</div>
 			`;
-
 			document.getElementById('modals-container').appendChild(modal);
 			modal.classList.add('show');
-
 			document.querySelectorAll('.opcao-verificacao').forEach(btn => {
 				btn.addEventListener('click', (e) => {
 					const index = parseInt(e.target.dataset.index);
@@ -5243,19 +5450,16 @@ class DashboardApp {
 				});
 			});
 		}
-
 		function mostrarVerificacaoEndereco() {
 			console.log('🏠 Iniciando verificação de endereço para cliente:', cliente);
 			console.log('📍 Endereço do cliente:', cliente.endereco);
-			
 			if (!cliente.endereco || cliente.endereco.trim() === '') {
 				console.error('❌ Cliente não tem endereço cadastrado!');
-				alert('Cliente não possui endereço cadastrado. Cadastre o endereço primeiro.');
+				this.showAlert('alert.cliente_sem_endereco');
 				closeModal(modalId);
 				self.abrirCadastroClienteModal(cliente);
 				return;
 			}
-			
 			const enderecos = self.gerarOpcoesEndereco(cliente.endereco);
 			// Encontrar o índice da opção correta após embaralhamento (comparação flexível)
 			const indiceCorreto = enderecos.findIndex(end => 
@@ -5271,7 +5475,6 @@ class DashboardApp {
 			modal.id = modalId;
 			modal.className = 'modal-overlay show';
 			modal.style.zIndex = '2000';
-
 			modal.innerHTML = `
 				<div class="modal-content-wrapper" style="max-width: 500px;">
 					<div class="modal-content">
@@ -5291,10 +5494,8 @@ class DashboardApp {
 					</div>
 				</div>
 			`;
-
 			document.getElementById('modals-container').appendChild(modal);
 			modal.classList.add('show');
-
 			document.querySelectorAll('.opcao-verificacao').forEach(btn => {
 				btn.addEventListener('click', async (e) => {
 					const isCorrect = e.target.dataset.correct === 'true';
@@ -5327,7 +5528,6 @@ class DashboardApp {
 				});
 			});
 		};
-
 		// Iniciar verificação baseada no input
 		if (verificarTelefonePrimeiro) {
 			mostrarVerificacaoTelefone();
@@ -5335,7 +5535,6 @@ class DashboardApp {
 			mostrarVerificacaoEmail();
 		}
 	}
-
 	formatarTelefone(telefoneNumerico) {
 		// Remove qualquer formatação existente
 		const numeroLimpo = telefoneNumerico.toString().replace(/[\s\-\(\)]/g, '');
@@ -5344,7 +5543,6 @@ class DashboardApp {
 		}
 		return `${numeroLimpo.slice(0, 3)} ${numeroLimpo.slice(3, 6)} ${numeroLimpo.slice(6)}`;
 	}
-
 	gerarOpcoesTelefone(telefoneCorreto) {
 		const opcoes = [telefoneCorreto];
 		while (opcoes.length < 4) {
@@ -5363,7 +5561,6 @@ class DashboardApp {
 		}
 		return opcoes;
 	}
-
 	gerarOpcoesEmail(emailCorreto) {
 		const opcoes = [emailCorreto];
 		const dominios = ['gmail.com', 'hotmail.com', 'yahoo.com', 'outlook.com'];
@@ -5384,7 +5581,6 @@ class DashboardApp {
 		}
 		return opcoes;
 	}
-
 	gerarOpcoesEndereco(enderecoCorreto) {
 		const opcoes = [enderecoCorreto];
 		const ruas = ['Main Street', 'King Street', 'Queen Street', 'Yonge Street', 'Bay Street', 'Bloor Street', 'Dundas Street', 'Richmond Street'];
@@ -5407,38 +5603,30 @@ class DashboardApp {
 		}
 		return opcoes;
 	}
-
 	async abrirCadastroClienteModal(clienteExistente = null) {
 		// Verificar se há produtos no carrinho
 		const produtosNoCarrinho = Object.entries(this.cart)
 			.filter(([_, item]) => item && item.quantidade > 0 && item.adicionado);
-
 		if (produtosNoCarrinho.length === 0) {
-			alert('Seu carrinho está vazio!');
+			this.showAlert('alert.carrinho_vazio');
 			return;
 		}
-
 		// Criar modal
 		const modalId = 'modal-cadastro-cliente';
-		
 		// Remover TODOS os modais existentes para evitar sobreposição
 		document.querySelectorAll('.modal-overlay').forEach(modal => modal.remove());
-		
 		// Remover modal específico se ainda existir
 		const existingModal = document.getElementById(modalId);
 		if (existingModal) {
 			existingModal.remove();
 		}
-
 		const modal = document.createElement('div');
 		modal.id = modalId;
 		modal.className = 'modal-overlay show';
 		modal.style.zIndex = '2000';
-
 		// Contador de 5 minutos (300 segundos)
 		let tempoRestante = 300;
 		let countdownInterval;
-
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="max-width: 500px;">
 				<div class="modal-content">
@@ -5446,7 +5634,6 @@ class DashboardApp {
 						<h3 style="margin: 0; color: #333;">${clienteExistente ? '✅ Dados do Cliente Carregados' : '📝 Cadastro para Finalizar Compra'}</h3>
 						<button onclick="closeModal('${modalId}')" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #888; line-height: 1;">&times;</button>
 					</div>
-
 					<div id="countdown-warning" style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; text-align: center;">
 						<div style="color: #856404; font-weight: 600; margin-bottom: 0.5rem;">⏰ Tempo para finalizar cadastro</div>
 						<div id="countdown-timer" style="font-size: 1.5rem; font-weight: bold; color: #dc3545;">05:00</div>
@@ -5454,28 +5641,23 @@ class DashboardApp {
 							Caso não complete o cadastro, seu carrinho será esvaziado automaticamente
 						</div>
 					</div>
-
 					<form id="cadastro-cliente-form" style="display: flex; flex-direction: column; gap: 1rem;">
 						<div>
 							<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Nome Completo *</label>
 							<input type="text" id="cliente-nome" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
 						</div>
-
 						<div>
 							<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Telefone *</label>
 							<input type="tel" id="cliente-telefone" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
 						</div>
-
 						<div>
 							<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Email</label>
 							<input type="email" id="cliente-email" style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
 						</div>
-
 						<div>
 							<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Endereço Completo *</label>
 							<textarea id="cliente-endereco" required rows="3" style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box; resize: vertical;"></textarea>
 						</div>
-
 						<div style="display: flex; gap: 1rem; margin-top: 1rem;">
 							<button type="button" onclick="closeModal('${modalId}')" style="flex: 1; padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
 								Cancelar
@@ -5488,7 +5670,6 @@ class DashboardApp {
 				</div>
 			</div>
 		`;
-
 		// Adicionar modal ao DOM
 		let modalsContainer = document.getElementById('modals-container');
 		if (!modalsContainer) {
@@ -5497,14 +5678,12 @@ class DashboardApp {
 			document.body.appendChild(modalsContainer);
 		}
 		modalsContainer.appendChild(modal);
-
 		// Event listener para fechar modal
 		modal.addEventListener('click', (e) => {
 			if (e.target === modal || e.target.classList.contains('modal-overlay')) {
 				closeModal(modalId);
 			}
 		});
-
 		// Iniciar contador
 		function atualizarContador() {
 			const minutos = Math.floor(tempoRestante / 60);
@@ -5513,7 +5692,6 @@ class DashboardApp {
 			if (timerEl) {
 				timerEl.textContent = `${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
 			}
-
 			if (tempoRestante <= 0) {
 				clearInterval(countdownInterval);
 				// Esvaziar carrinho
@@ -5524,15 +5702,13 @@ class DashboardApp {
 					window.dashboardApp.updatePedidosCartTotal();
 				}
 				closeModal(modalId);
-				alert('Tempo esgotado! Seu carrinho foi esvaziado. Adicione os produtos novamente.');
+				this.showAlert('alert.tempo_esgotado');
 				return;
 			}
 			tempoRestante--;
 		}
-
 		atualizarContador();
 		countdownInterval = setInterval(atualizarContador, 1000);
-
 		// Preencher campos se cliente existente
 		if (clienteExistente) {
 			setTimeout(() => {
@@ -5542,23 +5718,19 @@ class DashboardApp {
 				document.getElementById('cliente-endereco').value = clienteExistente.endereco || '';
 			}, 100);
 		}
-
 		// Event listener para o formulário
 		const form = document.getElementById('cadastro-cliente-form');
 		if (form) {
 			form.addEventListener('submit', async (e) => {
 				e.preventDefault();
-
 				const nome = document.getElementById('cliente-nome').value.trim();
 				const telefone = document.getElementById('cliente-telefone').value.trim();
 				const email = document.getElementById('cliente-email').value.trim();
 				const endereco = document.getElementById('cliente-endereco').value.trim();
-
 				if (!nome || !telefone || !endereco) {
 					alert('Preencha todos os campos obrigatórios!');
 					return;
 				}
-
 				try {
 					// Salvar cliente
 					const clienteData = {
@@ -5568,30 +5740,23 @@ class DashboardApp {
 						endereco: endereco,
 						created_at: new Date().toISOString()
 					};
-
 					const clienteSalvo = await this.saveToSupabaseInsert('clientes', clienteData);
-					
 					if (!clienteSalvo || !clienteSalvo.id) {
 						alert('Erro ao salvar cliente. Verifique sua conexão com a internet e tente novamente.');
 						return;
 					}
-					
 					// Parar contador
 					clearInterval(countdownInterval);
-
 					// Fechar modal de cadastro
 					closeModal(modalId);
-
 					// Abrir modal de finalização de pedido com cliente selecionado
 					await this.abrirFinalizarPedidoModal(clienteSalvo);
-
 				} catch (error) {
 					console.error('Erro ao cadastrar cliente:', error);
 					alert('Erro ao cadastrar cliente. Tente novamente.');
 				}
 			});
 		}
-
 		// Limpar contador quando modal for fechado
 		const originalCloseModal = window.closeModal;
 		window.closeModal = function(modalIdToClose) {
@@ -5601,152 +5766,79 @@ class DashboardApp {
 			originalCloseModal(modalIdToClose);
 		};
 	}
-
 	// ENVIAR RECIBO POR EMAIL
 	enviarReciboPorEmail(pedido, produtos, emailCliente) {
-		if (!window.emailjs) {
-			console.error('EmailJS não carregado');
-			return;
-		}
+		// URL do backend - ALTERE PARA SUA URL HOSPEDADA
+		const BACKEND_URL = 'http://localhost:3001'; // Para desenvolvimento local
+		// const BACKEND_URL = 'https://sua-url-railway.com'; // Para produção
 
 		const produtosHtml = produtos.map(p => {
 			const prod = this.products.find(pr => pr.id == p.produto_id);
 			return `${prod?.nome || 'Produto'} - ${p.quantidade}x ${this.formatCurrency(p.preco_unitario)}`;
 		}).join('<br>');
 
-		const templateParams = {
+		const emailData = {
 			to_email: emailCliente,
-			pedido_numero: pedido.numero_pedido,
 			cliente_nome: pedido.cliente_nome,
+			pedido_numero: pedido.numero_pedido,
 			produtos: produtosHtml,
 			valor_total: this.formatCurrency(pedido.valor_total),
 			data_pedido: this.formatDate(pedido.data_pedido.slice(0,10)),
-			forma_pagamento: pedido.forma_pagamento
+			forma_pagamento: pedido.forma_pagamento,
+			assunto: `Recibo - Pedido ${pedido.numero_pedido}`,
+			mensagem_status: `Aqui está o recibo do seu pedido ${pedido.numero_pedido}.\n\nProdutos:\n${produtos.map(p => {
+				const prod = this.products.find(pr => pr.id == p.produto_id);
+				return `- ${prod?.nome || 'Produto'} (${p.quantidade}x)`;
+			}).join('\n')}\n\nValor Total: ${this.formatCurrency(pedido.valor_total)}\n\nObrigado por escolher a Leo's Cake!`
 		};
 
-		emailjs.send('service_ydmyk5b', 'template_044bzyj', templateParams)
-			.then(() => console.log('✅ Recibo enviado'))
-			.catch(err => console.error('❌ Erro ao enviar recibo:', err));
+		fetch(`${BACKEND_URL}/api/send-status-email`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify(emailData)
+		})
+		.then(response => response.json())
+		.then(data => {
+			if (data.success) {
+				console.log('✅ Recibo enviado com sucesso');
+			} else {
+				console.error('❌ Erro ao enviar recibo:', data.message);
+			}
+		})
+		.catch(error => {
+			console.error('❌ Erro na requisição do recibo:', error);
+		});
 	}
-
-	// ENVIAR EMAIL BASEADO NO STATUS DO PEDIDO
-	async enviarEmailPorStatus(order, oldStatus, newStatus) {
-		try {
-			// Só enviar email se o status realmente mudou
-			if (oldStatus === newStatus) return;
-
-			// Verificar se o pedido tem email do cliente
-			if (!order.email_cliente && !order.cliente_email) {
-				console.log('📧 Pedido sem email do cliente, pulando envio');
-				return;
-			}
-
-			const emailCliente = order.email_cliente || order.cliente_email;
-
-			// Buscar itens do pedido
-			const { data: itensPedido, error: itensError } = await this.supabase
-				.from('pedido_itens')
-				.select('produto_id, quantidade, preco_unitario')
-				.eq('pedido_id', order.id);
-
-			if (itensError) {
-				console.error('Erro ao buscar itens do pedido:', itensError);
-				return;
-			}
-
-			// Preparar lista de produtos
-			const produtosHtml = itensPedido.map(item => {
-				const produto = this.products.find(p => p.id == item.produto_id);
-				const nomeProduto = produto ? translateProductName(produto.nome) : 'Produto';
-				return `${nomeProduto} - ${item.quantidade}x ${this.formatCurrency(item.preco_unitario)}`;
-			}).join('\n');
-
-			// Preparar template do email
-			const templateParams = {
-				to_email: emailCliente,
-				pedido_numero: order.numero_pedido || order.id,
-				cliente_nome: order.cliente_nome || order.nome_cliente || 'Cliente',
-				produtos: produtosHtml,
-				valor_total: this.formatCurrency(order.valor_total),
-				data_entrega: order.data_entrega ? this.formatDate(order.data_entrega) : 'A combinar'
-			};
-
-			// Template específico baseado no novo status
-			let templateId = '';
-			switch (newStatus) {
-				case 'pendente':
-					templateId = 'template_pendente';
-					break;
-				case 'confirmado':
-					templateId = 'template_confirmado';
-					break;
-				case 'producao':
-					templateId = 'template_producao';
-					break;
-				case 'pago':
-					templateId = 'template_pago';
-					break;
-				case 'entregue':
-					templateId = 'template_entregue';
-					break;
-				case 'cancelado':
-					templateId = 'template_cancelado';
-					break;
-				default:
-					console.log(`📧 Status ${newStatus} não tem template de email configurado`);
-					return;
-			}
-
-			// Verificar se EmailJS está carregado
-			if (!window.emailjs) {
-				console.error('❌ EmailJS não carregado');
-				return;
-			}
-
-			// Enviar email
-			console.log(`📧 Enviando email para ${emailCliente} - Status: ${newStatus}`);
-
-			await emailjs.send('service_ydmyk5b', templateId, templateParams);
-
-			console.log(`✅ Email enviado com sucesso para status: ${newStatus}`);
-
-		} catch (error) {
-			console.error('❌ Erro ao enviar email:', error);
-		}
-	}
-
 	// PÁGINA DE ESTOQUE
 	renderEstoquePage() {
 		const container = document.getElementById('estoque-container');
 		if (!container) return;
 		container.innerHTML = '<p>Estoque gerenciado via card no dashboard.</p>';
 	}
-
 	// PÁGINA DE ENTREGAS
 	renderEntregasPage() {
 		const container = document.getElementById('entregas-container');
 		if (!container) return;
-
 		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
 		const isVendedor = role === 'sale' || role === 'vendedor';
 		const isAdmin = role === 'admin';
-
 		// Cabeçalho com botão de configuração (apenas para admin)
 		let headerHtml = '';
 		if (isAdmin) {
 			headerHtml = `
 				<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding: 1rem; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(102,126,234,0.3);">
 					<div>
-						<h3 style="margin: 0; font-size: 1.25rem; font-weight: 700;">🚚 Gerenciamento de Entregas</h3>
+						<h3 style="margin: 0; font-size: 1.25rem; font-weight: 700;">🚚 ${t('entregas.gerenciamento')}</h3>
 						<p style="margin: 0.25rem 0 0 0; opacity: 0.9; font-size: 0.9rem;">Configure horários e gerencie entregas</p>
 					</div>
 					<button onclick="window.dashboardApp.openHorariosConfigModal()" style="padding: 0.75rem 1.25rem; background: rgba(255,255,255,0.2); color: white; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; cursor: pointer; font-weight: 600; backdrop-filter: blur(10px); transition: all 0.2s;">
-						<i class="fas fa-clock"></i> Configurar Horários
+						<i class="fas fa-clock"></i> ${t('entregas.configure_horarios')}
 					</button>
 				</div>
 			`;
 		}
-
 		// Filtrar entregas baseado no papel do usuário
 		let entregas = [...this.entregas];
 		if (isVendedor && this.currentUser?.id) {
@@ -5761,18 +5853,14 @@ class DashboardApp {
 			console.log('👑 Admin logado - mostrando todas as entregas');
 			entregas = [...this.entregas];
 		}
-
 		// Ordenar por data (mais próximas primeiro)
 		entregas.sort((a, b) => new Date(a.data_entrega) - new Date(b.data_entrega));
-
 		if (entregas.length === 0) {
 			container.innerHTML = headerHtml + `<p style="text-align: center; padding: 3rem; color: #888;">${this.t('msg.nenhuma_entrega')}</p>`;
 			return;
 		}
-
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
-
 		const list = entregas.map(entrega => {
 			// Encontrar o pedido relacionado
 			const pedido = this.orders.find(o => o.id == entrega.pedido_id) || {};
@@ -5780,14 +5868,11 @@ class DashboardApp {
 			const cliente = this.clients.find(c => c.id == pedido.cliente_id) || {};
 			const dataEntrega = new Date(entrega.data_entrega);
 			dataEntrega.setHours(0, 0, 0, 0);
-			
 			const isToday = dataEntrega.getTime() === today.getTime();
 			const isPast = dataEntrega < today;
 			const isTomorrow = dataEntrega.getTime() === (today.getTime() + 24 * 60 * 60 * 1000);
-			
 			let bgColor = 'white';
 			let borderColor = '#17a2b8';
-			
 			if (isToday) {
 				bgColor = '#fff3cd';
 				borderColor = '#FFC107';
@@ -5798,14 +5883,12 @@ class DashboardApp {
 				bgColor = '#d1ecf1';
 				borderColor = '#17a2b8';
 			}
-
 			const statusColors = {
 				'agendada': '#17a2b8',
 				'saiu_entrega': '#ffc107',
 				'entregue': '#28a745',
 				'cancelada': '#dc3545'
 			};
-
 			return `
 				<div style="background: ${bgColor}; padding: 1.25rem; border-radius: 10px; margin-bottom: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid ${borderColor}; cursor: pointer;" onclick="window.dashboardApp.showOrderDetails(${pedido.id})">
 					<div style="display: flex; justify-content: space-between; align-items: start;">
@@ -5833,30 +5916,24 @@ class DashboardApp {
 				</div>
 			`;
 		}).join('');
-
 		container.innerHTML = headerHtml + list;
 	}
-
 	// PÁGINA DE CLIENTES
 	renderClientesPage() {
 		const container = document.getElementById('clientes-container');
 		if (!container) return;
-		
 		container.style.display = 'flex';
 		container.style.flexDirection = 'column';
 		container.style.gap = '0.75rem';
-
 		const actionBar = `
 			<button onclick="window.dashboardApp.openAddClientModal()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 1rem; box-shadow: 0 4px 12px rgba(255,107,157,0.3);">
 				<i class="fas fa-plus"></i> ${t('verificacao.novo_cliente')}
 			</button>
 		`;
-
 		if (this.clients.length === 0) {
 			container.innerHTML = actionBar + `<p style="text-align: center; padding: 3rem; color: #888;">Nenhum cliente cadastrado</p>`;
 			return;
 		}
-
 		function escapeHtml(text) {
 			if (!text) return '';
 			return String(text)
@@ -5866,7 +5943,6 @@ class DashboardApp {
 				.replace(/"/g, '&quot;')
 				.replace(/'/g, '&#39;');
 		}
-
 		const list = this.clients.map(c => `
 			<div style="background: white; padding: 1.25rem; border-radius: 10px; margin-bottom: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid #667eea;">
 				<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
@@ -5892,21 +5968,16 @@ class DashboardApp {
 				</div>
 			</div>
 		`).join('');
-
 		container.innerHTML = actionBar + list;
 	}
-
 	async editClient(id) {
 		const client = this.clients.find(c => c.id === id);
 		if (!client) return;
-
 		const modal = this.createModal('modal-edit-client', 'Editar Cliente', true);
-		
 		function escapeHtml(text) {
 			if (!text) return '';
 			return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 		}
-
 		modal.querySelector('.modal-content-wrapper').innerHTML += `
 			<form id="form-edit-client" class="form-modal">
 				<div class="form-group">
@@ -5931,22 +6002,18 @@ class DashboardApp {
 				</div>
 			</form>
 		`;
-
 		document.getElementById('modals-container').appendChild(modal);
 		modal.classList.add('show');
-
 		modal.querySelector('#form-edit-client').addEventListener('submit', async (e) => {
 			e.preventDefault();
 			const nome = modal.querySelector('#edit-client-nome').value.trim();
 			const telefone = modal.querySelector('#edit-client-telefone').value.trim();
 			const email = modal.querySelector('#edit-client-email').value.trim();
 			const endereco = modal.querySelector('#edit-client-endereco').value.trim();
-
 			if (!nome || !telefone || !endereco) {
 				alert('Preencha todos os campos obrigatórios');
 				return;
 			}
-
 			const clientData = { nome, telefone, email, endereco };
 			await this.saveToSupabase('clientes', clientData, id);
 			Object.assign(client, clientData);
@@ -5954,14 +6021,12 @@ class DashboardApp {
 			this.renderClientesPage();
 		});
 	}
-
 	async deleteClient(id) {
 		if (!confirm('Tem certeza que deseja excluir este cliente?')) return;
 		await this.deleteFromSupabase('clientes', id);
 		this.clients = this.clients.filter(c => c.id !== id);
 		this.renderClientesPage();
 	}
-
 	async deleteFromSupabase(table, id) {
 		if (!this.supabase) return false;
 		try {
@@ -5972,7 +6037,6 @@ class DashboardApp {
 			return false;
 		}
 	}
-
 	openAddClientModal() {
 		const modal = this.createModal('modal-add-client', '', false);
 		modal.querySelector('.modal-content-wrapper').innerHTML = `
@@ -6005,22 +6069,18 @@ class DashboardApp {
 				</div>
 			</form>
 		`;
-
 		document.getElementById('modals-container').appendChild(modal);
 		modal.classList.add('show');
-
 		modal.querySelector('#form-add-client').addEventListener('submit', async (e) => {
 			e.preventDefault();
 			const nome = modal.querySelector('#client-nome').value.trim();
 			const telefone = modal.querySelector('#client-telefone').value.trim();
 			const email = modal.querySelector('#client-email').value.trim();
 			const endereco = modal.querySelector('#client-endereco').value.trim();
-
 			if (!nome || !telefone || !endereco) {
 				alert('Preencha todos os campos obrigatórios');
 				return;
 			}
-
 			const clientData = { nome, telefone, email, endereco, canal: 'fisico' };
 			const result = await this.saveToSupabaseInsert('clientes', clientData);
 			if (result) this.clients.unshift(result);
@@ -6030,7 +6090,6 @@ class DashboardApp {
 			closeModal('modal-add-client');
 		});
 	}
-
 	// PÁGINA DE PRODUTOS
 	renderProdutosPage() {
 		const container = document.getElementById('produtos-container');
@@ -6038,31 +6097,25 @@ class DashboardApp {
 			console.error('❌ Container produtos não encontrado');
 			return;
 		}
-
 		// Verificar se o usuário é admin para mostrar botão de adicionar produto
 		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
 		const isAdmin = role === 'admin';
-
 		// Limpar completamente o container
 		while (container.firstChild) {
 			container.removeChild(container.firstChild);
 		}
-
 		container.style.display = 'flex';
 		container.style.flexDirection = 'column';
 		container.style.gap = '1rem';
-
 		const actionBar = isAdmin ? `
 			<button onclick="window.dashboardApp.openAddProductModal()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 1rem; box-shadow: 0 4px 12px rgba(255,107,157,0.3);">
 				<i class="fas fa-plus"></i> Novo Produto
 			</button>
 		` : '';
-
 		if (this.products.length === 0) {
 			container.innerHTML = actionBar + `<p style="text-align: center; padding: 3rem; color: #888;">Nenhum produto cadastrado</p>`;
 			return;
 		}
-
 		const produtosHtml = `
 			<div style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center;">
 				${this.products.map(p => {
@@ -6080,7 +6133,6 @@ class DashboardApp {
 					} else {
 						console.log('📸 Produto', p.id, 'não tem fotos (p.fotos é null/undefined)');
 					}
-					
 					return `
 						<div class="card-produto" style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.2rem; max-width: 320px; width: 100%; display: flex; flex-direction: column; align-items: center;" data-descricao="${p.descricao || ''}">
 							<div style="width: 100%; text-align: center; margin-bottom: 0.5rem;">
@@ -6091,7 +6143,7 @@ class DashboardApp {
 							</div>
 							<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
 								<div id="carousel-${p.id}" data-current="0" style="display: flex; transition: transform 0.3s ease;">
-									${fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;">`).join('')}
+									${fotos.map(foto => `<img loading="lazy" src="${foto}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;">`).join('')}
 								</div>
 								${fotos.length > 1 ? `
 									<button data-action="prev-photo" data-id="${p.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
@@ -6122,9 +6174,7 @@ class DashboardApp {
 				}).join('')}
 			</div>
 		`;
-
 		container.innerHTML = actionBar + produtosHtml;
-
 		// Eventos do carrossel e botões
 		container.onclick = (e) => {
 			const btn = e.target.closest('button[data-action]');
@@ -6133,11 +6183,9 @@ class DashboardApp {
 			const id = btn.getAttribute('data-id');
 			const preco = parseFloat(btn.getAttribute('data-preco'));
 			const total = parseInt(btn.getAttribute('data-total'));
-			
 			console.log('🎯 Botão clicado:', action, 'id:', id, 'id length:', id ? id.length : 'null', 'id type:', typeof id);
 			console.log('🎯 Elemento botão:', btn);
 			console.log('🎯 data-id attribute:', btn.getAttribute('data-id'));
-			
 			switch (action) {
 				case 'prev-photo':
 					this.prevPhoto(id, total);
@@ -6167,26 +6215,20 @@ class DashboardApp {
 			}
 		};
 	}
-
 	async editProduct(id) {
 		console.log('🎯 editProduct chamado com id:', id, typeof id);
-		
 		// Não converter para number, manter como string (UUID)
 		// id = parseInt(id, 10);
 		console.log('🎯 ID mantido como string:', id, typeof id);
-		
 		// Log de todos os produtos para debug
 		console.log('📋 Lista de produtos disponíveis:', this.products.map(p => ({id: p.id, nome: p.nome, tipo: typeof p.id})));
-		
 		// Verificar se o usuário é admin
 		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
 		const isAdmin = role === 'admin';
-		
 		if (!isAdmin) {
 			alert('Acesso negado. Apenas administradores podem editar produtos.');
 			return;
 		}
-
 		const product = this.products.find(p => {
 			const pId = String(p.id);
 			const searchId = String(id);
@@ -6194,22 +6236,17 @@ class DashboardApp {
 			console.log(`🔍 Comparando produto ${pId} (tipo: ${typeof p.id}) com ${searchId} (tipo: ${typeof id}) - match: ${match}`);
 			return match;
 		});
-		
 		console.log('📦 Produto encontrado:', product);
-		
 		if (!product) {
 			console.error('❌ Produto não encontrado com id:', id, 'em produtos:', this.products.map(p => ({id: p.id, nome: p.nome, tipo: typeof p.id})));
 			alert('Produto não encontrado.');
 			return;
 		}
-
 		console.log('Produto encontrado:', product);
 		console.log('Custo do produto:', product.custo, typeof product.custo);
 		console.log('📝 Nome do produto no modal:', product.nome);
-
 		const modal = this.createModal('modal-edit-product', '✏️ Editar Produto');
 		modal.classList.add('show');
-
 		const wrapper = modal.querySelector('.modal-content-wrapper');
 		wrapper.innerHTML += `
 			<form id="form-edit-product" class="form-modal">
@@ -6269,25 +6306,20 @@ class DashboardApp {
 				</div>
 			</form>
 		`;
-
 		document.getElementById('modals-container').appendChild(modal);
-
 		// Verificar se o campo nome foi preenchido corretamente
 		setTimeout(() => {
 			const nomeField = modal.querySelector('#edit-nome');
 			console.log('🔍 Campo nome após modal aberto:', nomeField.value);
 			console.log('🔍 Campo nome esperado:', product.nome);
 		}, 100);
-
 		// Preview de novas imagens no upload
 		const fileInput = modal.querySelector('#edit-fotos-upload');
 		const previewContainer = modal.querySelector('#edit-fotos-preview');
-		
 		fileInput.addEventListener('change', function(e) {
 			// Limpar previews anteriores das novas imagens
 			const existingPreviews = previewContainer.querySelectorAll('img:not([data-existing])');
 			existingPreviews.forEach(img => img.remove());
-			
 			// Adicionar preview das novas imagens (apenas as que serão processadas)
 			const maxPreviewImages = 5;
 			if (this.files && this.files.length > 0) {
@@ -6308,7 +6340,6 @@ class DashboardApp {
 				});
 			}
 		});
-
 		modal.querySelector('#form-edit-product').addEventListener('submit', async (e) => {
 			e.preventDefault();
 			const nome = modal.querySelector('#edit-nome').value.trim();
@@ -6322,18 +6353,15 @@ class DashboardApp {
 			const estoque = parseInt(modal.querySelector('#edit-estoque').value);
 			const status_produto = modal.querySelector('#edit-status').value;
 			const descricao = modal.querySelector('#edit-descricao').value.trim();
-
 			if (!nome || !categoria || isNaN(preco) || isNaN(estoque) || !status_produto) {
 				alert('Preencha todos os campos obrigatórios');
 				return;
 			}
-
 			// Processar fotos existentes (remover as que foram deletadas)
 			let fotos = [];
 			if (product.fotos) {
 				try { fotos = JSON.parse(product.fotos); } catch {}
 			}
-			
 			// Remover fotos que foram clicadas para deletar
 			const previewContainer = modal.querySelector('#edit-fotos-preview');
 			const remainingImages = previewContainer.querySelectorAll('img[data-existing="true"]');
@@ -6342,40 +6370,32 @@ class DashboardApp {
 			console.log('📸 Imagens existentes mantidas:', remainingImages.length);
 			fotos = Array.from(remainingImages).map(img => img.src);
 			console.log('📸 Fotos existentes após remoção:', fotos.length, 'fotos');
-
 			// Adicionar novas fotos do upload
 			const fileInput = modal.querySelector('#edit-fotos-upload');
 			if (fileInput.files && fileInput.files.length > 0) {
 				console.log(`📸 Processando ${fileInput.files.length} novas imagens...`);
 				console.log(`📸 Fotos no array antes do processamento: ${fotos.length}`);
-				
 				// Limitar número de imagens para evitar timeout (aumentado para 5)
 				const maxImages = 5;
 				const filesToProcess = Array.from(fileInput.files);
 				const totalFotosAposProcessamento = fotos.length + filesToProcess.length;
-				
 				if (totalFotosAposProcessamento > maxImages) {
 					const fotosPermitidas = maxImages - fotos.length;
 					alert(`Produto já tem ${fotos.length} fotos. Apenas ${fotosPermitidas} novas imagens serão processadas (máximo total: ${maxImages}).`);
 					filesToProcess.splice(fotosPermitidas);
 				}
-				
 				const filesToProcessFinal = filesToProcess.slice(0, maxImages - fotos.length);
-				
 				if (fileInput.files.length > maxImages - fotos.length) {
 					alert(`Apenas as primeiras ${maxImages - fotos.length} imagens serão processadas para evitar timeout.`);
 				}
-				
 				for (let i = 0; i < filesToProcessFinal.length; i++) {
 					const file = filesToProcessFinal[i];
 					console.log(`📸 Processando imagem ${i + 1}/${filesToProcessFinal.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
-					
 					// Verificar tamanho do arquivo (máximo 10MB na entrada, será comprimido)
 					if (file.size > 10 * 1024 * 1024) {
 						alert(`Imagem ${file.name} é muito grande (${(file.size / 1024 / 1024).toFixed(2)}MB). Máximo 10MB (será comprimida automaticamente).`);
 						continue;
 					}
-					
 					try {
 						const base64 = await this.fileToBase64(file);
 						// Comprimir base64 com limite máximo de 5MB
@@ -6388,12 +6408,10 @@ class DashboardApp {
 					}
 				}
 			}
-
 			const productData = { nome, categoria, preco, custo, estoque, status_produto, fotos: JSON.stringify(fotos), descricao };
 			console.log('📦 Dados preparados para salvar:', productData);
 			console.log('🖼️ Total de fotos a salvar:', fotos.length);
 			console.log('🖼️ Detalhes das fotos:', fotos.map((f, i) => `Foto ${i+1}: ${f.substring(0, 50)}... (${f.length} chars)`));
-			
 			// Verificar se há duplicatas
 			const uniqueFotos = [...new Set(fotos)];
 			if (uniqueFotos.length !== fotos.length) {
@@ -6405,16 +6423,13 @@ class DashboardApp {
 			}
 			console.log('🆔 ID do produto sendo editado (antes do save):', id, 'tipo:', typeof id);
 			console.log('🔍 ID é válido? (antes do save)', id !== null && id !== undefined && id !== '');
-			
 			const result = await this.saveToSupabase('produtos', productData, id);
-			
 			if (result) {
 				console.log('✅ Produto salvo com sucesso, atualizando dados locais...');
 				const idx = this.products.findIndex(p => p.id == id);
 				if (idx !== -1) {
 					const produtoAntes = this.products[idx];
 					console.log('📦 Produto antes da atualização:', { id: produtoAntes.id, fotosCount: produtoAntes.fotos ? JSON.parse(produtoAntes.fotos).length : 0 });
-					
 					// Atualizar apenas os campos que foram modificados, mantendo a estrutura original
 					this.products[idx] = { 
 						...this.products[idx], 
@@ -6427,16 +6442,13 @@ class DashboardApp {
 						fotos: productData.fotos, // Já vem como JSON string
 						descricao: productData.descricao
 					};
-					
 					const produtoDepois = this.products[idx];
 					console.log('📦 Produto após atualização:', { id: produtoDepois.id, fotosCount: produtoDepois.fotos ? JSON.parse(produtoDepois.fotos).length : 0 });
 				}
-				
 				// REABILITADO - necessário para manter a lista atualizada
 				this.renderProdutosPage();
 				this.updateStats();
 				console.log('✅ Interface atualizada após edição');
-				
 				alert('Produto atualizado com sucesso!');
 			} else {
 				alert('Erro ao atualizar produto');
@@ -6444,17 +6456,14 @@ class DashboardApp {
 			closeModal('modal-edit-product');
 		});
 	}
-
 	async deleteProduct(id) {
 		// Verificar se o usuário é admin
 		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
 		const isAdmin = role === 'admin';
-		
 		if (!isAdmin) {
 			alert('Acesso negado. Apenas administradores podem excluir produtos.');
 			return;
 		}
-
 		const success = await this.deleteFromSupabase('produtos', id);
 		if (success) {
 			this.products = this.products.filter(p => p.id !== id);
@@ -6462,17 +6471,14 @@ class DashboardApp {
 			this.updateStats();
 		}
 	}
-
 	openAddProductModal() {
 		// Verificar se o usuário é admin
 		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
 		const isAdmin = role === 'admin';
-		
 		if (!isAdmin) {
 			alert('Acesso negado. Apenas administradores podem adicionar produtos.');
 			return;
 		}
-
 		const modal = this.createModal('modal-add-product', '', false);
 		modal.querySelector('.modal-content-wrapper').innerHTML = `
 			<div style="display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.7rem;">
@@ -6525,14 +6531,11 @@ class DashboardApp {
 				</div>
 			</form>
 		`;
-
 		document.getElementById('modals-container').appendChild(modal);
 		modal.classList.add('show');
-
 		// Preview de imagens no upload
 		const fileInput = modal.querySelector('#product-fotos-upload');
 		const previewContainer = modal.querySelector('#product-fotos-preview');
-		
 		fileInput.addEventListener('change', function(e) {
 			previewContainer.innerHTML = '';
 			if (this.files && this.files.length > 0) {
@@ -6554,7 +6557,6 @@ class DashboardApp {
 				});
 			}
 		});
-
 		modal.querySelector('#form-add-product').addEventListener('submit', async (e) => {
 			e.preventDefault();
 			const nome = modal.querySelector('#product-nome').value.trim();
@@ -6566,36 +6568,29 @@ class DashboardApp {
 			const estoque = parseInt(modal.querySelector('#product-estoque').value);
 			const status_produto = modal.querySelector('#product-status').value;
 			const descricao = modal.querySelector('#product-descricao').value.trim();
-
 			if (!nome || !categoria || isNaN(preco) || isNaN(estoque) || !status_produto) {
 				alert('Preencha todos os campos obrigatórios');
 				return;
 			}
-
 			// Processar fotos
 			let fotos = [];
 			const fileInput = modal.querySelector('#product-fotos-upload');
 			if (fileInput.files && fileInput.files.length > 0) {
 				console.log(`📸 Processando ${fileInput.files.length} novas imagens para novo produto...`);
-				
 				// Limitar número de imagens para evitar timeout (máximo 5)
 				const maxImages = 5;
 				const filesToProcess = Array.from(fileInput.files).slice(0, maxImages);
-				
 				if (fileInput.files.length > maxImages) {
 					alert(`Apenas as primeiras ${maxImages} imagens serão processadas para evitar timeout.`);
 				}
-				
 				for (let i = 0; i < filesToProcess.length; i++) {
 					const file = filesToProcess[i];
 					console.log(`📸 Processando imagem ${i + 1}/${filesToProcess.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
-					
 					// Verificar tamanho do arquivo (máximo 10MB na entrada, será comprimido)
 					if (file.size > 10 * 1024 * 1024) {
 						alert(`Imagem ${file.name} é muito grande (${(file.size / 1024 / 1024).toFixed(2)}MB). Máximo 10MB (será comprimida automaticamente).`);
 						continue;
 					}
-					
 					try {
 						const base64 = await this.fileToBase64(file);
 						// Comprimir base64 com limite máximo de 5MB
@@ -6608,7 +6603,6 @@ class DashboardApp {
 					}
 				}
 			}
-
 			const productData = { nome, categoria, preco, custo, estoque, status_produto, fotos: JSON.stringify(fotos), descricao };
 			const result = await this.saveToSupabaseInsert('produtos', productData);
 			if (result) this.products.unshift(result);
@@ -6617,7 +6611,6 @@ class DashboardApp {
 			closeModal('modal-add-product');
 		});
 	}
-
 	prevPhoto(productId, totalPhotos) {
 		const carousel = document.getElementById(`carousel-${productId}`);
 		if (!carousel) return;
@@ -6626,7 +6619,6 @@ class DashboardApp {
 		carousel.style.transform = `translateX(-${prev * 100}%)`;
 		carousel.dataset.current = prev;
 	}
-
 	nextPhoto(productId, totalPhotos) {
 		const carousel = document.getElementById(`carousel-${productId}`);
 		if (!carousel) return;
@@ -6635,7 +6627,6 @@ class DashboardApp {
 		carousel.style.transform = `translateX(-${next * 100}%)`;
 		carousel.dataset.current = next;
 	}
-
 	// Função auxiliar para converter arquivo para base64
 	fileToBase64(file) {
 		return new Promise((resolve, reject) => {
@@ -6645,7 +6636,6 @@ class DashboardApp {
 			reader.onerror = error => reject(error);
 		});
 	}
-
 	// Função para comprimir imagens base64 com limite de tamanho
 	async compressBase64Image(base64, maxSizeMB = 5, maxWidth = 800) {
 		return new Promise((resolve) => {
@@ -6654,31 +6644,25 @@ class DashboardApp {
 				try {
 					const canvas = document.createElement('canvas');
 					const ctx = canvas.getContext('2d');
-					
 					// Calcular novas dimensões mantendo proporção
 					let { width, height } = img;
 					if (width > maxWidth) {
 						height = (height * maxWidth) / width;
 						width = maxWidth;
 					}
-					
 					canvas.width = width;
 					canvas.height = height;
-					
 					// Desenhar a imagem no canvas
 					ctx.drawImage(img, 0, 0, width, height);
-					
 					// Tentar diferentes qualidades até ficar abaixo do limite
 					let quality = 0.8; // Começar com 80%
 					let compressed = canvas.toDataURL('image/jpeg', quality);
-					
 					// Se ainda for muito grande, reduzir qualidade gradualmente
 					while (compressed.length > maxSizeMB * 1024 * 1024 && quality > 0.1) {
 						quality -= 0.1;
 						compressed = canvas.toDataURL('image/jpeg', quality);
 						console.log(`🔄 Reduzindo qualidade para ${quality.toFixed(1)} - tamanho: ${(compressed.length / 1024 / 1024).toFixed(2)}MB`);
 					}
-					
 					// Se ainda for muito grande, reduzir resolução
 					if (compressed.length > maxSizeMB * 1024 * 1024) {
 						console.log('🔄 Reduzindo resolução adicional...');
@@ -6689,7 +6673,6 @@ class DashboardApp {
 						ctx.drawImage(img, 0, 0, newMaxWidth, newHeight);
 						compressed = canvas.toDataURL('image/jpeg', 0.5); // 50% qualidade
 					}
-					
 					// Garantir que sempre retornamos uma imagem válida
 					if (compressed && compressed.length > 100) {
 						resolve(compressed);
@@ -6709,15 +6692,12 @@ class DashboardApp {
 			img.src = base64;
 		});
 	}
-
 	// VISUALIZAR PEDIDO
 	viewOrder(id) {
 		const order = this.orders.find(o => o.id == id);
 		if (!order) return;
-
 		const modal = this.createModal('modal-view-order', '', false);
 		const client = this.clients.find(c => c.id == order.cliente_id);
-		
 		modal.querySelector('.modal-content-wrapper').style.maxWidth = '430px';
 		modal.querySelector('.modal-content-wrapper').style.padding = '2.2rem 1.7rem';
 		modal.querySelector('.modal-content-wrapper').innerHTML = `
@@ -6745,11 +6725,9 @@ class DashboardApp {
 				<button type="button" onclick="closeModal('modal-view-order')" class="btn btn-secondary" style="font-size: 0.95rem; padding: 0.5rem 1rem;">Fechar</button>
 			</div>
 		`;
-
 		document.getElementById('modals-container').appendChild(modal);
 		modal.classList.add('show');
 	}
-
 	async loadConfiguracoes() {
 		try {
 			const { data: configuracoes, error: configError } = await this.supabase
@@ -6767,64 +6745,175 @@ class DashboardApp {
 			this.configuracoes = [];
 		}
 	}
-
+	async refreshConfiguracoes(chaves = []) {
+		if (!this.supabase) {
+			return;
+		}
+		const keys = Array.isArray(chaves) && chaves.length > 0 ? chaves : ['horarios_entrega', 'feriados_personalizados'];
+		const { data, error } = await this.supabase
+			.from('configuracoes')
+			.select('*')
+			.in('chave', keys);
+		if (error || !Array.isArray(data)) {
+			if (error) {
+				console.warn('Erro ao atualizar configurações em tempo real:', error);
+			}
+			return;
+		}
+		keys.forEach(chave => {
+			const entry = data.find(item => item.chave === chave);
+			if (!entry) {
+				return;
+			}
+			const existingIndex = this.configuracoes.findIndex(c => c.chave === chave);
+			if (existingIndex >= 0) {
+				this.configuracoes[existingIndex] = entry;
+			} else {
+				this.configuracoes.push(entry);
+			}
+		});
+	}
+	applyConfiguracoesRealtime(payload) {
+		const chave = payload?.new?.chave || payload?.old?.chave;
+		if (!['horarios_entrega', 'feriados_personalizados'].includes(chave)) {
+			return;
+		}
+		this.atualizarListaFeriados();
+		const dataInput = document.getElementById('finalizar-data-entrega');
+		if (dataInput && dataInput.value) {
+			this.updateHorariosDisponiveis(dataInput.value);
+		}
+	}
 	openHorariosConfigModal() {
 		// Carregar configurações atuais de horários
 		let horariosConfig = this.configuracoes.find(c => c.chave === 'horarios_entrega');
-		
 		// Se não existir configuração, criar uma padrão
 		if (!horariosConfig) {
 			horariosConfig = {
 				dias_semana: ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'],
-				fins_semana: ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00']
+				sabado: ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'],
+				domingo: ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'],
+				feriados: ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00']
 			};
 			console.log('⚠️ Usando configuração padrão de horários');
 		} else {
 			horariosConfig = horariosConfig.valor;
+			// Se o valor for string, fazer parse JSON
+			if (typeof horariosConfig === 'string') {
+				try {
+					horariosConfig = JSON.parse(horariosConfig);
+				} catch (e) {
+					console.error('Erro ao fazer parse da configuração de horários:', e);
+					horariosConfig = null;
+				}
+			}
+			// Garantir que seja um objeto e tenha todas as propriedades
+			if (!horariosConfig || typeof horariosConfig !== 'object') {
+				horariosConfig = {
+					dias_semana: [],
+					sabado: [],
+					domingo: [],
+					feriados: []
+				};
+			} else {
+				// Garantir que todas as propriedades existam
+				if (!horariosConfig.dias_semana) horariosConfig.dias_semana = [];
+				if (!horariosConfig.sabado) horariosConfig.sabado = [];
+				if (!horariosConfig.domingo) horariosConfig.domingo = [];
+				if (!horariosConfig.feriados) horariosConfig.feriados = [];
+			}
 		}
-
 		const modal = this.createModal('modal-horarios-config', '🕐 Configurar Horários de Entrega', true);
-
+		modal.style.cssText = `
+			position: fixed;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			background: white;
+			border-radius: 12px;
+			box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+			z-index: 1000;
+			max-width: 90vw;
+			max-height: 85vh;
+			width: 750px;
+			overflow-y: auto;
+		`;
 		modal.innerHTML = `
-			<div style="padding: 1.5rem;">
-				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+			<div style="display: flex; flex-direction: column; width: 100%;">
+				<div style="padding: 0.75rem; border-bottom: 1px solid #eee; background: #f8f9fa; width: 100%; box-sizing: border-box;">
+					<h4 style="margin: 0 0 0.75rem 0; color: #333; font-size: 0.9rem;">📅 ${t('feriados.selecionar_feriados')}</h4>
+					<div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem;">
+						<input type="date" id="novo-feriado" style="padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px; background: white; font-size: 0.8rem;" placeholder="YYYY-MM-DD">
+						<button onclick="window.dashboardApp.adicionarFeriado()" style="padding: 0.4rem 0.8rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">${t('feriados.adicionar')}</button>
+					</div>
+					<div id="lista-feriados" style="display: flex; flex-wrap: wrap; gap: 0.25rem; max-height: 80px; overflow-y: auto; padding: 0.25rem; background: white; border: 1px solid #eee; border-radius: 4px;">
+						<!-- Lista de feriados será preenchida dinamicamente -->
+					</div>
+					<div style="margin-top: 0.5rem; font-size: 0.75rem; color: #666;">
+						${t('feriados.instrucao_lista')}
+					</div>
+				</div>
+				<div style="padding: 1rem; width: 100%; box-sizing: border-box;">
+				<div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
 					<div>
-						<h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem;">📅 ${t('horarios.dias_semana')}</h4>
-						<div id="dias-semana-container" style="display: grid; grid-template-columns: 1fr; gap: 0.5rem; margin-bottom: 1rem; max-height: 300px; overflow-y: auto;">
+						<h4 style="margin: 0 0 0.75rem 0; color: #333; font-size: 1rem;">📅 ${t('horarios.dias_semana')}</h4>
+						<div id="dias-semana-container" style="display: grid; grid-template-columns: 1fr; gap: 0.25rem; margin-bottom: 0.5rem; max-height: 150px; overflow-y: auto;">
 							${this.generateHorariosCheckboxes('dias_semana', horariosConfig.dias_semana)}
 						</div>
-						<div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-							<button onclick="window.dashboardApp.selectAllHorarios('dias_semana')" style="padding: 0.25rem 0.5rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">${t('horarios.selecionar_todos')}</button>
-							<button onclick="window.dashboardApp.deselectAllHorarios('dias_semana')" style="padding: 0.25rem 0.5rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">${t('horarios.desmarcar_todos')}</button>
+						<div style="display: flex; gap: 0.25rem; margin-top: 0.25rem;">
+							<button onclick="window.dashboardApp.selectAllHorarios('dias_semana')" style="padding: 0.2rem 0.4rem; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.7rem;">${t('horarios.selecionar_todos')}</button>
+							<button onclick="window.dashboardApp.deselectAllHorarios('dias_semana')" style="padding: 0.2rem 0.4rem; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.7rem;">${t('horarios.desmarcar_todos')}</button>
 						</div>
 					</div>
-
 					<div>
-						<h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem;">🎉 ${t('horarios.fins_semana')}</h4>
-						<div id="fins-semana-container" style="display: grid; grid-template-columns: 1fr; gap: 0.5rem; margin-bottom: 1rem; max-height: 300px; overflow-y: auto;">
-							${this.generateHorariosCheckboxes('fins_semana', horariosConfig.fins_semana)}
+						<h4 style="margin: 0 0 0.75rem 0; color: #333; font-size: 1rem;">🎉 ${t('horarios.sabado')}</h4>
+						<div id="sabado-container" style="display: grid; grid-template-columns: 1fr; gap: 0.25rem; margin-bottom: 0.5rem; max-height: 150px; overflow-y: auto;">
+							${this.generateHorariosCheckboxes('sabado', horariosConfig.sabado)}
 						</div>
-						<div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-							<button onclick="window.dashboardApp.selectAllHorarios('fins_semana')" style="padding: 0.25rem 0.5rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">${t('horarios.selecionar_todos')}</button>
-							<button onclick="window.dashboardApp.deselectAllHorarios('fins_semana')" style="padding: 0.25rem 0.5rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">${t('horarios.desmarcar_todos')}</button>
+						<div style="display: flex; gap: 0.25rem; margin-top: 0.25rem;">
+							<button onclick="window.dashboardApp.selectAllHorarios('sabado')" style="padding: 0.2rem 0.4rem; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.7rem;">${t('horarios.selecionar_todos')}</button>
+							<button onclick="window.dashboardApp.deselectAllHorarios('sabado')" style="padding: 0.2rem 0.4rem; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.7rem;">${t('horarios.desmarcar_todos')}</button>
+						</div>
+					</div>
+					<div>
+						<h4 style="margin: 0 0 0.75rem 0; color: #333; font-size: 1rem;">⛪ ${t('horarios.domingo')}</h4>
+						<div id="domingo-container" style="display: grid; grid-template-columns: 1fr; gap: 0.25rem; margin-bottom: 0.5rem; max-height: 150px; overflow-y: auto;">
+							${this.generateHorariosCheckboxes('domingo', horariosConfig.domingo)}
+						</div>
+						<div style="display: flex; gap: 0.25rem; margin-top: 0.25rem;">
+							<button onclick="window.dashboardApp.selectAllHorarios('domingo')" style="padding: 0.2rem 0.4rem; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.7rem;">${t('horarios.selecionar_todos')}</button>
+							<button onclick="window.dashboardApp.deselectAllHorarios('domingo')" style="padding: 0.2rem 0.4rem; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.7rem;">${t('horarios.desmarcar_todos')}</button>
+						</div>
+					</div>
+					<div>
+						<h4 style="margin: 0 0 0.75rem 0; color: #333; font-size: 1rem;">🏖️ ${t('horarios.feriados')}</h4>
+						<div id="feriados-container" style="display: grid; grid-template-columns: 1fr; gap: 0.25rem; margin-bottom: 0.5rem; max-height: 150px; overflow-y: auto;">
+							${this.generateHorariosCheckboxes('feriados', horariosConfig.feriados)}
+						</div>
+						<div style="display: flex; gap: 0.25rem; margin-top: 0.25rem;">
+							<button onclick="window.dashboardApp.selectAllHorarios('feriados')" style="padding: 0.2rem 0.4rem; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.7rem;">${t('horarios.selecionar_todos')}</button>
+							<button onclick="window.dashboardApp.deselectAllHorarios('feriados')" style="padding: 0.2rem 0.4rem; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.7rem;">${t('horarios.desmarcar_todos')}</button>
 						</div>
 					</div>
 				</div>
-
 				<div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid #eee;">
-					<button onclick="closeModal('modal-horarios-config')" style="padding: 0.75rem 1.5rem; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">${t('btn.cancelar')}</button>
-					<button onclick="window.dashboardApp.saveHorariosConfig()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; box-shadow: 0 4px 12px rgba(102,126,234,0.3);">${t('horarios.salvar_config')}</button>
+					<button onclick="closeModal('modal-horarios-config')" style="padding: 0.5rem 1rem; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem;">${t('btn.cancel')}</button>
+					<button onclick="window.dashboardApp.saveHorariosConfig()" style="padding: 0.5rem 1rem; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; box-shadow: 0 4px 12px rgba(102,126,234,0.3); font-size: 0.9rem;">${t('horarios.salvar_config')}</button>
 				</div>
 			</div>
 		`;
-
 		document.getElementById('modals-container').appendChild(modal);
 		modal.classList.add('show');
+		
+		// Carregar feriados salvos
+		this.atualizarListaFeriados();
 	}
-
 	generateHorariosCheckboxes(tipo, horariosSelecionados) {
 		const allHorarios = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
-		
+		// Garantir que horariosSelecionados seja um array
+		if (!Array.isArray(horariosSelecionados)) {
+			horariosSelecionados = [];
+		}
 		return allHorarios.map(horario => {
 			const isChecked = horariosSelecionados.includes(horario);
 			const periodo = parseInt(horario.split(':')[0]) < 12 ? 'AM' : 'PM';
@@ -6836,54 +6925,287 @@ class DashboardApp {
 			`;
 		}).join('');
 	}
-
 	selectAllHorarios(tipo) {
 		const checkboxes = document.querySelectorAll(`input[data-tipo="${tipo}"]`);
 		checkboxes.forEach(cb => cb.checked = true);
 	}
-
 	deselectAllHorarios(tipo) {
 		const checkboxes = document.querySelectorAll(`input[data-tipo="${tipo}"]`);
 		checkboxes.forEach(cb => cb.checked = false);
 	}
-
-	updateHorariosDisponiveis(dataSelecionada) {
+	adicionarFeriado() {
+		const input = document.getElementById('novo-feriado');
+		const data = input.value;
+		
+		if (!data) {
+			alert('Selecione uma data primeiro');
+			return;
+		}
+		
+		// Carregar feriados salvos
+		let feriadosConfig = this.configuracoes.find(c => c.chave === 'feriados_personalizados');
+		let feriadosSalvos = [];
+		if (feriadosConfig && feriadosConfig.valor) {
+			if (typeof feriadosConfig.valor === 'string') {
+				try {
+					feriadosSalvos = JSON.parse(feriadosConfig.valor);
+				} catch (e) {
+					feriadosSalvos = [];
+				}
+			} else {
+				feriadosSalvos = feriadosConfig.valor;
+			}
+		}
+		
+		// Adicionar se não existir
+		if (!feriadosSalvos.includes(data)) {
+			feriadosSalvos.push(data);
+			
+			// Atualizar configuração local IMEDIATAMENTE
+			const existingIndex = this.configuracoes.findIndex(c => c.chave === 'feriados_personalizados');
+			if (existingIndex >= 0) {
+				this.configuracoes[existingIndex].valor = feriadosSalvos;
+			} else {
+				this.configuracoes.push({ chave: 'feriados_personalizados', valor: feriadosSalvos });
+			}
+			
+			// Salvar no Supabase
+			this.supabase
+				.from('configuracoes')
+				.upsert({
+					chave: 'feriados_personalizados',
+					valor: feriadosSalvos,
+					updated_at: new Date().toISOString()
+				}, { onConflict: 'chave' })
+				.then(async ({ error }) => {
+					if (error) {
+						console.error('Erro ao salvar feriados:', error);
+						alert('❌ Erro ao salvar feriado. Tente novamente.');
+						return;
+					}
+					console.log('✅ Feriado salvo com sucesso');
+					
+					// Recarregar configurações para garantir sincronização
+					const { data: configuracoes, error: configError } = await this.supabase
+						.from('configuracoes')
+						.select('*');
+					if (!configError && configuracoes) {
+						this.configuracoes = configuracoes;
+					}
+					
+					// Atualizar interface APÓS recarregar configurações
+					const dataInput = document.getElementById('finalizar-data-entrega');
+					if (dataInput && dataInput.value) {
+						this.updateHorariosDisponiveis(dataInput.value);
+					} else {
+						// Se não há data selecionada, tentar atualizar com a data atual
+						const hoje = new Date().toISOString().split('T')[0];
+						if (dataInput) {
+							dataInput.value = hoje;
+							this.updateHorariosDisponiveis(hoje);
+						}
+					}
+				});
+			
+			this.atualizarListaFeriados();
+			input.value = '';
+		} else {
+			alert('Esta data já está na lista de feriados');
+		}
+	}
+	removerFeriado(data) {
+		let feriadosConfig = this.configuracoes.find(c => c.chave === 'feriados_personalizados');
+		let feriadosSalvos = [];
+		if (feriadosConfig && feriadosConfig.valor) {
+			if (typeof feriadosConfig.valor === 'string') {
+				try {
+					feriadosSalvos = JSON.parse(feriadosConfig.valor);
+				} catch (e) {
+					feriadosSalvos = [];
+				}
+			} else {
+				feriadosSalvos = feriadosConfig.valor;
+			}
+		}
+		
+		feriadosSalvos = feriadosSalvos.filter(f => f !== data);
+		
+		// Atualizar configuração local
+		const existingIndex = this.configuracoes.findIndex(c => c.chave === 'feriados_personalizados');
+		if (existingIndex >= 0) {
+			if (feriadosSalvos.length === 0) {
+				// Remover configuração se não há feriados
+				this.configuracoes.splice(existingIndex, 1);
+			} else {
+				this.configuracoes[existingIndex].valor = feriadosSalvos;
+			}
+		} else if (feriadosSalvos.length > 0) {
+			this.configuracoes.push({ chave: 'feriados_personalizados', valor: feriadosSalvos });
+		}
+		
+		// Salvar ou remover no Supabase
+		if (feriadosSalvos.length === 0) {
+			// Remover configuração do banco se não há feriados
+			this.supabase
+				.from('configuracoes')
+				.delete()
+				.eq('chave', 'feriados_personalizados')
+				.then(({ error }) => {
+					if (error) {
+						console.error('Erro ao remover configuração de feriados:', error);
+						alert('❌ Erro ao remover feriado. Tente novamente.');
+						return;
+					}
+					console.log('✅ Configuração de feriados removida com sucesso');
+					
+					// Recarregar configurações para garantir sincronização
+					this.supabase
+						.from('configuracoes')
+						.select('*')
+						.then(({ data: configuracoes, error: configError }) => {
+							if (!configError && configuracoes) {
+								this.configuracoes = configuracoes;
+							}
+							
+							// Atualizar interface APÓS recarregar configurações
+							const dataInput = document.getElementById('finalizar-data-entrega');
+							if (dataInput && dataInput.value) {
+								this.updateHorariosDisponiveis(dataInput.value);
+							} else {
+								// Se não há data selecionada, tentar atualizar com a data atual
+								const hoje = new Date().toISOString().split('T')[0];
+								if (dataInput) {
+									dataInput.value = hoje;
+									this.updateHorariosDisponiveis(hoje);
+								}
+							}
+						});
+				});
+		} else {
+			// Salvar configuração se há feriados
+			this.supabase
+				.from('configuracoes')
+				.upsert({
+					chave: 'feriados_personalizados',
+					valor: feriadosSalvos,
+					updated_at: new Date().toISOString()
+				}, { onConflict: 'chave' })
+				.then(({ error }) => {
+					if (error) {
+						console.error('Erro ao salvar feriados:', error);
+						alert('❌ Erro ao remover feriado. Tente novamente.');
+						return;
+					}
+					console.log('✅ Feriado removido com sucesso');
+					
+					// Recarregar configurações para garantir sincronização
+					this.supabase
+						.from('configuracoes')
+						.select('*')
+						.then(({ data: configuracoes, error: configError }) => {
+							if (!configError && configuracoes) {
+								this.configuracoes = configuracoes;
+							}
+							
+							// Atualizar interface APÓS recarregar configurações
+							const dataInput = document.getElementById('finalizar-data-entrega');
+							if (dataInput && dataInput.value) {
+								this.updateHorariosDisponiveis(dataInput.value);
+							} else {
+								// Se não há data selecionada, tentar atualizar com a data atual
+								const hoje = new Date().toISOString().split('T')[0];
+								if (dataInput) {
+									dataInput.value = hoje;
+									this.updateHorariosDisponiveis(hoje);
+								}
+							}
+						});
+				});
+		}
+		
+		this.atualizarListaFeriados();
+	}
+	atualizarListaFeriados() {
+		const container = document.getElementById('lista-feriados');
+		if (!container) return;
+		
+		// Carregar feriados salvos
+		let feriadosConfig = this.configuracoes.find(c => c.chave === 'feriados_personalizados');
+		let feriadosSalvos = [];
+		if (feriadosConfig && feriadosConfig.valor) {
+			if (typeof feriadosConfig.valor === 'string') {
+				try {
+					feriadosSalvos = JSON.parse(feriadosConfig.valor);
+				} catch (e) {
+					feriadosSalvos = [];
+				}
+			} else {
+				feriadosSalvos = feriadosConfig.valor;
+			}
+		}
+		
+		// Ordenar as datas
+		feriadosSalvos.sort();
+		
+		container.innerHTML = feriadosSalvos.length === 0 
+			? '<span style="color: #999; font-style: italic; font-size: 0.8rem;">Nenhum feriado cadastrado</span>'
+			: feriadosSalvos.map(data => `
+				<span style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.4rem; background: #ffeaa7; border: 1px solid #d63031; border-radius: 3px; font-size: 0.75rem; color: #d63031;">
+					${data}
+					<button onclick="window.dashboardApp.removerFeriado('${data}')" style="background: none; border: none; color: #d63031; cursor: pointer; font-size: 0.8rem; padding: 0; margin-left: 0.25rem;">×</button>
+				</span>
+			`).join('');
+	}
+	async updateHorariosDisponiveis(dataSelecionada) {
 		console.log('🔄 updateHorariosDisponiveis chamada com:', dataSelecionada);
 		const select = document.getElementById('finalizar-horario-entrega');
 		console.log('📋 Select encontrado:', !!select);
 		if (!select) return;
-
-		// Limpar opções existentes exceto a primeira
 		while (select.options.length > 1) {
 			select.remove(1);
 		}
-
 		if (!dataSelecionada) {
 			console.log('⚠️ Nenhuma data selecionada');
 			return;
 		}
-
-		// Determinar se é fim de semana
+		await this.refreshConfiguracoes(['horarios_entrega', 'feriados_personalizados']);
 		const data = new Date(dataSelecionada + 'T12:00:00'); // Forçar meio-dia para evitar problemas de timezone
 		const diaSemana = data.getDay(); // 0 = Domingo, 6 = Sábado
 		
-		// Lógica explícita: fim de semana = sábado (6) ou domingo (0)
-		// NUNCA segunda-feira (1) deve ser considerada fim de semana
-		let isFimSemana = false;
-		if (diaSemana === 0) {
-			isFimSemana = true; // Domingo
-		} else if (diaSemana === 6) {
-			isFimSemana = true; // Sábado
-		} else {
-			isFimSemana = false; // Dias de semana (segunda a sexta)
+		// Carregar feriados personalizados
+		let feriadosConfig = this.configuracoes.find(c => c.chave === 'feriados_personalizados');
+		let feriadosPersonalizados = [];
+		if (feriadosConfig && feriadosConfig.valor) {
+			if (typeof feriadosConfig.valor === 'string') {
+				try {
+					feriadosPersonalizados = JSON.parse(feriadosConfig.valor);
+				} catch (e) {
+					feriadosPersonalizados = [];
+				}
+			} else {
+				feriadosPersonalizados = feriadosConfig.valor;
+			}
 		}
-		console.log('📅 Data:', dataSelecionada, 'Dia da semana:', diaSemana, 'Fim de semana:', isFimSemana);
-
+		
+		const dataString = dataSelecionada;
+		const isFeriado = feriadosPersonalizados.includes(dataString);
+		
+		let tipoDia = 'dias_semana';
+		if (isFeriado) {
+			tipoDia = 'feriados';
+		} else if (diaSemana === 0) {
+			tipoDia = 'domingo'; // Domingo
+		} else if (diaSemana === 6) {
+			tipoDia = 'sabado'; // Sábado
+		} else {
+			tipoDia = 'dias_semana'; // Dias de semana (segunda a sexta)
+		}
+		
+		console.log('📅 Data:', dataSelecionada, 'Dia da semana:', diaSemana, 'Tipo de dia:', tipoDia, 'Feriado:', isFeriado);
 		// Carregar configuração de horários
 		let horariosConfig = this.configuracoes.find(c => c.chave === 'horarios_entrega');
 		console.log('⚙️ Configuração encontrada:', horariosConfig);
 		let horariosDisponiveis = [];
-
 		if (horariosConfig && horariosConfig.valor) {
 			let configValue = horariosConfig.valor;
 			// Se o valor for string, tentar parsear como JSON
@@ -6896,91 +7218,163 @@ class DashboardApp {
 					configValue = null;
 				}
 			}
-			
-			if (configValue && configValue.dias_semana && configValue.fins_semana) {
-				horariosDisponiveis = isFimSemana ? configValue.fins_semana : configValue.dias_semana;
+			if (configValue && configValue.dias_semana && configValue.sabado && configValue.domingo && configValue.feriados) {
+				horariosDisponiveis = configValue[tipoDia];
 				console.log('✅ Usando configuração salva:', horariosDisponiveis);
 			} else {
 				console.log('⚠️ Configuração encontrada mas formato inválido');
 			}
 		}
-		
 		// Fallback para horários padrão se não conseguiu carregar configuração válida
 		if (horariosDisponiveis.length === 0) {
-			horariosDisponiveis = isFimSemana 
-				? ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00']
-				: ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
+			const fallbacks = {
+				dias_semana: ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'],
+				sabado: ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'],
+				domingo: ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'],
+				feriados: ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00']
+			};
+			horariosDisponiveis = fallbacks[tipoDia] || fallbacks.dias_semana;
 			console.log('⚠️ Usando fallback - configuração não encontrada ou inválida:', horariosDisponiveis);
 		}
-
-		// Adicionar opções
-		horariosDisponiveis.forEach(horario => {
+		// Adicionar opções, mas filtrar horários já agendados
+		const horariosFiltrados = [];
+		for (const horario of horariosDisponiveis) {
+			// Verificar se já existe entrega agendada para esta data e horário
+			const { data: entregasExistentes, error } = await this.supabase
+				.from('entregas')
+				.select('id')
+				.eq('data_entrega', dataSelecionada)
+				.eq('hora_entrega', horario)
+				.eq('status', 'agendada'); // Apenas agendadas contam como ocupadas
+			if (error) {
+				console.error('Erro ao verificar entregas existentes:', error);
+				// Em caso de erro, assumir disponível
+				horariosFiltrados.push(horario);
+			} else if (!entregasExistentes || entregasExistentes.length === 0) {
+				// Horário disponível
+				horariosFiltrados.push(horario);
+			} else {
+				console.log(`⏰ Horário ${horario} já ocupado para ${dataSelecionada}`);
+			}
+		}
+		// Adicionar opções disponíveis
+		horariosFiltrados.forEach(horario => {
 			const option = document.createElement('option');
 			option.value = horario;
 			const periodo = parseInt(horario.split(':')[0]) < 12 ? 'AM' : 'PM';
 			option.textContent = `${horario} - ${periodo}`;
 			select.appendChild(option);
 		});
-
+		// Verificar se há horários disponíveis
+		if (horariosFiltrados.length === 0) {
+			// Nenhum horário disponível, mostrar aviso
+			const option = document.createElement('option');
+			option.value = '';
+			option.textContent = 'Nenhum horário disponível para esta data';
+			option.disabled = true;
+			select.appendChild(option);
+			alert('⚠️ Nenhum horário disponível para a data selecionada. Escolha outra data.');
+			// Resetar para amanhã
+			const tomorrow = new Date();
+			tomorrow.setDate(tomorrow.getDate() + 1);
+			document.getElementById('finalizar-data-entrega').value = tomorrow.toISOString().split('T')[0];
+			// Recarregar horários para amanhã
+			this.updateHorariosDisponiveis(tomorrow.toISOString().split('T')[0]);
+		}
 		console.log('✅ Opções adicionadas, total:', select.options.length);
 	}
-
 	async saveHorariosConfig() {
 		try {
 			// Coletar horários selecionados
 			const diasSemanaCheckboxes = document.querySelectorAll('input[data-tipo="dias_semana"]:checked');
-			const finsSemanaCheckboxes = document.querySelectorAll('input[data-tipo="fins_semana"]:checked');
+			const sabadoCheckboxes = document.querySelectorAll('input[data-tipo="sabado"]:checked');
+			const domingoCheckboxes = document.querySelectorAll('input[data-tipo="domingo"]:checked');
+			const feriadosCheckboxes = document.querySelectorAll('input[data-tipo="feriados"]:checked');
 			
 			const dias_semana = Array.from(diasSemanaCheckboxes).map(cb => cb.value);
-			const fins_semana = Array.from(finsSemanaCheckboxes).map(cb => cb.value);
-
+			const sabado = Array.from(sabadoCheckboxes).map(cb => cb.value);
+			const domingo = Array.from(domingoCheckboxes).map(cb => cb.value);
+			const feriados = Array.from(feriadosCheckboxes).map(cb => cb.value);
+			
 			// Verificar se pelo menos um horário foi selecionado para cada tipo
-			if (dias_semana.length === 0 || fins_semana.length === 0) {
+			if (dias_semana.length === 0 || sabado.length === 0 || domingo.length === 0 || feriados.length === 0) {
 				alert(`⚠️ ${t('horarios.erro_minimo')}`);
 				return;
 			}
-
+			
 			// Salvar no Supabase
 			const { data, error } = await this.supabase
 				.from('configuracoes')
 				.upsert({
 					chave: 'horarios_entrega',
-					valor: { dias_semana, fins_semana },
+					valor: { dias_semana, sabado, domingo, feriados },
 					updated_at: new Date().toISOString()
 				}, { onConflict: 'chave' });
-
+				
 			if (error) {
 				console.error('Erro ao salvar configuração de horários:', error);
 				alert('❌ Erro ao salvar configuração. Tente novamente.');
 				return;
 			}
-
+			
 			// Atualizar configurações locais
 			const existingIndex = this.configuracoes.findIndex(c => c.chave === 'horarios_entrega');
 			if (existingIndex >= 0) {
-				this.configuracoes[existingIndex] = { chave: 'horarios_entrega', valor: { dias_semana, fins_semana } };
+				this.configuracoes[existingIndex] = { chave: 'horarios_entrega', valor: { dias_semana, sabado, domingo, feriados } };
 			} else {
-				this.configuracoes.push({ chave: 'horarios_entrega', valor: { dias_semana, fins_semana } });
+				this.configuracoes.push({ chave: 'horarios_entrega', valor: { dias_semana, sabado, domingo, feriados } });
 			}
-
+			
+			// Salvar feriados personalizados
+			let feriadosConfig = this.configuracoes.find(c => c.chave === 'feriados_personalizados');
+			let feriadosPersonalizados = [];
+			if (feriadosConfig && feriadosConfig.valor) {
+				if (typeof feriadosConfig.valor === 'string') {
+					try {
+						feriadosPersonalizados = JSON.parse(feriadosConfig.valor);
+					} catch (e) {
+						feriadosPersonalizados = [];
+					}
+				} else {
+					feriadosPersonalizados = feriadosConfig.valor;
+				}
+			}
+			
+			const { data: feriadosData, error: feriadosError } = await this.supabase
+				.from('configuracoes')
+				.upsert({
+					chave: 'feriados_personalizados',
+					valor: feriadosPersonalizados,
+					updated_at: new Date().toISOString()
+				}, { onConflict: 'chave' });
+				
+			if (feriadosError) {
+				console.error('Erro ao salvar feriados personalizados:', feriadosError);
+				alert('❌ Erro ao salvar feriados personalizados. Tente novamente.');
+				return;
+			}
+			
 			alert(`✅ ${t('horarios.sucesso')}`);
 			closeModal('modal-horarios-config');
 			
+			// Atualizar interface de horários se houver data selecionada
+			const dataInput = document.getElementById('finalizar-data-entrega');
+			if (dataInput && dataInput.value) {
+				this.updateHorariosDisponiveis(dataInput.value);
+			}
+			
 			// Opcional: recarregar a página de entregas para refletir mudanças
 			this.renderEntregasPage();
-			
 		} catch (error) {
 			console.error('Erro ao salvar horários:', error);
 			alert('❌ Erro inesperado. Tente novamente.');
 		}
 	}
-
 	createModal(id, title, showClose = true) {
 		const modal = document.createElement('div');
 		modal.id = id;
 		modal.className = 'modal-overlay';
 		modal.onclick = closeModalOverlay;
-
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" onclick="event.stopPropagation()" style="max-width: 400px; width: 100%; padding: 1.5rem;">
 				<div style="margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid #eee;">
@@ -6990,20 +7384,16 @@ class DashboardApp {
 					</div>
 				</div>
 		`;
-
 		return modal;
 	}
-
 	async saveToSupabase(table, data, id = null) {
 		if (!this.supabase) return null;
-
 		try {
 			if (id !== null && id !== undefined) {
 				const { error } = await this.supabase
 					.from(table)
 					.update(data)
 					.eq('id', id);
-
 				if (error) {
 					console.error('❌ Erro no UPDATE:', error);
 					throw error;
@@ -7014,7 +7404,6 @@ class DashboardApp {
 				const { error } = await this.supabase
 					.from(table)
 					.insert([data]);
-
 				if (error) {
 					console.error('❌ Erro no INSERT:', error);
 					throw error;
@@ -7028,7 +7417,6 @@ class DashboardApp {
 			return null;
 		}
 	}
-
 	async editUser(userId) {
 		try {
 			const { data: user, error } = await this.supabase
@@ -7036,29 +7424,23 @@ class DashboardApp {
 				.select('*')
 				.eq('id', userId)
 				.single();
-
 			if (error) throw error;
-
 			this.showEditUserModal(user);
 		} catch (error) {
 			console.error('Erro ao carregar usuário:', error);
 			alert('Erro ao carregar dados do usuário.');
 		}
 	}
-
 	showEditUserModal(user = null) {
 		// Verificar se já existe um modal aberto e removê-lo
 		const existingModal = document.getElementById('modal-edit-user');
 		if (existingModal) {
 			existingModal.remove();
 		}
-
 		const targetUser = user || this.currentUser;
 		const isOwnProfile = !user || user.id === this.currentUser.id;
-		
 		const modal = this.createModal('modal-edit-user', `👤 ${isOwnProfile ? 'Editar Perfil' : 'Editar Usuário'}`);
 		modal.classList.add('show');
-
 		Object.assign(modal.style, {
 			display: 'flex',
 			justifyContent: 'center',
@@ -7071,7 +7453,6 @@ class DashboardApp {
 			background: 'rgba(0,0,0,0.4)',
 			zIndex: '2000'
 		});
-
 		let modalsContainer = document.getElementById('modals-container');
 		if (!modalsContainer) {
 			modalsContainer = document.createElement('div');
@@ -7079,14 +7460,12 @@ class DashboardApp {
 			document.body.appendChild(modalsContainer);
 		}
 		modalsContainer.appendChild(modal);
-
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 500px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 1.3rem; max-height: 90vh; overflow-y: auto;">
 				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
 					<h3 style="margin: 0; font-size: 1.5rem; color: #333;">👤 ${isOwnProfile ? 'Editar Perfil' : 'Editar Usuário'}</h3>
 					<button onclick="closeModal('modal-edit-user')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
 				</div>
-
 				<form id="form-edit-user" style="display: flex; flex-direction: column; gap: 1.2rem;">
 					<div style="text-align: center; margin-bottom: 1rem;">
 						<div style="position: relative; display: inline-block;">
@@ -7107,41 +7486,34 @@ class DashboardApp {
 						</button>
 						<input type="file" id="edit-user-foto-file" accept="image/*" style="display: none;">
 					</div>
-
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Nome Completo</label>
 						<input type="text" id="edit-user-nome" value="${targetUser.nome}" required 
 							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
 					</div>
-
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Email</label>
 						<input type="email" id="edit-user-email" value="${targetUser.email}" required 
 							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
 					</div>
-
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Telefone</label>
 						<input type="tel" id="edit-user-telefone" value="${targetUser.telefone || ''}" 
 							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
 					</div>
-
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Endereço</label>
 						<textarea id="edit-user-endereco" rows="3" placeholder="Digite seu endereço completo"
 							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box; resize: vertical;">${targetUser.endereco || ''}</textarea>
 					</div>
-
 					<div style="border-top: 1px solid #eee; padding-top: 1rem; margin-top: 0.5rem;">
 						<h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem;">🔒 Alterar Senha</h4>
-						
 						<div style="margin-bottom: 1rem;">
 							<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Nova Senha</label>
 							<input type="password" id="edit-user-nova-senha" placeholder="Digite a nova senha (mínimo 6 caracteres)"
 								   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
 						</div>
 					</div>
-
 					<div style="display: flex; gap: 1rem; margin-top: 1rem;">
 						<button type="submit" style="flex: 1; padding: 0.75rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
 							💾 Salvar Alterações
@@ -7153,7 +7525,6 @@ class DashboardApp {
 				</form>
 			</div>
 		`;
-
 		// Eventos do formulário
 		const form = modal.querySelector('#form-edit-user');
 		if (form) {
@@ -7162,12 +7533,10 @@ class DashboardApp {
 				await this.saveUserProfile(targetUser);
 			});
 		}
-
 		// Eventos da foto/avatar
 		const avatarImg = modal.querySelector('#edit-user-avatar');
 		const avatarOverlay = modal.querySelector('#avatar-overlay');
 		const fotoFileInput = modal.querySelector('#edit-user-foto-file');
-
 		if (avatarImg && fotoFileInput) {
 			// Atualizar preview quando arquivo selecionado
 			fotoFileInput.addEventListener('change', (e) => {
@@ -7183,50 +7552,40 @@ class DashboardApp {
 			});
 		}
 	}
-
 	async saveUserProfile(targetUser = null) {
 		const user = targetUser || this.currentUser;
 		const isOwnProfile = !targetUser || targetUser.id === this.currentUser.id;
-		
 		const nome = document.getElementById('edit-user-nome').value.trim();
 		const email = document.getElementById('edit-user-email').value.trim();
 		const telefone = document.getElementById('edit-user-telefone').value.trim();
 		const endereco = document.getElementById('edit-user-endereco').value.trim();
 		const fotoFile = document.getElementById('edit-user-foto-file')?.files[0];
-		
 		// Campo de senha
 		const novaSenha = document.getElementById('edit-user-nova-senha').value;
-
 		if (!nome || !email) {
 			alert('Nome e email são obrigatórios!');
 			return;
 		}
-
 		// Validação de senha se foi preenchida
 		if (novaSenha && novaSenha.length < 6) {
 			alert('A nova senha deve ter pelo menos 6 caracteres!');
 			return;
 		}
-
 		try {
 			let fotoUrl = user.foto_url;
-
 			// Se uma nova foto foi selecionada, fazer upload
 			if (fotoFile) {
 				// Validar arquivo
 				if (fotoFile.size > 5 * 1024 * 1024) { // 5MB
 					throw new Error('A imagem deve ter no máximo 5MB');
 				}
-
 				const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
 				if (!allowedTypes.includes(fotoFile.type)) {
 					throw new Error('Formato de imagem não suportado. Use JPEG, PNG, GIF ou WebP');
 				}
-
 				try {
 					// Verificar buckets disponíveis (priorizando os que já existem)
 					const { data: buckets, error: listError } = await this.supabase.storage.listBuckets();
-					
 					if (listError) {
 						console.warn('Não foi possível listar buckets, usando fallback base64:', listError.message);
 						// Fallback direto para base64
@@ -7240,7 +7599,6 @@ class DashboardApp {
 						// Priorizar buckets conhecidos que podem já existir
 						const preferredBuckets = ['user-photos', 'uploads', 'fotos-perfil'];
 						let bucketToUse = null;
-						
 						for (const bucketName of preferredBuckets) {
 							if (buckets.some(bucket => bucket.name === bucketName)) {
 								bucketToUse = bucketName;
@@ -7248,7 +7606,6 @@ class DashboardApp {
 								break;
 							}
 						}
-						
 						if (!bucketToUse) {
 							console.warn('Nenhum bucket conhecido encontrado, usando fallback base64');
 							// Fallback para base64 se nenhum bucket conhecido existir
@@ -7262,14 +7619,12 @@ class DashboardApp {
 							// Bucket existe, tentar upload
 							const fileExt = fotoFile.name.split('.').pop();
 							const fileName = `${user.id}_${Date.now()}.${fileExt}`;
-
 							const { data: uploadData, error: uploadError } = await this.supabase.storage
 								.from(bucketToUse)
 								.upload(fileName, fotoFile, {
 									cacheControl: '3600',
 									upsert: false
 								});
-
 							if (uploadError) {
 								console.warn(`Upload falhou no bucket ${bucketToUse}, usando fallback base64:`, uploadError.message);
 								// Fallback para base64 se upload falhar
@@ -7283,13 +7638,11 @@ class DashboardApp {
 								const { data: { publicUrl } } = this.supabase.storage
 									.from(bucketToUse)
 									.getPublicUrl(fileName);
-
 								fotoUrl = publicUrl;
 								console.log(`Upload realizado com sucesso no bucket ${bucketToUse}:`, fotoUrl);
 							}
 						}
 					}
-
 				} catch (uploadError) {
 					console.error('Erro completo no upload:', uploadError);
 					// Fallback final para base64
@@ -7316,37 +7669,28 @@ class DashboardApp {
 				foto_url: fotoUrl,
 				updated_at: new Date().toISOString()
 			};
-			
 			// Se uma nova senha foi definida, incluir no update
 			if (novaSenha) {
 				updateData.password_hash = btoa(novaSenha);
 			}
-			
 			const { data, error } = await this.supabase
 				.from('usuarios')
 				.update(updateData)
 				.eq('id', user.id);
-
 			if (error) throw error;
-
 			console.log('Dados salvos no banco. Foto URL:', fotoUrl ? (fotoUrl.length > 50 ? fotoUrl.substring(0, 50) + '...' : fotoUrl) : 'null');
-
 			// Se editou o próprio perfil, atualizar dados locais e interface
 			if (isOwnProfile) {
 				const updatedUser = { ...this.currentUser, nome, email, telefone, endereco, foto_url: fotoUrl };
-				
 				// Se a senha foi alterada, incluir no objeto local
 				if (novaSenha) {
 					updatedUser.senha = btoa(novaSenha);
 				}
-				
 				this.currentUser = updatedUser;
-				
 				// Atualizar interface do usuário
 				const userNameEl = document.getElementById('dropdown-user-name');
 				const userAvatarEl = document.getElementById('user-avatar');
 				const welcomeName = document.getElementById('welcome-name');
-				
 				if (userNameEl) userNameEl.textContent = this.currentUser.nome;
 				if (userAvatarEl) {
 					userAvatarEl.src = this.currentUser.foto_url || 
@@ -7354,14 +7698,12 @@ class DashboardApp {
 				}
 				if (welcomeName) welcomeName.textContent = this.currentUser.nome;
 			}
-
 			// Verificar se os dados foram realmente salvos consultando o banco
 			const { data: verifyData, error: verifyError } = await this.supabase
 				.from('usuarios')
 				.select('nome, email, foto_url')
 				.eq('id', user.id)
 				.single();
-
 			if (verifyError) {
 				console.warn('Não foi possível verificar os dados salvos:', verifyError.message);
 			} else {
@@ -7370,47 +7712,38 @@ class DashboardApp {
 					console.warn('⚠️ Aviso: URL da foto no banco difere da esperada');
 				}
 			}
-
 			alert(`${isOwnProfile ? 'Perfil' : 'Usuário'} atualizado com sucesso!${novaSenha ? ' Sua senha foi alterada.' : ''}`);
 			closeModal('modal-edit-user');
-
 			// Limpar campo de senha se foi preenchido
 			if (novaSenha) {
 				document.getElementById('edit-user-nova-senha').value = '';
 			}
-
 			// Recarregar tabela de usuários se estiver aberta
 			const usuariosModal = document.getElementById('modal-usuarios');
 			if (usuariosModal) {
 				this.loadUsuariosTable(usuariosModal);
 			}
-
 		} catch (error) {
 			console.error('Erro completo ao salvar perfil:', error);
 			console.error('Stack trace:', error.stack);
 			alert(`Erro ao salvar: ${error.message || 'Erro desconhecido'}`);
 		}
 	}
-
 	showUsuariosModal() {
 		// Verificar se o usuário é admin
 		const role = (this.currentUser?.role || this.currentUser?.tipo || '').toLowerCase();
 		const isAdmin = role === 'admin';
-		
 		if (!isAdmin) {
 			alert('Acesso negado. Apenas administradores podem gerenciar usuários.');
 			return;
 		}
-
 		// Verificar se já existe um modal aberto e removê-lo
 		const existingModal = document.getElementById('modal-usuarios');
 		if (existingModal) {
 			existingModal.remove();
 		}
-
 		const modal = this.createModal('modal-usuarios', '👥 Gerenciar Usuários');
 		modal.classList.add('show');
-
 		Object.assign(modal.style, {
 			display: 'flex',
 			justifyContent: 'center',
@@ -7423,7 +7756,6 @@ class DashboardApp {
 			background: 'rgba(0,0,0,0.4)',
 			zIndex: '2000'
 		});
-
 		let modalsContainer = document.getElementById('modals-container');
 		if (!modalsContainer) {
 			modalsContainer = document.createElement('div');
@@ -7431,34 +7763,28 @@ class DashboardApp {
 			document.body.appendChild(modalsContainer);
 		}
 		modalsContainer.appendChild(modal);
-
 		// Carregar usuários
 		this.loadUsuariosTable(modal);
 	}
-
 	showAddUserModal() {
 		console.log('🔧 showAddUserModal: Iniciando criação do modal');
-
 		// Verificar se há modais abertos e fechar o modal de usuários se existir
 		const usuariosModal = document.getElementById('modal-usuarios');
 		if (usuariosModal) {
 			console.log('🧹 Fechando modal de usuários antes de abrir modal de adicionar');
 			usuariosModal.remove();
 		}
-
 		// Verificar se já existe um modal aberto
 		const existingModal = document.getElementById('modal-add-user');
 		if (existingModal) {
 			console.log('🧹 Removendo modal existente');
 			existingModal.remove();
 		}
-
 		// Criar modal usando createModal se disponível, senão criar diretamente
 		let modal;
 		if (this.createModal) {
 			modal = this.createModal('modal-add-user', '➕ Adicionar Usuário');
 			modal.classList.add('show');
-
 			// IMPORTANTE: Adicionar o modal ao container quando usar createModal
 			let modalsContainer = document.getElementById('modals-container');
 			if (!modalsContainer) {
@@ -7473,7 +7799,6 @@ class DashboardApp {
 			modal.id = 'modal-add-user';
 			modal.className = 'modal-overlay show';
 			modal.onclick = closeModalOverlay;
-
 			Object.assign(modal.style, {
 				display: 'flex',
 				justifyContent: 'center',
@@ -7486,7 +7811,6 @@ class DashboardApp {
 				background: 'rgba(0,0,0,0.4)',
 				zIndex: '2000'
 			});
-
 			let modalsContainer = document.getElementById('modals-container');
 			if (!modalsContainer) {
 				modalsContainer = document.createElement('div');
@@ -7495,7 +7819,6 @@ class DashboardApp {
 			}
 			modalsContainer.appendChild(modal);
 		}
-
 		console.log('✅ Modal criado, verificando DOM...');
 		console.log('Modal no DOM:', document.getElementById('modal-add-user'));
 		console.log('Modal style.display:', modal.style.display);
@@ -7503,14 +7826,12 @@ class DashboardApp {
 		console.log('Modals container exists:', !!document.getElementById('modals-container'));
 		console.log('Body children count:', document.body.children.length);
 		console.log('All modals in DOM:', Array.from(document.querySelectorAll('[id^="modal-"]')).map(m => m.id));
-
 		// Verificar se há modais sobrepostos
 		const allModals = document.querySelectorAll('.modal-overlay');
 		console.log('All modal overlays:', allModals.length);
 		allModals.forEach((m, i) => {
 			console.log(`Modal ${i}: id=${m.id}, class=${m.className}, display=${m.style.display}`);
 		});
-
 		// Verificar imediatamente se o modal ainda existe
 		setTimeout(() => {
 			const modalStillExists = document.getElementById('modal-add-user');
@@ -7521,7 +7842,6 @@ class DashboardApp {
 				console.log('Event listeners no body:', window.getEventListeners?.(document.body) || 'N/A');
 			}
 		}, 1);
-
 		// Definir conteúdo HTML
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 500px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18);">
@@ -7529,7 +7849,6 @@ class DashboardApp {
 					<h3 style="margin: 0; font-size: 1.5rem; color: #333;">👤 Adicionar Novo Usuário</h3>
 					<button onclick="closeModal('modal-add-user')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
 				</div>
-
 				<form id="form-add-user" style="display: flex; flex-direction: column; gap: 1.2rem;">
 					<div style="text-align: center; margin-bottom: 1rem;">
 						<div style="position: relative; display: inline-block;">
@@ -7548,37 +7867,31 @@ class DashboardApp {
 							<span id="file-name-display" style="font-size: 0.8rem; color: #666;">Nenhum arquivo selecionado</span>
 						</div>
 					</div>
-
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Nome Completo *</label>
 						<input type="text" id="add-user-nome" placeholder="Digite o nome completo" required
 							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
 					</div>
-
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Email *</label>
 						<input type="email" id="add-user-email" placeholder="Digite o email" required
 							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
 					</div>
-
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Telefone</label>
 						<input type="tel" id="add-user-telefone" placeholder="Digite o telefone"
 							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
 					</div>
-
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Endereço</label>
 						<input type="text" id="add-user-endereco" placeholder="Digite o endereço"
 							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
 					</div>
-
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Senha *</label>
 						<input type="password" id="add-user-senha" placeholder="Digite a senha" required
 							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
 					</div>
-
 					<div style="display: flex; gap: 1rem; margin-top: 1rem;">
 						<button type="submit" style="flex: 1; padding: 0.75rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
 							👤 Criar Usuário
@@ -7590,14 +7903,11 @@ class DashboardApp {
 				</form>
 			</div>
 		`;
-
 		console.log('📄 innerHTML definido');
-
 		// Forçar exibição do modal
 		modal.style.display = 'flex';
 		modal.style.visibility = 'visible';
 		modal.style.opacity = '1';
-
 		console.log('👁️ Modal forçado a ser visível');
 		console.log('Modal final style:', {
 			display: modal.style.display,
@@ -7606,7 +7916,6 @@ class DashboardApp {
 			zIndex: modal.style.zIndex,
 			position: modal.style.position
 		});
-
 		// Verificar novamente se o modal está no DOM após forçar visibilidade
 		const modalAfterForce = document.getElementById('modal-add-user');
 		console.log('🔍 Modal após forçar visibilidade:', !!modalAfterForce);
@@ -7614,24 +7923,20 @@ class DashboardApp {
 			console.log('Modal parent:', modalAfterForce.parentElement?.id || 'no parent');
 			console.log('Modal position in parent:', Array.from(modalAfterForce.parentElement?.children || []).indexOf(modalAfterForce));
 		}
-
 		// Aguardar um pouco para garantir que o DOM seja processado
 		setTimeout(() => {
 			console.log('⏳ Configurando event listeners');
-
 			// Configurar event listeners
 			const form = modal.querySelector('#form-add-user');
 			const avatarImg = modal.querySelector('#add-user-avatar');
 			const fotoFileInput = modal.querySelector('#add-user-foto-file');
 			const fileNameDisplay = modal.querySelector('#file-name-display');
-
 			console.log('🔍 Elementos encontrados:', {
 				form: !!form,
 				avatarImg: !!avatarImg,
 				fotoFileInput: !!fotoFileInput,
 				fileNameDisplay: !!fileNameDisplay
 			});
-
 			if (form) {
 				form.addEventListener('submit', async (e) => {
 					e.preventDefault();
@@ -7639,7 +7944,6 @@ class DashboardApp {
 					await this.saveNewUser();
 				});
 			}
-
 			if (avatarImg && fotoFileInput) {
 				console.log('✅ Configurando event listener do arquivo');
 				fotoFileInput.addEventListener('change', (e) => {
@@ -7649,7 +7953,6 @@ class DashboardApp {
 						const fileName = file.name.length > 30 ? file.name.substring(0, 27) + '...' : file.name;
 						fileNameDisplay.textContent = `Arquivo: ${fileName}`;
 						fileNameDisplay.style.color = '#28a745';
-
 						const reader = new FileReader();
 						reader.onload = (e) => {
 							avatarImg.src = e.target.result;
@@ -7670,31 +7973,25 @@ class DashboardApp {
 		const endereco = document.getElementById('add-user-endereco').value.trim();
 		const role = document.getElementById('add-user-role').value;
 		const fotoFile = document.getElementById('add-user-foto-file')?.files[0];
-
 		if (!nome || !email || !senha) {
 			alert('Nome, email e senha são obrigatórios!');
 			return;
 		}
-
 		try {
 			let fotoUrl = null;
-
 			// Se uma foto foi selecionada, fazer upload
 			if (fotoFile) {
 				// Validar arquivo
 				if (fotoFile.size > 5 * 1024 * 1024) { // 5MB
 					throw new Error('A imagem deve ter no máximo 5MB');
 				}
-
 				const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
 				if (!allowedTypes.includes(fotoFile.type)) {
 					throw new Error('Formato de imagem não suportado. Use JPEG, PNG, GIF ou WebP');
 				}
-
 				try {
 					// Verificar buckets disponíveis (priorizando os que já existem)
 					const { data: buckets, error: listError } = await this.supabase.storage.listBuckets();
-					
 					if (listError) {
 						console.warn('Não foi possível listar buckets, usando fallback base64:', listError.message);
 						// Fallback direto para base64
@@ -7708,7 +8005,6 @@ class DashboardApp {
 						// Priorizar buckets conhecidos que podem já existir
 						const preferredBuckets = ['user-photos', 'uploads', 'fotos-perfil'];
 						let bucketToUse = null;
-						
 						for (const bucketName of preferredBuckets) {
 							if (buckets.some(bucket => bucket.name === bucketName)) {
 								bucketToUse = bucketName;
@@ -7716,7 +8012,6 @@ class DashboardApp {
 								break;
 							}
 						}
-						
 						if (!bucketToUse) {
 							console.warn('Nenhum bucket conhecido encontrado, usando fallback base64');
 							// Fallback para base64 se nenhum bucket conhecido existir
@@ -7730,14 +8025,12 @@ class DashboardApp {
 							// Bucket existe, tentar upload
 							const fileExt = fotoFile.name.split('.').pop();
 							const fileName = `new_user_${Date.now()}.${fileExt}`;
-
 							const { data: uploadData, error: uploadError } = await this.supabase.storage
 								.from(bucketToUse)
 								.upload(fileName, fotoFile, {
 									cacheControl: '3600',
 									upsert: false
 								});
-
 							if (uploadError) {
 								console.warn(`Upload falhou no bucket ${bucketToUse}, usando fallback base64:`, uploadError.message);
 								// Fallback para base64 se upload falhar
@@ -7751,13 +8044,11 @@ class DashboardApp {
 								const { data: { publicUrl } } = this.supabase.storage
 									.from(bucketToUse)
 									.getPublicUrl(fileName);
-
 								fotoUrl = publicUrl;
 								console.log(`Upload realizado com sucesso no bucket ${bucketToUse}:`, fotoUrl);
 							}
 						}
 					}
-
 				} catch (uploadError) {
 					console.error('Erro completo no upload:', uploadError);
 					// Fallback final para base64
@@ -7776,7 +8067,6 @@ class DashboardApp {
 					}
 				}
 			}
-
 			// Criar o usuário no banco
 			const { data, error } = await this.supabase.auth.signUp({
 				email: email,
@@ -7791,36 +8081,28 @@ class DashboardApp {
 					}
 				}
 			});
-
 			if (error) throw error;
-
 			console.log('Novo usuário criado:', data);
-
 			alert('Usuário criado com sucesso!');
 			closeModal('modal-add-user');
-
 			// Recarregar tabela de usuários se estiver aberta
 			const usuariosModal = document.getElementById('modal-usuarios');
 			if (usuariosModal) {
 				this.loadUsuariosTable(usuariosModal);
 			}
-
 		} catch (error) {
 			console.error('Erro completo ao criar usuário:', error);
 			console.error('Stack trace:', error.stack);
 			alert(`Erro ao criar usuário: ${error.message || 'Erro desconhecido'}`);
 		}
 	}
-
 	async loadUsuariosTable(modal) {
 		try {
 			const { data: usuarios, error } = await this.supabase
 				.from('usuarios')
 				.select('*')
 				.order('nome');
-
 			if (error) throw error;
-
 			const usuariosHtml = usuarios.map(user => `
 				<tr style="border-bottom: 1px solid #eee;">
 					<td style="padding: 0.75rem; text-align: center;">
@@ -7866,14 +8148,12 @@ class DashboardApp {
 					</td>
 				</tr>
 			`).join('');
-
 			modal.innerHTML = `
 				<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 1200px; width: 95%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 1.3rem; max-height: 90vh;">
 					<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
 						<h3 style="margin: 0; font-size: 1.5rem; color: #333;">👥 Gerenciar Usuários</h3>
 						<button onclick="closeModal('modal-usuarios')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
 					</div>
-
 					<div style="background: #f8f9fa; padding: 1rem; border-radius: 10px; margin-bottom: 1rem;">
 						<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
 							<h4 style="margin: 0; font-size: 1.1rem; color: #333;">Lista de Usuários (${usuarios.length})</h4>
@@ -7889,7 +8169,6 @@ class DashboardApp {
 								</button>
 							</div>
 						</div>
-
 						<div style="overflow-x: auto; max-height: 400px; overflow-y: auto;">
 							<table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
 								<thead style="background: linear-gradient(135deg, #667eea, #764ba2); color: white;">
@@ -7912,7 +8191,6 @@ class DashboardApp {
 					</div>
 				</div>
 			`;
-
 		} catch (error) {
 			console.error('Erro ao carregar usuários:', error);
 			modal.innerHTML = `
@@ -7926,24 +8204,19 @@ class DashboardApp {
 			`;
 		}
 	}
-
 	async resetUserPasswords() {
 		if (!confirm('ATENÇÃO: Esta ação irá resetar a senha de TODOS os usuários (exceto administradores) para "123456".\n\nDeseja continuar?')) {
 			return;
 		}
-
 		try {
 			// Buscar todos os usuários não-admin
 			const { data: usuarios, error: fetchError } = await this.supabase
 				.from('usuarios')
 				.select('id, nome, email')
 				.neq('role', 'admin');
-
 			if (fetchError) throw fetchError;
-
 			let successCount = 0;
 			let errorCount = 0;
-
 			for (const user of usuarios) {
 				try {
 					// Resetar senha diretamente na tabela usuarios (usando hash base64)
@@ -7955,7 +8228,6 @@ class DashboardApp {
 							updated_at: new Date().toISOString()
 						})
 						.eq('id', user.id);
-
 					if (!error) {
 						successCount++;
 					} else {
@@ -7966,25 +8238,20 @@ class DashboardApp {
 					errorCount++;
 				}
 			}
-
 			alert(`Reset de senhas concluído!\n\n✅ Sucesso: ${successCount} usuários\n❌ Erros: ${errorCount} usuários\n\nNova senha: 123456`);
-
 		} catch (error) {
 			console.error('Erro no reset de senhas:', error);
 			alert('Erro ao resetar senhas: ' + error.message);
 		}
 	}
-
 	showDeleteUserModal() {
 		// Verificar se já existe um modal aberto e removê-lo
 		const existingModal = document.getElementById('modal-delete-user');
 		if (existingModal) {
 			existingModal.remove();
 		}
-
 		const modal = this.createModal('modal-delete-user', '🗑️ Excluir Usuário');
 		modal.classList.add('show');
-
 		Object.assign(modal.style, {
 			display: 'flex',
 			justifyContent: 'center',
@@ -7997,7 +8264,6 @@ class DashboardApp {
 			background: 'rgba(0,0,0,0.4)',
 			zIndex: '2001'
 		});
-
 		let modalsContainer = document.getElementById('modals-container');
 		if (!modalsContainer) {
 			modalsContainer = document.createElement('div');
@@ -8005,21 +8271,18 @@ class DashboardApp {
 			document.body.appendChild(modalsContainer);
 		}
 		modalsContainer.appendChild(modal);
-
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 500px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 1.3rem; max-height: 90vh; overflow-y: auto;">
 				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
 					<h3 style="margin: 0; font-size: 1.5rem; color: #dc3545;">🗑️ Excluir Usuário</h3>
 					<button onclick="closeModal('modal-delete-user')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
 				</div>
-
 				<div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
 					<h4 style="margin: 0 0 0.5rem 0; color: #721c24; font-size: 1rem;">⚠️ ATENÇÃO</h4>
 					<p style="margin: 0; color: #721c24; font-size: 0.9rem;">
 						Esta ação irá excluir permanentemente o usuário selecionado. Todos os dados associados serão perdidos.
 					</p>
 				</div>
-
 				<form id="form-delete-user" style="display: flex; flex-direction: column; gap: 1.2rem;">
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Selecione o usuário *</label>
@@ -8027,13 +8290,11 @@ class DashboardApp {
 							<option value="">Selecione um usuário</option>
 						</select>
 					</div>
-
 					<div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 1rem;">
 						<p style="margin: 0; font-size: 0.9rem; color: #856404;">
 							<strong>Nota:</strong> Você não pode excluir sua própria conta ou contas de administradores.
 						</p>
 					</div>
-
 					<div style="display: flex; gap: 1rem; margin-top: 1rem;">
 						<button type="submit" style="flex: 1; padding: 0.75rem; background: #dc3545; color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
 							🗑️ Excluir Usuário
@@ -8045,10 +8306,8 @@ class DashboardApp {
 				</form>
 			</div>
 		`;
-
 		// Carregar lista de usuários
 		this.loadUsersForDeletion();
-
 		// Eventos do formulário
 		const form = modal.querySelector('#form-delete-user');
 		if (form) {
@@ -8058,17 +8317,14 @@ class DashboardApp {
 			});
 		}
 	}
-
 	showResetPasswordUserModal() {
 		// Verificar se já existe um modal aberto e removê-lo
 		const existingModal = document.getElementById('modal-reset-password-user');
 		if (existingModal) {
 			existingModal.remove();
 		}
-
 		const modal = this.createModal('modal-reset-password-user', '🔑 Resetar Senha');
 		modal.classList.add('show');
-
 		Object.assign(modal.style, {
 			display: 'flex',
 			justifyContent: 'center',
@@ -8081,7 +8337,6 @@ class DashboardApp {
 			background: 'rgba(0,0,0,0.4)',
 			zIndex: '2001'
 		});
-
 		let modalsContainer = document.getElementById('modals-container');
 		if (!modalsContainer) {
 			modalsContainer = document.createElement('div');
@@ -8089,21 +8344,18 @@ class DashboardApp {
 			document.body.appendChild(modalsContainer);
 		}
 		modalsContainer.appendChild(modal);
-
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 500px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 1.3rem; max-height: 90vh; overflow-y: auto;">
 				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
 					<h3 style="margin: 0; font-size: 1.5rem; color: #ffc107;">🔑 Resetar Senha</h3>
 					<button onclick="closeModal('modal-reset-password-user')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
 				</div>
-
 				<div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
 					<h4 style="margin: 0 0 0.5rem 0; color: #856404; font-size: 1rem;">⚠️ ATENÇÃO</h4>
 					<p style="margin: 0; color: #856404; font-size: 0.9rem;">
 						Esta ação irá resetar a senha do usuário selecionado para "123456". A senha será alterada imediatamente.
 					</p>
 				</div>
-
 				<form id="form-reset-password-user" style="display: flex; flex-direction: column; gap: 1.2rem;">
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Selecione o usuário *</label>
@@ -8111,13 +8363,11 @@ class DashboardApp {
 							<option value="">Selecione um usuário</option>
 						</select>
 					</div>
-
 					<div style="background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 6px; padding: 1rem;">
 						<p style="margin: 0; font-size: 0.9rem; color: #0c5460;">
 							<strong>Nota:</strong> Você não pode resetar a senha de administradores.
 						</p>
 					</div>
-
 					<div style="display: flex; gap: 1rem; margin-top: 1rem;">
 						<button type="submit" style="flex: 1; padding: 0.75rem; background: #ffc107; color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
 							🔑 Resetar Senha
@@ -8129,10 +8379,8 @@ class DashboardApp {
 				</form>
 			</div>
 		`;
-
 		// Carregar lista de usuários
 		this.loadUsersForPasswordReset();
-
 		// Eventos do formulário
 		const form = modal.querySelector('#form-reset-password-user');
 		if (form) {
@@ -8142,41 +8390,33 @@ class DashboardApp {
 			});
 		}
 	}
-
 	async loadUsersForPasswordReset() {
 		try {
 			const { data: usuarios, error } = await this.supabase
 				.from('usuarios')
 				.select('id, nome, email, role')
 				.neq('role', 'admin'); // Não permitir resetar senha de admins
-
 			if (error) throw error;
-
 			const select = document.getElementById('reset-password-user-select');
 			if (select) {
 				select.innerHTML = '<option value="">Selecione um usuário</option>' +
 					usuarios.map(user => `<option value="${user.id}">${user.nome} (${user.email})</option>`).join('');
 			}
-
 		} catch (error) {
 			console.error('Erro ao carregar usuários para reset de senha:', error);
 		}
 	}
-
 	async resetSelectedUserPassword() {
 		const userId = document.getElementById('reset-password-user-select').value;
 		const select = document.getElementById('reset-password-user-select');
 		const userName = select.options[select.selectedIndex].text.split(' (')[0];
-
 		if (!userId) {
 			alert('Selecione um usuário para resetar a senha!');
 			return;
 		}
-
 		if (!confirm(`Tem certeza que deseja resetar a senha do usuário "${userName}" para "123456"?\n\nA senha será alterada imediatamente.`)) {
 			return;
 		}
-
 		try {
 			// Resetar senha diretamente na tabela usuarios (usando hash base64)
 			const hashedPassword = btoa('123456');
@@ -8184,26 +8424,20 @@ class DashboardApp {
 				.from('usuarios')
 				.update({ password_hash: hashedPassword })
 				.eq('id', userId);
-
 			if (error) throw error;
-
 			alert(`✅ Senha do usuário "${userName}" foi resetada com sucesso!\n\nNova senha: 123456\n\nO usuário deve alterar a senha no próximo login.`);
-
 			// Fechar modal
 			closeModal('modal-reset-password-user');
-
 			// Recarregar tabela de usuários
 			const usuariosModal = document.getElementById('modal-usuarios');
 			if (usuariosModal) {
 				this.loadUsuariosTable(usuariosModal);
 			}
-
 		} catch (error) {
 			console.error('Erro ao resetar senha:', error);
 			alert('Erro ao resetar senha: ' + error.message);
 		}
 	}
-
 	async loadUsersForDeletion() {
 		try {
 			const { data: usuarios, error } = await this.supabase
@@ -8211,75 +8445,60 @@ class DashboardApp {
 				.select('id, nome, email, role')
 				.neq('id', this.currentUser.id) // Não permitir excluir si mesmo
 				.neq('role', 'admin'); // Não permitir excluir outros admins
-
 			if (error) throw error;
-
 			const select = document.getElementById('delete-user-select');
 			if (select) {
 				select.innerHTML = '<option value="">Selecione um usuário</option>' +
 					usuarios.map(user => `<option value="${user.id}">${user.nome} (${user.email})</option>`).join('');
 			}
-
 		} catch (error) {
 			console.error('Erro ao carregar usuários para exclusão:', error);
 		}
 	}
-
 	async deleteSelectedUser() {
 		const userId = document.getElementById('delete-user-select').value;
 		const select = document.getElementById('delete-user-select');
 		const userName = select.options[select.selectedIndex].text.split(' (')[0];
-
 		if (!userId) {
 			alert('Selecione um usuário para excluir!');
 			return;
 		}
-
 		if (!confirm(`Tem certeza que deseja excluir o usuário "${userName}"?\n\nEsta ação não pode ser desfeita!`)) {
 			return;
 		}
-
 		try {
 			// Excluir do banco de dados
 			const { error: dbError } = await this.supabase
 				.from('usuarios')
 				.delete()
 				.eq('id', userId);
-
 			if (dbError) throw dbError;
-
 			// Excluir da autenticação (se possível)
 			try {
 				await this.supabase.auth.admin.deleteUser(userId);
 			} catch (authError) {
 				console.warn('Não foi possível excluir da autenticação:', authError);
 			}
-
 			alert(`Usuário "${userName}" excluído com sucesso!`);
 			closeModal('modal-delete-user');
-			
 			// Recarregar tabela de usuários
 			const usuariosModal = document.getElementById('modal-usuarios');
 			if (usuariosModal) {
 				this.loadUsuariosTable(usuariosModal);
 			}
-
 		} catch (error) {
 			console.error('Erro ao excluir usuário:', error);
 			alert('Erro ao excluir usuário: ' + error.message);
 		}
 	}
-
 	openDespesasModal() {
 		// Verificar se já existe um modal aberto e removê-lo
 		const existingModal = document.getElementById('modal-despesas');
 		if (existingModal) {
 			existingModal.remove();
 		}
-
 		const modal = this.createModal('modal-despesas', '💰 Gerenciar Despesas');
 		modal.classList.add('show');
-
 		Object.assign(modal.style, {
 			display: 'flex',
 			justifyContent: 'center',
@@ -8292,7 +8511,6 @@ class DashboardApp {
 			background: 'rgba(0,0,0,0.4)',
 			zIndex: '2000'
 		});
-
 		// Agrupar despesas por categoria
 		const despesasPorCategoria = {};
 		this.despesas.forEach(despesa => {
@@ -8302,17 +8520,14 @@ class DashboardApp {
 			}
 			despesasPorCategoria[categoria].push(despesa);
 		});
-
 		const categorias = Object.keys(despesasPorCategoria);
 		const totalDespesas = this.despesas.reduce((sum, d) => sum + parseFloat(d.valor || 0), 0);
-
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 800px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); max-height: 80vh; overflow-y: auto;">
 				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
 					<h3 style="margin: 0; font-size: 1.5rem; color: #333;">💰 Gerenciar Despesas</h3>
 					<button onclick="closeModal('modal-despesas')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
 				</div>
-
 				<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
 					<div style="font-size: 1.2rem; font-weight: 600; color: #dc3545;">
 						Total de Despesas: ${this.formatCurrency(totalDespesas)}
@@ -8321,7 +8536,6 @@ class DashboardApp {
 						<i class="fas fa-plus"></i> Adicionar Despesa
 					</button>
 				</div>
-
 				<div style="display: flex; flex-direction: column; gap: 1rem;">
 					${categorias.length === 0 ? 
 						`<div style="text-align: center; padding: 3rem; color: #888;">
@@ -8331,7 +8545,6 @@ class DashboardApp {
 						categorias.map(categoria => {
 							const despesas = despesasPorCategoria[categoria];
 							const totalCategoria = despesas.reduce((sum, d) => sum + parseFloat(d.valor || 0), 0);
-							
 							return `
 								<div style="border: 1px solid #eee; border-radius: 8px; padding: 1rem;">
 									<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
@@ -8364,20 +8577,16 @@ class DashboardApp {
 				</div>
 			</div>
 		`;
-
 		document.getElementById('modals-container').appendChild(modal);
 	}
-
 	openReceitasModal() {
 		// Verificar se já existe um modal aberto e removê-lo
 		const existingModal = document.getElementById('modal-receitas');
 		if (existingModal) {
 			existingModal.remove();
 		}
-
 		const modal = this.createModal('modal-receitas', '💰 Gerenciar Receitas');
 		modal.classList.add('show');
-
 		Object.assign(modal.style, {
 			display: 'flex',
 			justifyContent: 'center',
@@ -8390,7 +8599,6 @@ class DashboardApp {
 			background: 'rgba(0,0,0,0.4)',
 			zIndex: '2000'
 		});
-
 		// Agrupar receitas por categoria
 		const receitasPorCategoria = {};
 		this.receitas.forEach(receita => {
@@ -8400,17 +8608,14 @@ class DashboardApp {
 			}
 			receitasPorCategoria[categoria].push(receita);
 		});
-
 		const categorias = Object.keys(receitasPorCategoria);
 		const totalReceitas = this.receitas.reduce((sum, r) => sum + parseFloat(r.valor || 0), 0);
-
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 800px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); max-height: 80vh; overflow-y: auto;">
 				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
 					<h3 style="margin: 0; font-size: 1.5rem; color: #333;">💰 Gerenciar Receitas</h3>
 					<button onclick="closeModal('modal-receitas')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
 				</div>
-
 				<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
 					<div style="font-size: 1.2rem; font-weight: 600; color: #28a745;">
 						Total de Receitas: ${this.formatCurrency(totalReceitas)}
@@ -8419,7 +8624,6 @@ class DashboardApp {
 						<i class="fas fa-plus"></i> Adicionar Receita
 					</button>
 				</div>
-
 				<div style="display: flex; flex-direction: column; gap: 1rem;">
 					${categorias.length === 0 ? 
 						`<div style="text-align: center; padding: 3rem; color: #888;">
@@ -8430,7 +8634,6 @@ class DashboardApp {
 						categorias.map(categoria => {
 							const receitas = receitasPorCategoria[categoria];
 							const totalCategoria = receitas.reduce((sum, r) => sum + parseFloat(r.valor || 0), 0);
-							
 							return `
 								<div style="border: 1px solid #eee; border-radius: 8px; padding: 1rem;">
 									<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
@@ -8462,20 +8665,16 @@ class DashboardApp {
 				</div>
 			</div>
 		`;
-
 		document.getElementById('modals-container').appendChild(modal);
 	}
-
 openAddDespesaModal() {
 		// Verificar se já existe um modal aberto e removê-lo
 		const existingModal = document.getElementById('modal-add-despesa');
 		if (existingModal) {
 			existingModal.remove();
 		}
-
 		const modal = this.createModal('modal-add-despesa', '➕ Adicionar Despesa');
 		modal.classList.add('show');
-
 		Object.assign(modal.style, {
 			display: 'flex',
 			justifyContent: 'center',
@@ -8488,27 +8687,23 @@ openAddDespesaModal() {
 			background: 'rgba(0,0,0,0.4)',
 			zIndex: '2000'
 		});
-
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 500px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18);">
 				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
 					<h3 style="margin: 0; font-size: 1.5rem; color: #333;">➕ Adicionar Despesa</h3>
 					<button onclick="closeModal('modal-add-despesa')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
 				</div>
-
 				<form id="form-add-despesa" style="display: flex; flex-direction: column; gap: 1.2rem;">
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Descrição *</label>
 						<input type="text" id="despesa-descricao" placeholder="Ex: Transporte, Comissão, etc." required
 							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
 					</div>
-
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Valor *</label>
 						<input type="text" id="despesa-valor" placeholder="0.00" required inputmode="decimal"
 							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
 					</div>
-
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Categoria *</label>
 						<select id="despesa-categoria" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
@@ -8525,7 +8720,6 @@ openAddDespesaModal() {
 							<option value="outros">Outros</option>
 						</select>
 					</div>
-
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Tipo *</label>
 						<select id="despesa-tipo" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
@@ -8533,13 +8727,11 @@ openAddDespesaModal() {
 							<option value="variavel">Variável (eventual)</option>
 						</select>
 					</div>
-
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Data *</label>
 						<input type="date" id="despesa-data" required value="${new Date().toISOString().split('T')[0]}"
 							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
 					</div>
-
 					<div style="display: flex; gap: 1rem; margin-top: 1rem;">
 						<button type="submit" style="flex: 1; padding: 0.75rem; background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
 							💰 Salvar Despesa
@@ -8551,9 +8743,7 @@ openAddDespesaModal() {
 				</form>
 			</div>
 		`;
-
 		document.getElementById('modals-container').appendChild(modal);
-
 		// Event listener para o formulário
 		const form = modal.querySelector('#form-add-despesa');
 		if (form) {
@@ -8562,45 +8752,36 @@ openAddDespesaModal() {
 				await this.saveNewDespesa();
 			});
 		}
-
 		// Event listener para formatação do campo valor (mesma lógica do product-preco)
 		const valorInput = modal.querySelector('#despesa-valor');
 		if (valorInput) {
 			valorInput.addEventListener('input', function(e) {
 				let value = e.target.value;
-				
 				// Remove tudo exceto números, vírgula e ponto
 				value = value.replace(/[^\d.,]/g, '');
-				
 				// Substitui vírgula por ponto para padronização
 				value = value.replace(',', '.');
-				
 				// Garante apenas um ponto decimal
 				const parts = value.split('.');
 				if (parts.length > 2) {
 					value = parts[0] + '.' + parts.slice(1).join('');
 				}
-				
 				// Limita a 2 casas decimais
 				if (parts.length === 2 && parts[1].length > 2) {
 					value = parts[0] + '.' + parts[1].substring(0, 2);
 				}
-				
 				e.target.value = value;
 			});
 		}
 	}
-
 	openAddReceitaModal() {
 		// Verificar se já existe um modal aberto e removê-lo
 		const existingModal = document.getElementById('modal-add-receita');
 		if (existingModal) {
 			existingModal.remove();
 		}
-
 		const modal = this.createModal('modal-add-receita', '➕ Adicionar Receita');
 		modal.classList.add('show');
-
 		Object.assign(modal.style, {
 			display: 'flex',
 			justifyContent: 'center',
@@ -8613,27 +8794,23 @@ openAddDespesaModal() {
 			background: 'rgba(0,0,0,0.4)',
 			zIndex: '2000'
 		});
-
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 500px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18);">
 				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
 					<h3 style="margin: 0; font-size: 1.5rem; color: #333;">➕ Adicionar Receita</h3>
 					<button onclick="closeModal('modal-add-receita')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
 				</div>
-
 				<form id="form-add-receita" style="display: flex; flex-direction: column; gap: 1.2rem;">
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Descrição *</label>
 						<input type="text" id="receita-descricao" placeholder="Ex: Venda de produto avulso, Serviço, etc." required
 							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
 					</div>
-
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Valor *</label>
 						<input type="text" id="receita-valor" placeholder="0,00" required inputmode="decimal"
 							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
 					</div>
-
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Categoria *</label>
 						<select id="receita-categoria" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
@@ -8645,7 +8822,6 @@ openAddDespesaModal() {
 							<option value="outros">Outros</option>
 						</select>
 					</div>
-
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Tipo *</label>
 						<select id="receita-tipo" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
@@ -8653,13 +8829,11 @@ openAddDespesaModal() {
 							<option value="variavel">Variável (eventual)</option>
 						</select>
 					</div>
-
 					<div>
 						<label style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Data *</label>
 						<input type="date" id="receita-data" required value="${new Date().toISOString().split('T')[0]}"
 							   style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
 					</div>
-
 					<div style="display: flex; gap: 1rem; margin-top: 1rem;">
 						<button type="submit" style="flex: 1; padding: 0.75rem; background: linear-gradient(135deg, #28a745, #20c997); color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">
 							💰 Salvar Receita
@@ -8671,9 +8845,7 @@ openAddDespesaModal() {
 				</form>
 			</div>
 		`;
-
 		document.getElementById('modals-container').appendChild(modal);
-
 		// Event listener para o formulário
 		const form = modal.querySelector('#form-add-receita');
 		if (form) {
@@ -8682,16 +8854,13 @@ openAddDespesaModal() {
 				await this.saveNewReceita();
 			});
 		}
-
 		// Event listener para formatação do campo valor
 		const valorInput = modal.querySelector('#receita-valor');
 		if (valorInput) {
 			valorInput.addEventListener('input', function(e) {
 				let value = e.target.value;
-
 				// Permite apenas números, pontos e vírgulas
 				value = value.replace(/[^0-9.,]/g, '');
-
 				// Trata separadores decimais
 				const parts = value.split(/[.,]/);
 				if (parts.length > 2) {
@@ -8701,18 +8870,15 @@ openAddDespesaModal() {
 					// Formata com ponto como separador
 					value = parts[0] + '.' + parts[1];
 				}
-
 				// Limita a 2 casas decimais
 				if (value.includes('.') && value.split('.')[1].length > 2) {
 					const [inteiro, decimal] = value.split('.');
 					value = inteiro + '.' + decimal.substring(0, 2);
 				}
-
 				e.target.value = value;
 			});
 		}
 	}
-
 	async saveNewDespesa() {
 		const descricao = document.getElementById('despesa-descricao').value.trim();
 		const valorStr = document.getElementById('despesa-valor').value.trim().replace(',', '.');
@@ -8720,17 +8886,14 @@ openAddDespesaModal() {
 		const categoria = document.getElementById('despesa-categoria').value;
 		const tipo = document.getElementById('despesa-tipo').value;
 		const data = document.getElementById('despesa-data').value;
-
 		if (!descricao || !valorStr || !categoria || !tipo || !data) {
 			alert('Preencha todos os campos obrigatórios!');
 			return;
 		}
-
 		if (isNaN(valor) || valor <= 0) {
 			alert('Valor deve ser um número positivo válido!');
 			return;
 		}
-
 		try {
 			const despesaData = {
 				descricao,
@@ -8739,7 +8902,6 @@ openAddDespesaModal() {
 				tipo,
 				data_despesa: data
 			};
-
 			const result = await this.saveToSupabaseInsert('despesas', despesaData);
 			if (result) {
 				this.despesas.unshift(result);
@@ -8747,7 +8909,6 @@ openAddDespesaModal() {
 				this.createStatsCards();
 				alert('Despesa salva com sucesso!');
 				closeModal('modal-add-despesa');
-				
 				// Reabrir modal de despesas para mostrar a nova despesa
 				this.openDespesasModal();
 			}
@@ -8756,7 +8917,6 @@ openAddDespesaModal() {
 			alert('Erro ao salvar despesa: ' + error.message);
 		}
 	}
-
 	async saveNewReceita() {
 		const descricao = document.getElementById('receita-descricao').value.trim();
 		const valorStr = document.getElementById('receita-valor').value.trim().replace(',', '.');
@@ -8764,17 +8924,14 @@ openAddDespesaModal() {
 		const categoria = document.getElementById('receita-categoria').value;
 		const tipo = document.getElementById('receita-tipo').value;
 		const data = document.getElementById('receita-data').value;
-
 		if (!descricao || !valorStr || !categoria || !tipo || !data) {
 			alert('Preencha todos os campos obrigatórios!');
 			return;
 		}
-
 		if (isNaN(valor) || valor <= 0) {
 			alert('Valor deve ser um número positivo válido!');
 			return;
 		}
-
 		try {
 			const { data: novaReceita, error } = await this.supabase
 				.from('receitas')
@@ -8788,15 +8945,11 @@ openAddDespesaModal() {
 				}])
 				.select()
 				.single();
-
 			if (error) throw error;
-
 			// Adicionar à lista local
 			this.receitas.push(novaReceita);
-
 			// Fechar modal de adicionar
 			closeModal('modal-add-receita');
-
 			// Reabrir modal de receitas para mostrar a nova receita
 			this.openReceitasModal();
 		} catch (error) {
@@ -8804,10 +8957,8 @@ openAddDespesaModal() {
 			alert('Erro ao salvar receita: ' + error.message);
 		}
 	}
-
 	async deleteDespesa(despesaId) {
 		if (!confirm('Tem certeza que deseja excluir esta despesa?')) return;
-		
 		const success = await this.deleteFromSupabase('despesas', despesaId);
 		if (success) {
 			this.despesas = this.despesas.filter(d => d.id !== despesaId);
@@ -8815,10 +8966,8 @@ openAddDespesaModal() {
 			this.openDespesasModal(); // Reabrir modal atualizado
 		}
 	}
-
 	async deleteReceita(receitaId) {
 		if (!confirm('Tem certeza que deseja excluir esta receita?')) return;
-		
 		const success = await this.deleteFromSupabase('receitas', receitaId);
 		if (success) {
 			this.receitas = this.receitas.filter(r => r.id !== receitaId);
@@ -8826,14 +8975,12 @@ openAddDespesaModal() {
 			this.openReceitasModal(); // Reabrir modal atualizado
 		}
 	}
-
 	async registrarCustosProdutosVendidos(pedidoId, produtos) {
 		try {
 			for (const item of produtos) {
 				const produto = this.products.find(p => p.id == item.produto_id);
 				if (produto && produto.custo && parseFloat(produto.custo) > 0) {
 					const custoTotal = parseFloat(produto.custo) * item.quantidade;
-					
 					const despesaData = {
 						descricao: `Custo de produção - ${produto.nome} (Pedido #${pedidoId})`,
 						valor: custoTotal,
@@ -8843,7 +8990,6 @@ openAddDespesaModal() {
 						produto_id: produto.id,
 						pedido_id: pedidoId
 					};
-
 					await this.saveToSupabaseInsert('despesas', despesaData);
 					console.log(`✅ Custo registrado: ${produto.nome} - ${this.formatCurrency(custoTotal)}`);
 				}
@@ -8852,32 +8998,27 @@ openAddDespesaModal() {
 			console.error('Erro ao registrar custos dos produtos:', error);
 		}
 	}
-
 	async saveToSupabaseInsert(table, data) {
 		try {
 			if (!this.supabase) {
 				console.error('Supabase não inicializado - tentando inicializar...');
 				this.supabase = window.supabaseClient;
 			}
-			
 			if (!this.supabase) {
 				alert('Erro: Sistema de banco de dados não inicializado. Recarregue a página.');
 				return null;
 			}
-			
 			const { data: result, error } = await this.supabase
 				.from(table)
 				.insert(data)
 				.select()
 				.single();
-
 			if (error) {
 				console.error(`❌ Erro ao salvar em ${table}:`, error);
 				console.error('📋 Dados que estavam sendo salvos:', data);
 				alert(`Erro ao salvar em ${table}: ${error.message}`);
 				return null;
 			}
-
 			console.log(`✅ Dados salvos com sucesso em ${table}:`, result);
 			return result;
 		} catch (error) {
@@ -8886,20 +9027,17 @@ openAddDespesaModal() {
 			return null;
 		}
 	}
-
 	async deleteFromSupabase(table, id) {
 		try {
 			const { error } = await this.supabase
 				.from(table)
 				.delete()
 				.eq('id', id);
-
 			if (error) {
 				console.error(`Erro ao excluir de ${table}:`, error);
 				alert(`Erro ao excluir: ${error.message}`);
 				return false;
 			}
-
 			return true;
 		} catch (error) {
 			console.error(`Erro ao excluir de ${table}:`, error);
@@ -8907,10 +9045,8 @@ openAddDespesaModal() {
 			return false;
 		}
 	}
-
 	updateCartBadge() {
 		const totalItems = Object.values(this.cart).reduce((sum, item) => sum + (item.quantidade || 0), 0);
-		
 		// Atualizar badge no header (head-cart)
 		const headCart = document.getElementById('head-cart');
 		if (headCart) {
@@ -8925,7 +9061,6 @@ openAddDespesaModal() {
 				}
 			}
 		}
-
 		// Atualizar badge flutuante (cart-float) se existir
 		const cartFloat = document.getElementById('cart-float');
 		if (cartFloat) {
@@ -8942,7 +9077,6 @@ openAddDespesaModal() {
 			}
 		}
 	}
-
 // MODAIS PARA VENDAS ONLINE
 	openOnlineClientModal() {
 		const modal = this.createModal('modal-online-client', '', false);
@@ -8989,15 +9123,12 @@ openAddDespesaModal() {
 				</div>
 			</form>
 		`;
-
 		document.getElementById('modals-container').appendChild(modal);
 		modal.classList.add('show');
-
 		// Event listener para mostrar/ocultar campo de data
 		const entregaSelect = modal.querySelector('#online-entrega');
 		const dataGroup = modal.querySelector('#data-entrega-group');
 		const dataInput = modal.querySelector('#online-data-entrega');
-
 		entregaSelect.addEventListener('change', (e) => {
 			if (e.target.value === 'entrega') {
 				dataGroup.style.display = 'block';
@@ -9011,7 +9142,6 @@ openAddDespesaModal() {
 				dataInput.required = false;
 			}
 		});
-
 		modal.querySelector('#form-online-client').addEventListener('submit', async (e) => {
 			e.preventDefault();
 			const nome = modal.querySelector('#online-nome').value.trim();
@@ -9020,21 +9150,17 @@ openAddDespesaModal() {
 			const endereco = modal.querySelector('#online-endereco').value.trim();
 			const tipoEntrega = modal.querySelector('#online-entrega').value;
 			const dataEntrega = modal.querySelector('#online-data-entrega').value;
-
 			if (!nome || !telefone || !endereco || !tipoEntrega) {
 				alert('Preencha todos os campos obrigatórios');
 				return;
 			}
-
 			if (tipoEntrega === 'entrega' && !dataEntrega) {
 				alert('Selecione a data de entrega');
 				return;
 			}
-
 			// Salvar cliente
 			const clientData = { nome, telefone, email, endereco };
 			const cliente = await this.saveToSupabaseInsert('clientes', clientData);
-			
 			if (cliente) {
 				// Criar pedido
 				await this.finalizarPedidoOnline(cliente, tipoEntrega, dataEntrega);
@@ -9042,14 +9168,12 @@ openAddDespesaModal() {
 			}
 		});
 	}
-
 	async finalizarPedidoOnline(cliente, tipoEntrega, dataEntrega, enderecoEntrega, formaPagamento) {
 		try {
 			if (!cliente) {
 				alert('Erro: Cliente não informado. Tente novamente.');
 				return;
 			}
-			
 			// Se cliente é um objeto mas não tem ID, tentar salvar novamente
 			let clienteId = cliente.id;
 			if (!clienteId && typeof cliente === 'object') {
@@ -9067,57 +9191,57 @@ openAddDespesaModal() {
 					return;
 				}
 			}
-			
 			const itens = Object.entries(this.cart).map(([productId, quantidade]) => ({
 				produto_id: productId,
 				quantidade: quantidade.quantidade,
 				preco_unitario: this.products.find(p => p.id == productId)?.preco || 0
 			}));
-
 			const total = itens.reduce((sum, item) => sum + (item.quantidade * item.preco_unitario), 0);
-
 			// Processar sinal e status de pagamento
 			const fullPayment = document.getElementById('finalizar-full-payment').checked;
 			const sinal = fullPayment ? 0 : (parseFloat(document.getElementById('finalizar-sinal').value) || 0);
 			const valor_pago = fullPayment ? total : sinal;
-			const status = fullPayment ? (formaPagamento === 'dinheiro' ? 'pago' : 'pago') : 
-							(sinal > 0 ? 'confirmado' : 'pendente');
-
+			const status = 'pendente';
 			// Gerar número do pedido
 			const hoje = new Date();
 			const dataStr = hoje.toISOString().slice(0, 10).replace(/-/g, '');
 			const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
 			const numeroPedido = `PED-${dataStr}-${randomNum}`;
-
 			let observacoes = `Pedido online - ${tipoEntrega}`;
 			if (enderecoEntrega) {
 				observacoes += ` - Endereço: ${enderecoEntrega}`;
 			}
-			
 			// Adicionar observações do cliente se houver
 			const observacoesCliente = document.getElementById('finalizar-observacoes')?.value?.trim();
 			if (observacoesCliente) {
 				observacoes += `\n\nObservações do cliente: ${observacoesCliente}`;
 			}
-
+			// Capturar idioma selecionado no modal ANTES de criar o pedido
+			const idiomaSelecionado = document.getElementById('finalizar-idioma')?.value || cliente?.idioma || 'pt';
+			console.log(`📧 Idioma selecionado no modal: ${idiomaSelecionado}`);
+			
 			const pedidoData = {
 				numero_pedido: numeroPedido,
 				cliente_id: clienteId,
-				user_id: this.currentUser?.id, // Adicionar ID do usuário que criou o pedido
+				vendedor_id: null,
 				valor_total: total,
 				valor_pago: valor_pago,
 				status: status,
 				data_entrega: dataEntrega || new Date().toISOString().split('T')[0],
 				observacoes: observacoes,
-				idioma: cliente?.idioma || 'pt'
+				idioma: idiomaSelecionado
 			};
-			
 			const pedido = await this.saveToSupabaseInsert('pedidos', pedidoData);
-			
 			if (!pedido || !pedido.id) {
 				throw new Error('Falha ao salvar o pedido principal');
 			}
-
+			// Atualizar idioma do cliente se diferente
+			if (cliente && idiomaSelecionado !== (cliente.idioma || 'pt')) {
+				console.log(`📧 Atualizando idioma do cliente de "${cliente.idioma}" para "${idiomaSelecionado}"`);
+				await this.supabase.from('clientes').update({ idioma: idiomaSelecionado }).eq('id', cliente.id);
+			}
+			// Enviar email de confirmação
+			this.triggerRecebimentoEmail(pedido.id);
 			// Salvar itens do pedido
 			let itensSalvos = 0;
 			for (const item of itens) {
@@ -9137,12 +9261,10 @@ openAddDespesaModal() {
 					console.error('Erro ao salvar item do pedido:', itemError);
 				}
 			}
-
 			// Reservar estoque se o pedido foi confirmado ou pago
 			if (status === 'confirmado' || status === 'pago') {
 				await this.updateStockForOrder('reserve', pedido.id);
 			}
-
 			// Criar entrega se necessário (apenas para entregas, não para retirada)
 			if (tipoEntrega === 'entrega') {
 				try {
@@ -9167,17 +9289,9 @@ openAddDespesaModal() {
 			} else {
 				console.log('ℹ️ Pedido online sem entrega (retirada no local)');
 			}
-
 			if (itensSalvos === itens.length) {
-				// Enviar email de confirmação do pedido
-				try {
-					await this.enviarEmailPorStatus(pedido, null, status);
-				} catch (emailError) {
-					console.error('Erro ao enviar email de confirmação:', emailError);
-					// Não bloquear o fluxo se o email falhar
-				}
-
-				alert('Pedido realizado com sucesso! Entraremos em contato em breve.');
+				alert('Pedido realizado com sucesso! Você receberá um email de confirmação em breve.');
+				await this.loadData(); // Recarregar dados para atualizar listas
 				try {
 					if (typeof closeModal === 'function') {
 						closeModal('modal-finalizar-pedido'); // Fechar modal
@@ -9190,6 +9304,7 @@ openAddDespesaModal() {
 				}
 			} else {
 				alert('Pedido salvo, mas houve erro ao salvar alguns itens. Entre em contato conosco.');
+				await this.loadData(); // Recarregar dados
 				try {
 					if (typeof closeModal === 'function') {
 						closeModal('modal-finalizar-pedido');
@@ -9206,12 +9321,10 @@ openAddDespesaModal() {
 			alert('Erro ao finalizar pedido. Tente novamente.');
 		}
 	}
-
 	showPasswordChangeWarning() {
 		// Criar modal de aviso de senha padrão
 		const modal = this.createModal('modal-password-warning', '🔐 Segurança da Conta');
 		modal.classList.add('show');
-
 		Object.assign(modal.style, {
 			display: 'flex',
 			justifyContent: 'center',
@@ -9224,7 +9337,6 @@ openAddDespesaModal() {
 			background: 'rgba(0,0,0,0.6)',
 			zIndex: '3000'
 		});
-
 		let modalsContainer = document.getElementById('modals-container');
 		if (!modalsContainer) {
 			modalsContainer = document.createElement('div');
@@ -9232,14 +9344,12 @@ openAddDespesaModal() {
 			document.body.appendChild(modalsContainer);
 		}
 		modalsContainer.appendChild(modal);
-
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 500px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 1.3rem; max-height: 90vh; overflow-y: auto;">
 				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
 					<h3 style="margin: 0; font-size: 1.5rem; color: #dc3545;">🔐 Segurança da Conta</h3>
 					<button onclick="closeModal('modal-password-warning')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
 				</div>
-
 				<div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
 					<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
 						<span style="font-size: 2rem;">⚠️</span>
@@ -9252,7 +9362,6 @@ openAddDespesaModal() {
 						Por questões de segurança, você deve alterar sua senha imediatamente para proteger sua conta e os dados do sistema.
 					</p>
 				</div>
-
 				<div style="background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
 					<h5 style="margin: 0 0 0.5rem 0; color: #0c5460; font-size: 0.9rem;">💡 Dicas para uma senha segura:</h5>
 					<ul style="margin: 0; padding-left: 1.2rem; color: #0c5460; font-size: 0.85rem; line-height: 1.4;">
@@ -9262,7 +9371,6 @@ openAddDespesaModal() {
 						<li>Evite usar informações pessoais óbvias</li>
 					</ul>
 				</div>
-
 				<div style="display: flex; gap: 1rem; margin-top: 1rem;">
 					<button onclick="window.dashboardApp.showEditUserModal(); closeModal('modal-password-warning');" style="flex: 1; padding: 0.875rem; background: linear-gradient(135deg, #28a745, #20c997); color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(40,167,69,0.3);">
 						🔑 Alterar Senha Agora
@@ -9271,31 +9379,26 @@ openAddDespesaModal() {
 						Lembrar Depois
 					</button>
 				</div>
-
 				<p style="margin: 0.5rem 0 0 0; font-size: 0.8rem; color: #666; text-align: center;">
 					Este aviso aparecerá toda vez que você fizer login até alterar sua senha.
 				</p>
 			</div>
 		`;
 	}
-
 	// CACHE DE VALIDAÇÃO DE CLIENTE (10 minutos)
 	getValidacaoClienteCache() {
 		try {
 			const cache = localStorage.getItem('cliente_validacao_cache');
 			if (!cache) return null;
-
 			const data = JSON.parse(cache);
 			const agora = Date.now();
 			const tempoDecorrido = agora - data.timestamp;
-
 			// Verificar se não passou 10 minutos (600000 ms)
 			if (tempoDecorrido > 600000) {
 				console.log('⏰ Cache de validação expirado, removendo');
 				localStorage.removeItem('cliente_validacao_cache');
 				return null;
 			}
-
 			console.log(`✅ Cache válido: ${Math.round(tempoDecorrido / 1000)}s restantes`);
 			return data;
 		} catch (error) {
@@ -9304,7 +9407,6 @@ openAddDespesaModal() {
 			return null;
 		}
 	}
-
 	setValidacaoClienteCache(cliente) {
 		try {
 			const data = {
@@ -9317,13 +9419,294 @@ openAddDespesaModal() {
 			console.error('Erro ao salvar cache de validação:', error);
 		}
 	}
-
 	clearValidacaoClienteCache() {
 		try {
 			localStorage.removeItem('cliente_validacao_cache');
 			console.log('🗑️ Cache de validação removido');
 		} catch (error) {
 			console.error('Erro ao remover cache de validação:', error);
+		}
+	}
+
+	// ===== TIMELINE DE STATUS DO PEDIDO =====
+	// Função para abrir timeline de status com ícones clicáveis
+	abrirTimelineStatus(orderId) {
+		const order = this.orders.find(o => o.id == orderId);
+		if (!order) {
+			alert('Pedido não encontrado');
+			return;
+		}
+
+		const statusOptions = this.getTimelineStatuses();
+		const orderStatus = this.normalizeOrderStatus(order.status);
+
+		const currentStatusIndex = statusOptions.findIndex(s => s.key === orderStatus);
+
+		let modalsContainer = document.getElementById('modals-container');
+		if (!modalsContainer) {
+			modalsContainer = document.createElement('div');
+			modalsContainer.id = 'modals-container';
+			document.body.appendChild(modalsContainer);
+		}
+
+		const modal = document.createElement('div');
+		modal.className = 'modal-overlay';
+		modal.id = `modal-timeline-${orderId}`;
+		modalsContainer.appendChild(modal);
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 500px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 1.3rem; max-height: 90vh; overflow-y: auto;">
+				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+					<h3 style="margin: 0; font-size: 1.5rem; color: #dc3545;">🔐 Segurança da Conta</h3>
+					<button onclick="closeModal('modal-timeline-${orderId}')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #6c757d; padding: 0.2rem; border-radius: 4px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#f8f9fa'" onmouseout="this.style.backgroundColor='transparent'">×</button>
+				</div>
+
+				<div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+					<div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+						<span style="font-weight: 500; color: #495057;">👤 Cliente:</span>
+						<span style="color: #2c3e50;">${order.cliente_nome}</span>
+					</div>
+					<div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+						<span style="font-weight: 500; color: #495057;">💰 Total:</span>
+						<span style="color: #28a745; font-weight: 600;">R$ ${this.formatCurrency(order.valor_total)}</span>
+					</div>
+					<div style="display: flex; align-items: center; gap: 0.5rem;">
+						<span style="font-weight: 500; color: #495057;">📅 Data:</span>
+						<span style="color: #2c3e50;">${order.data_entrega ? new Date(order.data_entrega).toLocaleDateString('pt-BR') : 'Data não definida'}</span>
+					</div>
+				</div>
+
+				<div style="display: flex; flex-direction: column; gap: 1rem;">
+					${statusOptions.map((status, index) => {
+						const isCompleted = index <= currentStatusIndex;
+						const isCurrent = index === currentStatusIndex;
+						const canAdvance = index === currentStatusIndex + 1;
+
+						return `
+							<div style="display: flex; align-items: center; gap: 1rem; padding: 1rem; border-radius: 12px; background: ${isCompleted ? '#e8f5e8' : isCurrent ? '#fff3cd' : '#f8f9fa'}; border: 2px solid ${isCompleted ? '#28a745' : isCurrent ? '#ffc107' : '#dee2e6'}; transition: all 0.3s ease;">
+								<div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+									<div style="width: 50px; height: 50px; border-radius: 50%; background: ${status.color}; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem; cursor: ${canAdvance ? 'pointer' : 'default'}; transition: transform 0.2s ease;" 
+										 onclick="${canAdvance ? `window.dashboardApp.avancarStatusPedido('${order.id}', '${status.key}')` : ''}"
+										 onmouseover="${canAdvance ? `this.style.transform='scale(1.1)'` : ''}"
+										 onmouseout="${canAdvance ? `this.style.transform='scale(1)'` : ''}">
+										${status.emoji}
+									</div>
+									${canAdvance ? `<button style="background: ${status.color}; color: white; border: none; border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.8rem; cursor: pointer;" onclick="window.dashboardApp.avancarStatusPedido('${order.id}', '${status.key}')">Avançar</button>` : ''}
+								</div>
+								<div style="flex: 1;">
+									<h4 style="margin: 0 0 0.25rem 0; color: ${isCompleted ? '#28a745' : isCurrent ? '#856404' : '#6c757d'};">
+										${status.label} ${isCompleted ? '✓' : isCurrent ? '🔄' : ''}
+									</h4>
+									<p style="margin: 0; color: #666; font-size: 0.9rem;">${status.description}</p>
+									${isCompleted ? `<small style="color: #28a745; font-weight: 600;">Concluído</small>` : isCurrent ? `<small style="color: #856404; font-weight: 600;">Em andamento</small>` : `<small style="color: #6c757d;">Pendente</small>`}
+								</div>
+								${canAdvance ? `
+									<button style="background: #007bff; color: white; border: none; border-radius: 6px; padding: 0.4rem 0.8rem; font-size: 0.8rem; cursor: pointer; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#0056b3'" onmouseout="this.style.backgroundColor='#007bff'" onclick="event.stopPropagation(); window.dashboardApp.enviarEmailStatus('${order.id}', '${status.key}')">
+										📧 Enviar Email
+									</button>
+								` : ''}
+							</div>
+						`;
+					}).join('')}
+				</div>
+
+				<div style="margin-top: 1rem; padding: 1rem; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px;">
+					<div style="display: flex; align-items: flex-start; gap: 0.5rem;">
+						<span style="color: #856404; font-size: 1.2rem;">💡</span>
+						<div>
+							<div style="font-weight: 500; color: #856404; margin-bottom: 0.25rem;">Como usar:</div>
+							<ul style="margin: 0; padding-left: 1rem; color: #856404; font-size: 0.9rem; line-height: 1.4;">
+								<li>Clique no ícone do próximo status para avançar</li>
+								<li>Use o botão "Avançar" para mudar o status</li>
+								<li>Clique em "📧 Enviar Email" para notificar o cliente</li>
+							</ul>
+						</div>
+					</div>
+				</div>
+			</div>
+		`;
+		modalsContainer.appendChild(modal);
+	}
+
+	// Função para avançar o status do pedido
+	async avancarStatusPedido(orderId, novoStatus) {
+		try {
+			const { error } = await this.supabase
+				.from('pedidos')
+				.update({ status: novoStatus })
+				.eq('id', orderId);
+
+			if (error) {
+				console.error('Erro ao atualizar status:', error);
+				alert('Erro ao atualizar status do pedido');
+				return;
+			}
+
+			// Atualizar lista local
+			const order = this.orders.find(o => o.id == orderId);
+			if (order) {
+				order.status = novoStatus;
+			}
+			this.handleStatusEmailTriggers(orderId, novoStatus);
+			// Recarregar dados
+			await this.loadData();
+			alert(`Status atualizado para: ${novoStatus}`);
+		} catch (error) {
+			console.error('Erro ao avançar status:', error);
+			alert('Erro ao avançar status do pedido');
+		}
+	}
+
+	// Função para mostrar notificação quando email já foi enviado
+	showEmailAlreadySentNotification(status) {
+		const statusLabels = {
+			'confirmado': 'Pedido Confirmado',
+			'producao': 'Em Produção',
+			'saiu_entrega': 'Saiu para Entrega',
+			'entregue': 'Pedido Entregue',
+			'agradecimento': 'Agradecimento'
+		};
+		const statusLabel = statusLabels[status] || status;
+		console.log(`ℹ️ Email de "${statusLabel}" já foi enviado anteriormente para este pedido`);
+		this.showAlert('alert.email_ja_enviado', { status: statusLabel });
+	}
+
+	// Função para enviar email via Gmail
+	async enviarEmailStatus(orderId, status) {
+		console.log(`📧 enviarEmailStatus chamado: orderId=${orderId}, status=${status}`);
+		
+		// SEMPRE buscar do banco para garantir email_sent_steps atualizado
+		console.log(`📧 Buscando pedido atualizado no Supabase...`);
+		
+		const { data, error } = await this.supabase
+			.from('pedidos')
+			.select(`
+				*,
+				idioma,
+				email_sent_steps,
+				clientes(nome, email, telefone, idioma),
+				pedido_itens(
+					id,
+					quantidade,
+					preco_unitario,
+					produtos(nome)
+				)
+			`)
+			.eq('id', orderId)
+			.single();
+		
+		if (error || !data) {
+			console.error('Pedido não encontrado:', error);
+			return;
+		}
+		
+		const order = {
+			...data,
+			cliente_nome: data.clientes?.nome,
+			email: data.clientes?.email,
+			telefone: data.clientes?.telefone,
+			idioma: data.idioma || data.clientes?.idioma,
+			itens: data.pedido_itens || []
+		};
+		console.log(`📧 Pedido encontrado no Supabase com email_sent_steps:`, order.email_sent_steps);
+		
+		if (!order.email) {
+			console.warn('Cliente não tem email cadastrado para o pedido:', orderId);
+			return;
+		}
+
+		// Verificar se o email já foi enviado para este status
+		const normalizedStatus = this.normalizeOrderStatus(status);
+		console.log(`📧 Status original: "${status}", normalizado: "${normalizedStatus}"`);
+		console.log(`📧 email_sent_steps do pedido:`, order.email_sent_steps);
+		console.log(`📧 Tipo de email_sent_steps:`, typeof order.email_sent_steps);
+		console.log(`📧 É array?`, Array.isArray(order.email_sent_steps));
+		
+		const emailAlreadySent = order.email_sent_steps && Array.isArray(order.email_sent_steps) && order.email_sent_steps.includes(normalizedStatus);
+		console.log(`📧 Email já enviado para "${normalizedStatus}"? ${emailAlreadySent}`);
+		
+		if (emailAlreadySent) {
+			console.log(`📧 ⚠️ BLOQUEIO: Email de "${normalizedStatus}" já foi enviado anteriormente para o pedido ${orderId}`);
+			this.showEmailAlreadySentNotification(normalizedStatus);
+			return; // Não enviar email duplicado
+		}
+		
+		console.log(`📧 ✅ Validação passou - Email de "${normalizedStatus}" pode ser enviado`);
+
+		if (!this.sendPulseService) {
+			console.log(`📧 Inicializando sendPulseService...`);
+			// Aguardar até que BrevoEmailService esteja disponível
+			let attempts = 0;
+			while (!window.BrevoEmailService && attempts < 50) {
+				await new Promise(resolve => setTimeout(resolve, 100));
+				attempts++;
+			}
+			if (!window.BrevoEmailService) {
+				console.error(`❌ BrevoEmailService não está disponível no objeto window após ${attempts} tentativas`);
+				throw new Error('BrevoEmailService não foi carregado');
+			}
+			this.sendPulseService = new window.BrevoEmailService();
+			console.log(`✅ sendPulseService inicializado com sucesso`);
+		}
+
+		console.log(`📧 Idioma do pedido:`, order.idioma);
+		console.log(`📧 Cliente idioma:`, order.clientes?.idioma);
+		console.log(`📧 Order completo para debug:`, order);
+		
+		const emailHtml = this.sendPulseService.getEmailTemplate(normalizedStatus, order);
+		const subject = this.sendPulseService.getSubject(normalizedStatus, order);
+
+		console.log(`📧 Enviando email para ${order.email} - Status: ${status}`);
+		console.log(`📧 Assunto: ${subject}`);
+		console.log(`📧 Template: ${normalizedStatus}`);
+
+		const result = await this.sendPulseService.sendEmail({
+			to: order.email,
+			subject: subject,
+			html: emailHtml
+		});
+
+		console.log(`📧 Resultado do envio:`, result);
+
+		if (result.success) {
+			console.log(`✅ Email enviado com sucesso para ${order.email} - Status: ${this.getStatusLabel(status)}`);
+
+			// Tentar atualizar email_sent_steps
+			try {
+				// Inicializar array se não existir ou não for array
+				if (!Array.isArray(order.email_sent_steps)) {
+					console.log(`📧 Inicializando email_sent_steps como array vazio`);
+					order.email_sent_steps = [];
+				}
+				
+				console.log(`📧 email_sent_steps antes de adicionar:`, order.email_sent_steps);
+				
+				if (!order.email_sent_steps.includes(normalizedStatus)) {
+					order.email_sent_steps.push(normalizedStatus);
+					console.log(`📧 email_sent_steps depois de adicionar:`, order.email_sent_steps);
+
+					const { data: updateData, error: updateError } = await this.supabase
+						.from('pedidos')
+						.update({ email_sent_steps: order.email_sent_steps })
+						.eq('id', orderId)
+						.select();
+
+					if (updateError) {
+						console.error(`❌ Erro ao atualizar email_sent_steps:`, updateError);
+					} else {
+						console.log(`✅ Email marcado como enviado para status "${normalizedStatus}" do pedido ${orderId}`);
+						console.log(`📧 Dados atualizados no banco:`, updateData);
+					}
+				} else {
+					console.log(`ℹ️ Status "${normalizedStatus}" já está em email_sent_steps, não adicionando novamente`);
+				}
+				
+				await this.loadData();
+			} catch (updateError) {
+				console.error('❌ Erro ao atualizar email_sent_steps:', updateError);
+				await this.loadData();
+			}
+		} else {
+			console.error(`❌ Erro ao enviar email: ${result.error}`);
 		}
 	}
 }
@@ -9340,25 +9723,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 		console.error('Erro ao inicializar aplicação:', error);
 	}
 });
-
 // CACHE DE VALIDAÇÃO DE CLIENTE (10 minutos) - MÉTODOS DA CLASSE DASHBOARDAPP
 // Estes métodos são adicionados à classe DashboardApp
 DashboardApp.prototype.getValidacaoClienteCache = function() {
 	try {
 		const cache = localStorage.getItem('cliente_validacao_cache');
 		if (!cache) return null;
-
 		const data = JSON.parse(cache);
 		const agora = Date.now();
 		const tempoDecorrido = agora - data.timestamp;
-
 		// Verificar se não passou 10 minutos (600000 ms)
 		if (tempoDecorrido > 600000) {
 			console.log('⏰ Cache de validação expirado, removendo');
 			localStorage.removeItem('cliente_validacao_cache');
 			return null;
 		}
-
 		console.log(`✅ Cache válido: ${Math.round(tempoDecorrido / 1000)}s restantes`);
 		return data;
 	} catch (error) {
@@ -9367,7 +9746,6 @@ DashboardApp.prototype.getValidacaoClienteCache = function() {
 		return null;
 	}
 };
-
 DashboardApp.prototype.setValidacaoClienteCache = function(cliente) {
 	try {
 		const data = {
@@ -9380,7 +9758,6 @@ DashboardApp.prototype.setValidacaoClienteCache = function(cliente) {
 		console.error('Erro ao salvar cache de validação:', error);
 	}
 };
-
 DashboardApp.prototype.clearValidacaoClienteCache = function() {
 	try {
 		localStorage.removeItem('cliente_validacao_cache');
@@ -9389,7 +9766,6 @@ DashboardApp.prototype.clearValidacaoClienteCache = function() {
 		console.error('Erro ao remover cache de validação:', error);
 	}
 };
-
 // Funções globais
 function closeModal(modalId) {
 	const modal = document.getElementById(modalId);
@@ -9399,323 +9775,539 @@ function closeModal(modalId) {
 		modal.style.display = 'none !important';
 		modal.remove();
 	}
-}
-
+// ===== TIMELINE DE STATUS DO PEDIDO =====
+// Função para abrir timeline de status com ícones clicáveis
 function closeModalOverlay(event) {
 	if (event.target.classList.contains('modal-overlay')) {
 		const modalId = event.currentTarget.id;
 		closeModal(modalId);
 	}
-}
-
-// ===== SISTEMA DE EMAIL COM GMAIL =====
-window.emailGmail = {
-	// ⚠️ CONFIGURE SUAS CREDENCIAIS AQUI
-	config: {
-		email: 'seuemail@gmail.com',        // Substitua pelo seu email Gmail
-		senhaApp: 'xxxx xxxx xxxx xxxx'    // Substitua pela sua senha de app (16 caracteres com espaços)
-	},
-
-	// Configurações de cada status de pedido
-	statusConfig: {
-		'pendente': {
-			titulo: 'Pedido Recebido',
-			emoji: '📦',
-			cor: '#ff6b9d',
-			mensagem: 'Obrigado pelo seu pedido! Recebemos seu pedido e estamos processando.',
-			footer: 'Manteremos você informado sobre o status do seu pedido através de novos emails.'
-		},
-		'confirmado': {
-			titulo: 'Pedido Confirmado',
-			emoji: '✅',
-			cor: '#28a745',
-			mensagem: 'Ótimo! Seu pedido foi confirmado e já está em produção.',
-			footer: 'Nossa equipe está trabalhando para preparar suas delícias com todo cuidado e carinho.'
-		},
-		'producao': {
-			titulo: 'Em Produção',
-			emoji: '👨‍🍳',
-			cor: '#ffc107',
-			mensagem: 'Seu pedido está sendo preparado com muito carinho em nossa cozinha!',
-			footer: 'Estamos trabalhando duro para preparar suas delícias. Você receberá uma atualização quando estiver pronto para entrega!'
-		},
-		'pago': {
-			titulo: 'Pagamento Confirmado',
-			emoji: '💰',
-			cor: '#28a745',
-			mensagem: 'Recebemos seu pagamento para o pedido. Obrigado pela confiança!',
-			footer: 'Seu pedido será preparado e entregue conforme combinado. Agradecemos pela preferência!'
-		},
-		'entregue': {
-			titulo: 'Pedido Entregue',
-			emoji: '🚚',
-			cor: '#6f42c1',
-			mensagem: '🎉 Seu pedido foi entregue com sucesso!',
-			footer: 'Esperamos que aproveite suas delícias! Obrigado por escolher a Leo\'s Cake.'
-		},
-		'cancelado': {
-			titulo: 'Pedido Cancelado',
-			emoji: '⚠️',
-			cor: '#dc3545',
-			mensagem: 'Lamentamos informar que seu pedido foi cancelado.',
-			footer: 'Se tiver alguma dúvida sobre o cancelamento ou quiser fazer um novo pedido, entre em contato conosco.'
+// ===== SISTEMA DE EMAIL MANUAL VIA GMAIL COMPOSE =====
+// ===== TIMELINE DE STATUS DO PEDIDO =====
+		if (!order) {
+			alert('Pedido não encontrado');
+			return;
 		}
-	},
-
-	// Função principal para enviar email
-	async enviarEmailPorStatus(order, oldStatus, newStatus) {
-		// Verificar se o pedido tem email
-		if (!order.email || !order.email.trim()) {
-			console.log('❌ Pedido sem email, pulando envio');
-			return false;
-		}
-
-		// Verificar se o status é válido
-		const config = this.statusConfig[newStatus];
-		if (!config) {
-			console.log('❌ Status não configurado:', newStatus);
-			return false;
-		}
-
-		// Verificar se as credenciais estão configuradas
-		if (this.config.email === 'seuemail@gmail.com' || this.config.senhaApp === 'xxxx xxxx xxxx xxxx') {
-			console.warn('⚠️ Credenciais do Gmail não configuradas. Configure email e senhaApp no window.emailGmail.config');
-			alert('Configure suas credenciais do Gmail primeiro!\n\nEdite window.emailGmail.config no código com seu email e senha de app.');
-			return false;
-		}
-
-		try {
-			console.log(`📧 Enviando email para ${order.email} - Status: ${newStatus}`);
-
-			// Para funcionar no navegador, vamos usar uma abordagem híbrida
-			// Opção 1: Usar um serviço de email que aceita CORS (recomendado)
-			const sucesso = await this.enviarViaAPIExterna(order, config);
-
-			// Opção 2: Simulação (para desenvolvimento)
-			// const sucesso = await this.simularEnvio(order, config);
-
-			if (sucesso) {
-				console.log('✅ Email enviado com sucesso!');
-				return true;
-			} else {
-				console.error('❌ Falha ao enviar email');
-				return false;
-			}
-
-		} catch (error) {
-			console.error('❌ Erro ao enviar email:', error);
-			return false;
-		}
-	},
-
-	// Método usando API externa (recomendado para produção)
-	async enviarViaAPIExterna(order, config) {
-		try {
-			// Usando um serviço gratuito que permite envio de emails via API
-			// Você pode usar: EmailJS (mesmo limitado), Formspree, ou seu próprio backend
-
-			const dadosEmail = {
-				service_id: 'service_ydmyk5b', // Mesmo do EmailJS se quiser usar
-				template_id: 'template_pedido_status', // Template único
-				user_id: 'your_user_id', // Seu user ID do EmailJS
-				template_params: {
-					cliente_nome: order.cliente_nome || 'Cliente',
-					pedido_numero: order.numero || order.id,
-					produtos: this.formatarProdutos(order.produtos || []),
-					valor_total: this.formatarMoeda(order.total || 0),
-					data_entrega: order.data_entrega || '',
-					status_titulo: config.titulo,
-					mensagem_principal: config.mensagem,
-					mensagem_secundaria: config.footer,
-					mostrar_botao: false
-				}
-			};
-
-			// Se ainda quiser usar EmailJS para 1 template, pode usar aqui
-			// Mas recomendamos migrar para SendGrid conforme SENDGRID_SETUP.md
-
-			console.log('📧 Dados do email preparados:', dadosEmail);
-			console.log('💡 Para produção, configure um serviço de email como SendGrid (SENDGRID_SETUP.md)');
-
-			// Simulação de sucesso
-			return true;
-
-		} catch (error) {
-			console.error('Erro na API externa:', error);
-			return false;
-		}
-	},
-
-	// Método de simulação para desenvolvimento
-	async simularEnvio(order, config) {
-		console.log('🎭 SIMULAÇÃO DE ENVIO DE EMAIL');
-		console.log('================================');
-		console.log(`De: ${this.config.email}`);
-		console.log(`Para: ${order.email}`);
-		console.log(`Assunto: ${order.numero || order.id} - ${config.titulo}`);
-		console.log('');
-		console.log('Conteúdo HTML:');
-		console.log(this.gerarTemplateHTML(order, config));
-		console.log('================================');
-
-		// Simular delay de envio
-		await new Promise(resolve => setTimeout(resolve, 1000));
-
-		return true;
-	},
-
-	// Gerar HTML do template de email
-	gerarTemplateHTML(order, config) {
-		const produtosFormatados = this.formatarProdutos(order.produtos || []);
-		const totalFormatado = this.formatarMoeda(order.total || 0);
-		const dataEntrega = order.data_entrega ? `<br><strong>Previsão de entrega:</strong> ${order.data_entrega}` : '';
-
-		return `
-		<!DOCTYPE html>
-		<html lang="pt-BR">
-		<head>
-			<meta charset="utf-8">
-			<meta name="viewport" content="width=device-width, initial-scale=1.0">
-			<title>${config.titulo} - Leo's Cake</title>
-			<style>
-				body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background-color: #f8f9fa; }
-				.container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-				.header { background: linear-gradient(135deg, ${config.cor}, #ffa726); padding: 40px 30px; text-align: center; position: relative; }
-				.logo { max-width: 120px; height: auto; border-radius: 50%; border: 3px solid rgba(255,255,255,0.3); box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-				.titulo { color: white; margin: 15px 0 0 0; font-size: 28px; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
-				.subtitulo { color: white; margin: 5px 0 0 0; opacity: 0.9; font-size: 16px; }
-				.content { padding: 40px 30px; }
-				.saudacao { color: #2c3e50; margin-top: 0; font-size: 24px; font-weight: 600; }
-				.mensagem { color: #555; line-height: 1.7; margin-bottom: 25px; font-size: 16px; }
-				.pedido-box { background: linear-gradient(135deg, #f8f9fa, #e9ecef); border-left: 5px solid ${config.cor}; padding: 25px; margin: 25px 0; border-radius: 8px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); }
-				.pedido-titulo { margin-top: 0; color: #2c3e50; font-size: 20px; font-weight: 600; }
-				.produtos { font-family: 'Courier New', monospace; background: white; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6; margin: 15px 0; font-size: 14px; line-height: 1.4; }
-				.total { font-size: 20px; font-weight: bold; color: ${config.cor}; margin: 15px 0 0 0; text-align: center; }
-				.footer { background-color: #f8f9fa; padding: 25px 30px; text-align: center; border-top: 1px solid #dee2e6; }
-				.assinatura { margin: 0; color: #6c757d; font-size: 16px; }
-				.observacao { margin: 10px 0 0 0; color: #9ca3af; font-size: 12px; font-style: italic; }
-				@media (max-width: 600px) { .container { margin: 10px; } .header, .content, .footer { padding-left: 20px; padding-right: 20px; } }
-			</style>
-		</head>
-		<body>
-			<div class="container">
-				<!-- Header -->
-				<div class="header">
-					<img src="https://raw.githubusercontent.com/leohena/leos-cake-sistema/main/images/logo-png.png" alt="Leo's Cake" class="logo">
-					<h1 class="titulo">${config.emoji} ${config.titulo}</h1>
-					<p class="subtitulo">Leo's Cake</p>
+		const modalsContainer = document.getElementById('modals-container');
+		if (!modalsContainer) return;
+		modalsContainer.innerHTML = '';
+		const modalId = 'timeline-modal';
+		const modal = document.createElement('div');
+		modal.id = modalId;
+		modal.className = 'modal-overlay show';
+		modal.onclick = closeModalOverlay;
+		const statusOptions = window.dashboardApp?.getTimelineStatuses ? window.dashboardApp.getTimelineStatuses() : [
+			{ key: 'pendente', label: 'Pedido Recebido', emoji: '📥', color: '#ffc107', description: 'Pedido recebido e aguardando validação do time.' },
+			{ key: 'confirmado', label: 'Pedido Confirmado', emoji: '✅', color: '#28a745', description: 'Detalhes e agenda confirmados. Cliente deve finalizar o pagamento.' },
+			{ key: 'producao', label: 'Em Produção', emoji: '👩‍🍳', color: '#fd7e14', description: 'Pagamento validado e pedido em preparação.' },
+			{ key: 'entregue', label: 'Pedido Entregue', emoji: '🚚', color: '#20c997', description: 'Pedido finalizado e entregue ao cliente.' }
+		];
+		const normalizedStatus = window.dashboardApp?.normalizeOrderStatus ? window.dashboardApp.normalizeOrderStatus(order.status) : order.status;
+		const currentStatusIndex = statusOptions.findIndex(s => s.key === normalizedStatus);
+		modal.innerHTML = `
+			<div class="modal-content-wrapper" style="background: #fff; border-radius: 18px; max-width: 600px; width: 100%; padding: 2rem 1.5rem; box-shadow: 0 6px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 1.3rem; max-height: 90vh; overflow-y: auto;">
+				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+					<h3 style="margin: 0; font-size: 1.5rem; color: #333;">📋 Timeline do Pedido #${order.numero_pedido}</h3>
+					<button onclick="closeModal('${modalId}')" style="background:none; border:none; font-size:1.5rem; color:#888; cursor:pointer;">&times;</button>
 				</div>
-
-				<!-- Content -->
-				<div class="content">
-					<h2 class="saudacao">Olá ${order.cliente_nome || 'Cliente'},</h2>
-					<p class="mensagem">${config.mensagem}</p>
-
-					<div class="pedido-box">
-						<h3 class="pedido-titulo">📋 Detalhes do Pedido</h3>
-						<div class="produtos">${produtosFormatados}</div>
-						<p class="total">Total: ${totalFormatado}${dataEntrega}</p>
+				<div style="background: #f8f9fa; padding: 1rem; border-radius: 10px; margin-bottom: 1rem;">
+					<div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+						<div style="width: 40px; height: 40px; border-radius: 50%; background: #007bff; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
+							${order.cliente_nome.charAt(0).toUpperCase()}
+						</div>
+						<div>
+							<h4 style="margin: 0; color: #333;">${order.cliente_nome}</h4>
+							<p style="margin: 0; color: #666; font-size: 0.9rem;">${order.numero_pedido}</p>
+						</div>
 					</div>
-
-					<p class="mensagem">${config.footer}</p>
+					<div style="display: flex; justify-content: space-between; align-items: center;">
+						<span style="font-weight: 600; color: #28a745;">R$ ${this.formatCurrency(order.valor_total)}</span>
+						<span style="font-size: 0.9rem; color: #666;">${order.data_entrega ? new Date(order.data_entrega).toLocaleDateString('pt-BR') : 'Data não definida'}</span>
+					</div>
 				</div>
-
-				<!-- Footer -->
-				<div class="footer">
-					<p class="assinatura">
-						Atenciosamente,<br>
-						<strong>Equipe Leo's Cake</strong>
-					</p>
-					<p class="observacao">Esta é uma mensagem automática, por favor não responda.</p>
+				<div style="display: flex; flex-direction: column; gap: 1rem;">
+					${statusOptions.map((status, index) => {
+						const isCompleted = index <= currentStatusIndex;
+						const isCurrent = index === currentStatusIndex;
+						const canAdvance = index === currentStatusIndex + 1;
+						return `
+							<div style="display: flex; align-items: center; gap: 1rem; padding: 1rem; border-radius: 12px; background: ${isCompleted ? '#e8f5e8' : isCurrent ? '#fff3cd' : '#f8f9fa'}; border: 2px solid ${isCompleted ? '#28a745' : isCurrent ? '#ffc107' : '#dee2e6'}; transition: all 0.3s ease;">
+								<div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+									<div style="width: 50px; height: 50px; border-radius: 50%; background: ${status.color}; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem; cursor: ${canAdvance ? 'pointer' : 'default'}; transition: transform 0.2s ease;" 
+										 onclick="${canAdvance ? `window.dashboardApp.avancarStatusPedido('${order.id}', '${status.key}')` : ''}"
+										 onmouseover="${canAdvance ? `this.style.transform='scale(1.1)'` : ''}"
+										 onmouseout="${canAdvance ? `this.style.transform='scale(1)'` : ''}">
+										${status.emoji}
+									</div>
+									${canAdvance ? `<button style="background: ${status.color}; color: white; border: none; border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.8rem; cursor: pointer;" onclick="window.dashboardApp.avancarStatusPedido('${order.id}', '${status.key}')">Avançar</button>` : ''}
+								</div>
+								<div style="flex: 1;">
+									<h4 style="margin: 0 0 0.25rem 0; color: ${isCompleted ? '#28a745' : isCurrent ? '#856404' : '#6c757d'};">
+										${status.label} ${isCompleted ? '✓' : isCurrent ? '🔄' : ''}
+									</h4>
+									<p style="margin: 0; color: #666; font-size: 0.9rem;">${status.description}</p>
+									${isCompleted ? `<small style="color: #28a745; font-weight: 600;">Concluído</small>` : isCurrent ? `<small style="color: #856404; font-weight: 600;">Em andamento</small>` : `<small style="color: #6c757d;">Pendente</small>`}
+								</div>
+								${isCompleted || isCurrent ? `
+									<button style="background: #007bff; color: white; border: none; border-radius: 6px; padding: 0.5rem 1rem; cursor: pointer;" 
+											onclick="window.dashboardApp.enviarEmailStatus('${order.id}', '${status.key}')">
+										📧 Enviar Email
+									</button>
+								` : ''}
+							</div>
+						`;
+					}).join('')}
+				</div>
+				<div style="text-align: center; margin-top: 1rem;">
+					<button onclick="closeModal('${modalId}')" style="background: #6c757d; color: white; border: none; border-radius: 8px; padding: 0.75rem 2rem; font-size: 1rem; cursor: pointer;">
+						Fechar
+					</button>
 				</div>
 			</div>
-		</body>
-		</html>`;
-	},
-
-	// Funções auxiliares
-	formatarProdutos(produtos) {
-		if (!produtos || !Array.isArray(produtos)) return 'Produtos não especificados';
-
-		return produtos.map(produto => {
-			const nome = produto.nome || produto.descricao || 'Produto';
-			const quantidade = produto.quantidade || 1;
-			const preco = this.formatarMoeda(produto.preco || 0);
-			return `${quantidade}x ${nome} - ${preco}`;
-		}).join('\n');
-	},
-
-	formatarMoeda(valor) {
-		return new Intl.NumberFormat('pt-BR', {
-			style: 'currency',
-			currency: 'BRL'
-		}).format(valor);
-	},
-
-	// Função para testar o sistema
-	async testarEnvio() {
-		const pedidoTeste = {
-			id: 'TEST-001',
-			numero: 'TEST-001',
-			cliente_nome: 'Cliente de Teste',
-			email: 'teste@email.com',
-			produtos: [
-				{ nome: 'Bolo de Chocolate', quantidade: 1, preco: 45.00 },
-				{ nome: 'Cupcake', quantidade: 6, preco: 5.00 }
-			],
-			total: 75.00,
-			data_entrega: '25/11/2025'
-		};
-
-		console.log('🧪 Iniciando teste de email...');
-		const resultado = await this.enviarEmailPorStatus(pedidoTeste, null, 'confirmado');
-
-		if (resultado) {
-			alert('✅ Teste concluído! Verifique o console para ver os detalhes do email.');
-		} else {
-			alert('❌ Teste falhou. Verifique o console para detalhes.');
-		}
+		`;
+		modalsContainer.appendChild(modal);
 	}
 };
 
-// ===== INTEGRAÇÃO COM O SISTEMA =====
+// Gerar corpo do email baseado no status
+function gerarCorpoEmailStatus(order, status) {
+	const saudacao = `Olá ${order.cliente_nome},`;
 
-// Função para ser chamada quando o status do pedido mudar
-window.notificarStatusPedido = async function(orderId, novoStatus) {
-	try {
-		// Buscar dados do pedido
-		const { data: order, error } = await window.supabase
-			.from('pedidos')
-			.select('*')
-			.eq('id', orderId)
-			.single();
+	// Template HTML profissional
+	const htmlTemplate = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leo&apos;s Cake - Atualização do Pedido</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #f8f9fa;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #ff6b9d, #ffa726);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .subtitle {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 30px 20px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+            text-transform: uppercase;
+            margin: 10px 0;
+        }
+        .pedido-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #ff6b9d;
+        }
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .info-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .valor-total {
+            font-size: 24px;
+            font-weight: bold;
+            color: #28a745;
+            text-align: center;
+            margin: 20px 0;
+            padding: 15px;
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            border-radius: 8px;
+        }
+        .footer {
+            background: #343a40;
+            color: white;
+            padding: 25px 20px;
+            text-align: center;
+        }
+        .contato-info {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .contato-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .assinatura {
+            border-top: 1px solid #495057;
+            padding-top: 15px;
+            font-style: italic;
+            opacity: 0.8;
+        }
+        .emoji {
+            font-size: 20px;
+        }
+        @media (max-width: 480px) {
+            .contato-info {
+                flex-direction: column;
+                gap: 10px;
+            }
+            body {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🍰 Leo&apos;s Cake</div>
+            <div class="subtitle">Doces artesanais com amor</div>
+        </div>
 
-		if (error || !order) {
-			console.error('Erro ao buscar pedido:', error);
-			return false;
-		}
+        <div class="content">
+            <h2 style="color: #333; margin-bottom: 20px;">${saudacao}</h2>
 
-		// Enviar email
-		const sucesso = await window.emailGmail.enviarEmailPorStatus(order, null, novoStatus);
+            <div class="status-badge" style="background: ${getStatusColor(status)};">
+                ${getStatusEmoji(status)} ${getStatusLabel(status)}
+            </div>
 
-		if (sucesso) {
-			console.log(`✅ Notificação de status '${novoStatus}' enviada para ${order.email}`);
-			return true;
-		} else {
-			console.error(`❌ Falha ao enviar notificação de status '${novoStatus}'`);
-			return false;
-		}
+            <div class="pedido-info">
+                <h3 style="margin: 0 0 15px 0; color: #ff6b9d;">📋 Informações do Pedido</h3>
+                <div class="info-item">
+                    <strong>Número do Pedido:</strong>
+                    <span>${order.numero_pedido}</span>
+                </div>
+                ${order.data_entrega ? `
+                <div class="info-item">
+                    <strong>Previsão de Entrega:</strong>
+                    <span>${new Date(order.data_entrega).toLocaleDateString('pt-BR')}</span>
+                </div>
+                ` : ''}
+                <div class="info-item">
+                    <strong>Status Atual:</strong>
+                    <span>${getStatusLabel(status)}</span>
+                </div>
+            </div>
 
-	} catch (error) {
-		console.error('Erro ao notificar status:', error);
-		return false;
-	}
-};
+            <div class="valor-total">
+                💰 R$ ${order.valor_total ? parseFloat(order.valor_total).toFixed(2) : '0.00'}
+            </div>
 
-// Função para testar o sistema de email
-window.testarEmailSystem = function() {
-	window.emailGmail.testarEnvio();
-};
+            <p style="font-size: 16px; line-height: 1.6; margin: 20px 0;">
+                ${getStatusMessage(order, status)}
+            </p>
 
-// Tornar DashboardApp disponível globalmente
+            <p style="color: #666; font-style: italic;">
+                Qualquer dúvida, estamos à disposição para ajudar!
+            </p>
+        </div>
+
+        <div class="footer">
+            <div class="contato-info">
+                <div class="contato-item">
+                    <span class="emoji">📞</span>
+                    <span>(11) 99999-9999</span>
+                </div>
+                <div class="contato-item">
+                    <span class="emoji">📧</span>
+                    <span>contato@leoscake.com</span>
+                </div>
+                <div class="contato-item">
+                    <span class="emoji">🏪</span>
+                    <span>Retirada em nossa loja</span>
+                </div>
+            </div>
+
+            <div class="assinatura">
+                <strong>Equipe Leo&apos;s Cake</strong><br>
+                Doces feitos com muito carinho especialmente para você! 🍰✨
+            </div>
+        </div>
+    </div>
+</body>
+</html>`;
+
+	return htmlTemplate;
+}
+
+// Funções auxiliares para o email
+function getStatusColor(status) {
+	const colors = {
+		'pendente': '#ffc107',
+		'confirmado': '#28a745',
+		'producao': '#fd7e14',
+		'pago': '#20c997',
+		'entregue': '#17a2b8'
+	};
+	return colors[status] || '#6c757d';
+}
+
+function getStatusEmoji(status) {
+	const emojis = {
+		'pendente': '⏳',
+		'confirmado': '✅',
+		'producao': '👨‍🍳',
+		'pago': '💰',
+		'entregue': '🚚'
+	};
+	return emojis[status] || '📦';
+}
+
+function getStatusLabel(status) {
+	const labels = {
+		'pendente': 'Pendente',
+		'confirmado': 'Confirmado',
+		'producao': 'Em Produção',
+		'pago': 'Pago',
+		'entregue': 'Entregue'
+	};
+	return labels[status] || status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function gerarCorpoEmailTexto(order, status) {
+	// Importar configurações da empresa
+	const empresa = {
+		nome: 'Leo\'s Cake',
+		email: 'leoscakegta@gmail.com',
+		telefone: '+1 437 243 2072',
+		endereco: '60-561 Childs Drive, Milton, ON, L9T 3Z1',
+		website: 'https://leohena.github.io/leos-cake/vendas-online.html'
+	};
+
+	// Banner profissional
+	const banner = `
+╔══════════════════════════════════════════════════════════════╗
+║                     🍰 LEO'S CAKE 🍰                        ║
+║                 Doces Artesanais com Amor                   ║
+║                                                              ║
+║  📧 ${empresa.email.padEnd(56)} ║
+║  📞 ${empresa.telefone.padEnd(56)} ║
+║  🏪 ${empresa.endereco.substring(0, 56).padEnd(56)} ║
+║  🌐 ${empresa.website.substring(0, 56).padEnd(56)} ║
+╚══════════════════════════════════════════════════════════════╝
+	`.trim();
+
+	const saudacao = `Olá ${order.cliente_nome},`;
+
+	const statusMessages = {
+		'recebido': `Seu pedido #${order.numero_pedido} foi recebido com sucesso!\n\nDetalhes do pedido:\n- Cliente: ${order.cliente_nome}\n- Valor: R$ ${order.valor_total}\n- Tipo: ${order.tipo_entrega}\n${order.data_entrega ? `- Data de entrega: ${new Date(order.data_entrega).toLocaleDateString('pt-BR')}\n` : ''}\nAguarde a confirmação do pagamento para prosseguir com a produção.`,
+		'confirmado': `Seu pedido #${order.numero_pedido} foi confirmado!\n\nEstamos aguardando a confirmação do pagamento para iniciar a produção dos seus doces.`,
+		'producao': `Seu pedido #${order.numero_pedido} está em produção!\n\nNossos confeiteiros estão preparando seus doces com todo carinho. ${order.data_entrega ? `Seu pedido será entregue em ${new Date(order.data_entrega).toLocaleDateString('pt-BR')}.` : 'Entraremos em contato em breve com a data de entrega.'}`,
+		'pago': `O pagamento do seu pedido #${order.numero_pedido} foi confirmado!\n\nSeu pedido está sendo preparado e ${order.data_entrega ? `será entregue em ${new Date(order.data_entrega).toLocaleDateString('pt-BR')}.` : 'entraremos em contato com a data de entrega.'}`,
+		'entregue': `Seu pedido #${order.numero_pedido} foi entregue com sucesso!\n\nObrigado por escolher a Leo's Cake. Esperamos que tenha gostado dos nossos doces!\n\nVolte sempre!\n\nAtenciosamente,\nEquipe Leo's Cake`
+	};
+
+	const mensagemStatus = statusMessages[status] || `Atualização do seu pedido. Status: ${getStatusLabel(status)}`;
+
+	return `${banner}\n\n${saudacao}\n\n${mensagemStatus}\n\nAtenciosamente,\nEquipe Leo's Cake\n\n${'═'.repeat(62)}\n🍰 Doces feitos com muito carinho especialmente para você! 🍰`;
+}
+
+function getStatusMessage(order, status) {
+	const messages = {
+		'pendente': `Recebemos seu pedido e estamos processando. Entraremos em contato em breve para confirmar todos os detalhes.`,
+		'confirmado': `Seu pedido foi confirmado com sucesso! Estamos preparando tudo com muito carinho para você.`,
+		'producao': `Seu pedido está sendo preparado em nossa cozinha. ${order.data_entrega ? `A entrega está prevista para ${new Date(order.data_entrega).toLocaleDateString('pt-BR')}.` : 'Entraremos em contato com a data de entrega.'}`,
+		'pago': `O pagamento do seu pedido foi confirmado! Seu pedido está sendo preparado e ${order.data_entrega ? `será entregue em ${new Date(order.data_entrega).toLocaleDateString('pt-BR')}.` : 'entraremos em contato com a data de entrega.'}`,
+		'entregue': `Seu pedido foi entregue com sucesso! Obrigado por escolher a Leo's Cake. Esperamos que tenha gostado dos nossos doces! Volte sempre!`
+	};
+	return messages[status] || `Atualização do seu pedido. Status: ${getStatusLabel(status)}`;
+}// Tornar DashboardApp disponível globalmente
 window.DashboardApp = DashboardApp;
+// Copiar banner visual profissional como imagem (alta resolução)
+DashboardApp.prototype.copiarBannerComoImagem = async function(orderId, statusKey) {
+	const order = this.orders.find(o => o.id == orderId);
+	if (!order) return;
+	const empresa = this.emailConfig?.empresa || {};
+	const statusLabels = {
+		recebido: 'Pedido Recebido',
+		confirmado: 'Pedido Confirmado',
+		producao: 'Em Produção',
+		pago: 'Pagamento Confirmado',
+		entregue: 'Pedido Entregue'
+	};
+	const statusColors = {
+		recebido: '#ffb347',
+		confirmado: '#6bc6ff',
+		producao: '#ffe58f',
+		pago: '#a3e635',
+		entregue: '#28a745'
+	};
+	const statusEmojis = {
+		recebido: '📥',
+		confirmado: '✅',
+		producao: '👩‍🍳',
+		pago: '💰',
+		entregue: '🎁'
+	};
+	const label = statusLabels[statusKey] || 'Atualização';
+	const color = statusColors[statusKey] || '#ffe58f';
+	const emoji = statusEmojis[statusKey] || '🔔';
+	const mensagem = window.getStatusMessage(order, statusKey);
+	// Canvas alta resolução
+	const width = 960, height = 640;
+	const canvas = document.createElement('canvas');
+	canvas.width = width;
+	canvas.height = height;
+	const ctx = canvas.getContext('2d');
+	// Fundo
+	ctx.fillStyle = color;
+	ctx.fillRect(0, 0, width, height);
+	// Box central
+	ctx.fillStyle = '#fff';
+	ctx.strokeStyle = '#eee';
+	ctx.lineWidth = 4;
+	ctx.beginPath();
+	ctx.roundRect(60, 60, width-120, height-120, 32);
+	ctx.fill();
+	ctx.stroke();
+	// Logo
+	const img = new window.Image();
+	img.src = empresa.logo || 'images/logo-png.png';
+	await new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
+	if (img.src) ctx.drawImage(img, width/2-60, 90, 120, 120);
+	// Título
+	ctx.font = 'bold 44px Segoe UI, Arial';
+	ctx.fillStyle = '#ff6b9d';
+	ctx.textAlign = 'center';
+	ctx.fillText(empresa.nome || "Leo's Cake", width/2, 250);
+	// Status
+	ctx.font = 'bold 36px Segoe UI, Arial';
+	ctx.fillStyle = '#333';
+	ctx.fillText(`${emoji} ${label}`, width/2, 310);
+	// Mensagem
+	ctx.font = '28px Segoe UI, Arial';
+	ctx.fillStyle = '#333';
+	const msgLines = (mensagem || '').split('\n');
+	let yMsg = 360;
+	for (const line of msgLines) {
+		ctx.fillText(line, width/2, yMsg);
+		yMsg += 36;
+	}
+	// Dados empresa
+	ctx.font = '24px Segoe UI, Arial';
+	ctx.fillStyle = '#555';
+	ctx.fillText(empresa.endereco || '', width/2, height-180);
+	ctx.fillText(empresa.telefone || '', width/2, height-150);
+	ctx.fillText(empresa.email || '', width/2, height-120);
+	ctx.fillText(empresa.website || '', width/2, height-90);
+	// Rodapé
+	ctx.font = 'italic 26px Segoe UI, Arial';
+	ctx.fillStyle = '#ff6b9d';
+	ctx.fillText('🍰 Doces feitos com carinho especialmente para você! 🍰', width/2, height-40);
+	// Copia para clipboard
+	canvas.toBlob(async blob => {
+		try {
+			await navigator.clipboard.write([
+				new window.ClipboardItem({ 'image/png': blob })
+			]);
+			alert('Banner copiado como imagem! Cole diretamente no corpo do e-mail.');
+		} catch (e) {
+			alert('Não foi possível copiar como imagem. Use navegador moderno.');
+		}
+	}, 'image/png');
+};
+// Copiar banner como HTML profissional para e-mail
+DashboardApp.prototype.copiarBannerEmailHTML = function(orderId, statusKey) {
+		const order = this.orders.find(o => o.id == orderId);
+		if (!order) return;
+		const empresa = this.emailConfig?.empresa || {};
+		const statusLabels = {
+				recebido: 'Pedido Recebido',
+				confirmado: 'Pedido Confirmado',
+				producao: 'Em Produção',
+				pago: 'Pagamento Confirmado',
+				entregue: 'Pedido Entregue'
+		};
+		const statusColors = {
+				recebido: '#ffb347',
+				confirmado: '#6bc6ff',
+				producao: '#ffe58f',
+				pago: '#a3e635',
+				entregue: '#28a745'
+		};
+		const statusEmojis = {
+				recebido: '📥',
+				confirmado: '✅',
+				producao: '👩‍🍳',
+				pago: '💰',
+				entregue: '🎁'
+		};
+		const label = statusLabels[statusKey] || 'Atualização';
+		const color = statusColors[statusKey] || '#ffe58f';
+		const emoji = statusEmojis[statusKey] || '🔔';
+		const mensagem = window.getStatusMessage(order, statusKey);
+		// HTML profissional para e-mail (compatível, limpo)
+		const html = `
+		<table cellpadding='0' cellspacing='0' width='100%' style='max-width:480px; margin:auto; border-radius:16px; background:${color}; font-family:Arial,Helvetica,sans-serif;'>
+			<tr>
+				<td align='center' style='padding:24px 0 8px 0;'>
+					<img src='${empresa.logo || 'images/logo-png.png'}' alt='Logo Leo\'s Cake' width='70' height='70' style='border-radius:12px;'/>
+				</td>
+			</tr>
+			<tr>
+				<td align='center' style='padding-bottom:8px;'>
+					<span style='font-size:22px; color:#ff6b9d; font-weight:bold;'>${empresa.nome || "Leo's Cake"}</span>
+				</td>
+			</tr>
+			<tr>
+				<td align='center' style='padding-bottom:8px;'>
+					<span style='font-size:17px; color:#333;'>${emoji} <b>${label}</b></span>
+				</td>
+			</tr>
+			<tr>
+				<td align='center' style='padding:0 18px 8px 18px;'>
+					<span style='font-size:15px; color:#333;'>${mensagem}</span>
+				</td>
+			</tr>
+			<tr>
+				<td align='center' style='padding-bottom:8px;'>
+					<span style='font-size:14px; color:#555;'>${empresa.endereco || ''}<br>${empresa.telefone || ''}<br>${empresa.email || ''}<br><a href='${empresa.website || '#'}' style='color:#007bff;text-decoration:none;'>${empresa.website || ''}</a></span>
+				</td>
+			</tr>
+			<tr>
+				<td align='center' style='padding-bottom:18px;'>
+					<span style='color:#ff6b9d; font-size:15px;'>🍰 Doces feitos com carinho especialmente para você! 🍰</span>
+				</td>
+			</tr>
+		</table>
+		`;
+		navigator.clipboard.writeText(html).then(() => {
+				alert('Banner HTML copiado! Cole diretamente no corpo do e-mail.');
+		});
+};

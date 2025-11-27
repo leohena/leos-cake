@@ -1,12 +1,49 @@
-# Leo's Cake - Sistema de Pré-Vendas Completo# Leo's Cake - Sistema de Pré-Vendas
+# Leo's Cake - Sistema de Pré-Vendas Completo
 
+Sistema profissional de gerenciamento de pré-vendas com banco de dados, autenticação, geração de recibos e suporte multilingual.
 
+## 🚀 Como Iniciar o Sistema
 
-Sistema profissional de gerenciamento de pré-vendas com banco de dados, autenticação, geração de recibos e suporte multilingual.Sistema completo de gerenciamento de pré-vendas desenvolvido especialmente para pequenos negócios que precisam controlar estoque, pedidos e entregas de forma simples e eficiente.
+### Opção 1: Servidor Simples (Recomendado - MAIS ESTÁVEL)
+```bash
+# Execute o arquivo start-server.bat (Windows)
+# ou use o comando:
+node server.js
+```
 
+**Acesse:** `http://localhost:8080`
 
+### Opção 2: Netlify Dev (Para desenvolvimento avançado)
+```bash
+npx netlify dev --port 3000
+```
 
-## ✨ Funcionalidades Principais## 🚀 Funcionalidades
+**Acesse:** `http://localhost:3000`
+
+## 📧 Como Testar o Sistema de Emails
+
+1. **Acesse o dashboard** e faça login
+2. **Selecione um pedido** existente
+3. **Mude o status** para "Confirmado"
+4. **Abra o Console** do navegador (F12 → Console)
+5. **Procure pelas mensagens** que começam com `📧`
+
+### Logs Esperados:
+```
+📧 handleStatusEmailTriggers chamado: orderId=123, newStatus=confirmado
+📧 Status normalizado: confirmado
+📧 Email já enviado para confirmado? false
+📧 Verificando se status requer email: confirmado
+📧 Status requer email? true
+📧 Processando status confirmado
+📧 Agendando email para confirmado
+📧 scheduleStatusEmail chamado: orderId=123, statusKey=confirmado, delayMs=0
+📧 Executando trigger imediatamente
+📧 enviarEmailStatus chamado: orderId=123, status=confirmado
+📧 Enviando email para cliente@email.com - Status: confirmado
+```
+
+## ✨ Funcionalidades Principais
 
 
 

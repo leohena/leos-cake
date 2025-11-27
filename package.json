@@ -1,0 +1,9 @@
+{
+  "name": "leos-cake",
+  "version": "1.0.0",
+  "description": "Sistema de Pré-Vendas Leo's Cake",
+  "scripts": {
+    "dev": "netlify dev"
+  },
+  "dependencies": {}
+}

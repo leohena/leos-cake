@@ -82,11 +82,10 @@ const translations = {
 		'finalizar.novo_endereco_label': 'Novo Endereço:',
 		'finalizar.digite_novo_endereco': 'Digite o novo endereço...',
 		'finalizar.valor_total': 'VALOR TOTAL',
-		'finalizar.observacoes': 'Observações',
-		'finalizar.observacoes_placeholder': 'Digite aqui suas observações sobre o pedido...',
 		'finalizar.finalizar_venda': 'Finalizar Venda',
 		'finalizar.finalizar_venda': 'Finalizar Venda',
-		'finalizar.finalizar_pedido': 'Finalizar Pedido',
+		'finalizar.observacao': 'Observação (opcional):',
+		'finalizar.observacao_placeholder': 'Digite observações sobre o pedido...',
 
 		'modal.perfil': 'Meu Perfil',
 		'modal.alterar_foto': 'Alterar Foto',
@@ -126,6 +125,7 @@ const translations = {
 
 		'status.pendente': 'Pendente',
 		'status.pago': 'Pago',
+		'status.saiu_entrega': 'Saiu para Entrega',
 		'status.entregue': 'Entregue',
 		'status.cancelado': 'Cancelado',
 
@@ -141,16 +141,6 @@ const translations = {
 		'section.pedidos': '📋 Pedidos',
 		'section.estoque': '📦 Estoque',
 		'section.entregas': '🚚 Entregas',
-
-		// Configurações de horários
-		'horarios.dias_semana': 'Dias de Semana (Segunda a Sexta)',
-		'horarios.fins_semana': 'Fins de Semana (Sábado e Domingo)',
-		'horarios.selecionar_todos': 'Selecionar Todos',
-		'horarios.desmarcar_todos': 'Desmarcar Todos',
-		'horarios.configurar': 'Configurar Horários',
-		'horarios.salvar_config': 'Salvar Configuração',
-		'horarios.erro_minimo': 'Selecione pelo menos um horário para dias de semana e fins de semana.',
-		'horarios.sucesso': 'Configuração de horários salva com sucesso!',
 
 		'detail.telefone': 'Telefone',
 		'detail.endereco': 'Endereço',
@@ -175,6 +165,28 @@ const translations = {
 
 		'currency.symbol': 'CAD$',
 		'currency.name': 'Dólar Canadense',
+
+		'entregas.gerenciamento': 'Gerenciamento de Entregas',
+		'entregas.configure_horarios': 'Configurar Horários',
+		'entregas.horarios_semana': 'Dias de Semana',
+		'entregas.horarios_sabado': 'Sábado',
+		'entregas.horarios_domingo': 'Domingo',
+		'entregas.horarios_feriados': 'Feriados',
+
+		'horarios.dias_semana': 'Dias de Semana',
+		'horarios.fins_semana': 'Fins de Semana',
+		'horarios.sabado': 'Sábado',
+		'horarios.domingo': 'Domingo',
+		'horarios.feriados': 'Feriados',
+		'horarios.selecionar_todos': 'Selecionar Todos',
+		'horarios.desmarcar_todos': 'Desmarcar Todos',
+		'horarios.salvar_config': 'Salvar Configuração',
+		'horarios.erro_minimo': 'Selecione pelo menos um horário para cada tipo de dia',
+		'horarios.sucesso': 'Configuração de horários salva com sucesso',
+
+		'feriados.selecionar_feriados': 'Selecionar Dias de Feriado',
+		'feriados.adicionar': 'Adicionar',
+		'feriados.instrucao_lista': 'Clique no X para remover um feriado',
 
 		'vendas_online.titulo': 'Leó\'s Cake - Vendas Online',
 		'vendas_online.filtrar': 'Filtrar:',
@@ -260,7 +272,31 @@ const translations = {
 		'menu.usuarios': 'Usuários',
 		'menu.promocoes': 'Promoções',
 
-		'modal.promocoes': 'Promoções'
+		'modal.promocoes': 'Promoções',
+
+		// Alertas e Mensagens
+		'alert.carrinho_vazio': 'Seu carrinho está vazio!',
+		'alert.selecione_cliente': 'Selecione um cliente!',
+		'alert.preencha_campos': 'Preencha todos os campos obrigatórios!',
+		'alert.endereco_entrega': 'Por favor, informe o endereço de entrega!',
+		'alert.venda_finalizada': 'Venda finalizada com sucesso!',
+		'alert.pedido_finalizado': 'Pedido finalizado com sucesso!',
+		'alert.erro_salvar_cliente': 'Erro ao salvar cliente. Verifique sua conexão com a internet e tente novamente.',
+		'alert.erro_cadastrar_cliente': 'Erro ao cadastrar cliente. Tente novamente.',
+		'alert.cliente_sem_endereco': 'Cliente não possui endereço cadastrado. Cadastre o endereço primeiro.',
+		'alert.tempo_esgotado': 'Tempo esgotado! Seu carrinho foi esvaziado. Adicione os produtos novamente.',
+		'alert.produto_adicionado': 'Produto adicionado ao carrinho!',
+		'alert.carrinho_limpo': 'Carrinho limpo com sucesso!',
+		'alert.email_ja_enviado': 'O email de "{status}" já foi enviado anteriormente para este pedido.',
+		'alert.pagamento_adicionado': 'Pagamento de {valor} adicionado com sucesso!\n\nNovo valor pago: {novo_valor}\nValor total: {total}',
+		'alert.valor_invalido': 'Por favor, informe um valor válido para o pagamento.',
+		'alert.pedido_nao_encontrado': 'Pedido não encontrado',
+		'alert.erro_atualizar': 'Erro ao atualizar. Tente novamente.',
+		'alert.sucesso_atualizar': 'Atualizado com sucesso!',
+		'alert.erro_excluir': 'Erro ao excluir. Tente novamente.',
+		'alert.sucesso_excluir': 'Excluído com sucesso!',
+		'alert.acesso_negado': 'Acesso negado. Apenas administradores podem realizar esta ação.',
+		'alert.erro_conexao': 'Erro de conexão. Verifique sua internet e tente novamente.'
 	},
 	'en-US': {
 		'dashboard.confirmados': 'Confirmed',
@@ -336,6 +372,8 @@ const translations = {
 		'finalizar.tabela_qtd': 'Qty',
 		'finalizar.tabela_total': 'Total',
 		'finalizar.tabela_acoes': 'Actions',
+		'finalizar.observacao': 'Notes (optional):',
+		'finalizar.observacao_placeholder': 'Enter order notes...',
 
 		// Traduções de produtos
 		'produtos.pao_de_mel': 'Honey Cake',
@@ -366,11 +404,12 @@ const translations = {
 		'finalizar.novo_endereco_label': 'New Address:',
 		'finalizar.digite_novo_endereco': 'Enter the new address...',
 		'finalizar.valor_total': 'TOTAL VALUE',
-		'finalizar.observacoes': 'Notes',
-		'finalizar.observacoes_placeholder': 'Enter your notes about the order...',
 		'finalizar.finalizar_venda': 'Complete Sale',
 		'finalizar.finalizar_venda': 'Complete Sale',
 		'finalizar.finalizar_pedido': 'Complete Order',
+
+		'finalizar.observacao': 'Notes (optional):',
+		'finalizar.observacao_placeholder': 'Enter order notes...',
 
 		'modal.perfil': 'My Profile',
 		'modal.alterar_foto': 'Change Photo',
@@ -410,6 +449,7 @@ const translations = {
 
 		'status.pendente': 'Pending',
 		'status.pago': 'Paid',
+		'status.saiu_entrega': 'Out for Delivery',
 		'status.entregue': 'Delivered',
 		'status.cancelado': 'Cancelled',
 
@@ -426,15 +466,27 @@ const translations = {
 		'section.estoque': '📦 Stock',
 		'section.entregas': '🚚 Deliveries',
 
-		// Delivery time settings
-		'horarios.dias_semana': 'Weekdays (Monday to Friday)',
-		'horarios.fins_semana': 'Weekends (Saturday and Sunday)',
+		'entregas.gerenciamento': 'Delivery Management',
+		'entregas.configure_horarios': 'Configure Schedules',
+		'entregas.horarios_semana': 'Weekdays',
+		'entregas.horarios_sabado': 'Saturday',
+		'entregas.horarios_domingo': 'Sunday',
+		'entregas.horarios_feriados': 'Holidays',
+
+		'horarios.dias_semana': 'Weekdays',
+		'horarios.fins_semana': 'Weekends',
+		'horarios.sabado': 'Saturday',
+		'horarios.domingo': 'Sunday',
+		'horarios.feriados': 'Holidays',
 		'horarios.selecionar_todos': 'Select All',
 		'horarios.desmarcar_todos': 'Deselect All',
-		'horarios.configurar': 'Configure Times',
 		'horarios.salvar_config': 'Save Configuration',
-		'horarios.erro_minimo': 'Select at least one time for weekdays and weekends.',
-		'horarios.sucesso': 'Time configuration saved successfully!',
+		'horarios.erro_minimo': 'Select at least one time for each day type',
+		'horarios.sucesso': 'Schedule configuration saved successfully',
+
+		'feriados.selecionar_feriados': 'Select Holiday Days',
+		'feriados.adicionar': 'Add',
+		'feriados.instrucao_lista': 'Click X to remove a holiday',
 
 		'detail.telefone': 'Phone',
 		'detail.endereco': 'Address',
@@ -540,12 +592,50 @@ const translations = {
 		'menu.usuarios': 'Users',
 		'menu.promocoes': 'Promotions',
 
-		'modal.promocoes': 'Promotions'
+		'modal.promocoes': 'Promotions',
+
+		// Alerts and Messages
+		'alert.carrinho_vazio': 'Your cart is empty!',
+		'alert.selecione_cliente': 'Select a customer!',
+		'alert.preencha_campos': 'Please fill in all required fields!',
+		'alert.endereco_entrega': 'Please provide the delivery address!',
+		'alert.venda_finalizada': 'Sale completed successfully!',
+		'alert.pedido_finalizado': 'Order completed successfully!',
+		'alert.erro_salvar_cliente': 'Error saving customer. Check your internet connection and try again.',
+		'alert.erro_cadastrar_cliente': 'Error registering customer. Please try again.',
+		'alert.cliente_sem_endereco': 'Customer has no registered address. Please register the address first.',
+		'alert.tempo_esgotado': 'Time expired! Your cart has been emptied. Please add the products again.',
+		'alert.produto_adicionado': 'Product added to cart!',
+		'alert.carrinho_limpo': 'Cart cleared successfully!',
+		'alert.email_ja_enviado': 'The "{status}" email has already been sent for this order.',
+		'alert.pagamento_adicionado': 'Payment of {valor} added successfully!\n\nNew amount paid: {novo_valor}\nTotal amount: {total}',
+		'alert.valor_invalido': 'Please enter a valid payment amount.',
+		'alert.pedido_nao_encontrado': 'Order not found',
+		'alert.erro_atualizar': 'Error updating. Please try again.',
+		'alert.sucesso_atualizar': 'Updated successfully!',
+		'alert.erro_excluir': 'Error deleting. Please try again.',
+		'alert.sucesso_excluir': 'Deleted successfully!',
+		'alert.acesso_negado': 'Access denied. Only administrators can perform this action.',
+		'alert.erro_conexao': 'Connection error. Check your internet and try again.'
 	}
 };
 
 function getCurrentLang() {
-	return localStorage.getItem('lang') || 'en-US';
+	const stored = localStorage.getItem('lang');
+	if (stored === 'pt-BR' || stored === 'pt') {
+		if (stored === 'pt') {
+			localStorage.setItem('lang', 'pt-BR');
+		}
+		return 'pt-BR';
+	}
+	if (stored === 'en-US' || stored === 'en') {
+		if (stored === 'en') {
+			localStorage.setItem('lang', 'en-US');
+		}
+		return 'en-US';
+	}
+	localStorage.setItem('lang', 'en-US');
+	return 'en-US';
 }
 
 function t(key) {
@@ -730,4 +820,3 @@ window.t = t;
 window.setLang = setLang;
 window.getCurrentLang = getCurrentLang;
 window.applyTranslations = applyTranslations;
-window.translateProductName = translateProductName;

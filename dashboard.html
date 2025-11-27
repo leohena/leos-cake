@@ -22,7 +22,6 @@
     <!-- Bibliotecas Externas -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdn.emailjs.com/sdk/dist/email.min.js"></script>
 
     <style>
         .user-dropdown-item {
@@ -558,13 +557,18 @@
 
         // Aplicar traduções após carregamento
         setTimeout(() => {
-            applyTranslations();
+            if (typeof applyTranslations === 'function') {
+                applyTranslations();
+            } else {
+                console.warn('applyTranslations não está disponível ainda');
+            }
             
             // Adicionar event listeners para as flags de idioma
             document.querySelectorAll('.flag-wrapper').forEach(flag => {
                 flag.addEventListener('click', function() {
-                    const lang = this.getAttribute('data-lang');
-                    setLang(lang);
+                    const langAttr = this.getAttribute('data-lang');
+                    const normalizedLang = langAttr === 'pt' ? 'pt-BR' : 'en-US';
+                    setLang(normalizedLang);
                 });
             });
         }, 100);
@@ -573,6 +577,7 @@
     <script src="src/supabase.js"></script>
     <script src="src/i18n.js"></script>
     <script src="src/auth.js"></script>
+    <script src="src/brevo-email-service.js"></script>
     <script src="src/app.js"></script>
     
 </body>

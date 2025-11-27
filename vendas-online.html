@@ -22,7 +22,6 @@
     <!-- Bibliotecas Externas -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdn.emailjs.com/sdk/dist/email.min.js"></script>
 
     <style>
         .user-dropdown-item {
@@ -204,7 +203,7 @@
                 <div id="user-dropdown">
                     <div style="padding: 1rem 1rem 0.5rem 1rem; text-align: center;">
                         <span id="dropdown-user-name" style="font-weight:700;font-size:1.1rem;" data-i18n="vendas_online.cliente"></span>
-                        <div id="dropdown-user-type" style="font-size:0.85rem;color:#888;margin-top:0.2rem;">cliente</div>
+                        <div id="dropdown-user-type" style="font-size:0.85rem;color:#888;margin-top:0.2rem;" data-i18n="vendas_online.tipo_usuario">cliente</div>
                     </div>
                     <div style="border-bottom:1px solid #eee;margin:0.5rem 0 0.5rem 0;"></div>
                     <button id="profile-btn" class="user-dropdown-item" style="border:none;background:none;width:100%;">
@@ -235,20 +234,13 @@
     <script src="src/supabase.js"></script>
     <script src="src/i18n.js"></script>
     <script src="src/auth.js"></script>
+    <script src="src/brevo-email-service.js"></script>
     <script src="src/app.js"></script>
 
     <script>
         // Inicializar Vendas Online
         document.addEventListener('DOMContentLoaded', async () => {
             console.log('🚀 Inicializando Vendas Online...');
-
-            // Inicializar EmailJS
-            if (window.emailjs) {
-                emailjs.init('vv8Q2vZmtBAstixZR');
-                console.log('📧 EmailJS inicializado');
-            } else {
-                console.warn('⚠️ EmailJS não carregou');
-            }
 
             // Inicializar DashboardApp em modo vendas online
             if (window.DashboardApp) {
@@ -270,7 +262,7 @@
                 console.log('📦 Produtos carregados:', window.dashboardApp.products?.length || 0);
                 
                 // Renderizar página de vendas online
-                await window.dashboardApp.renderVendasOnlinePage();
+                window.dashboardApp.renderVendasOnlinePage();
                 console.log('🎨 Página renderizada');
             } else {
                 console.error('❌ DashboardApp não encontrado');
@@ -290,8 +282,9 @@
                 // Seletor de idioma
                 document.querySelectorAll('.flag-wrapper').forEach(flag => {
                     flag.addEventListener('click', function() {
-                        const lang = this.getAttribute('data-lang');
-                        setLang(lang);
+                        const langAttr = this.getAttribute('data-lang');
+                        const normalizedLang = langAttr === 'pt' ? 'pt-BR' : 'en-US';
+                        setLang(normalizedLang);
                     });
                 });
             }
