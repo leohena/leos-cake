@@ -145,7 +145,41 @@ npx netlify dev --port 3000
 
 - `index.html` - Página de login
 
-- `dashboard.html` - Interface principal do sistema## 🛠️ Tecnologias Utilizadas
+- `dashboard.html` - Interface principal do sistema
+
+## 🚀 Deploy em Produção
+
+### Netlify (Recomendado)
+
+1. **Conecte seu repositório GitHub ao Netlify:**
+   - Acesse [netlify.com](https://netlify.com)
+   - Clique em "New site from Git"
+   - Conecte sua conta GitHub
+   - Selecione o repositório `leos-cake`
+
+2. **Configure as variáveis de ambiente:**
+   - Vá para Site settings → Environment variables
+   - Adicione a variável: `BREVO_API_KEY` com sua chave API do Brevo
+   - Adicione outras variáveis necessárias (Supabase URL, etc.)
+
+3. **Deploy automático:**
+   - O Netlify fará deploy automático a cada push na branch `master`
+   - O site ficará disponível em uma URL como `https://amazing-site.netlify.app`
+
+### Configuração de Produção
+
+- **Variáveis de Ambiente Necessárias:**
+  ```
+  BREVO_API_KEY=your_brevo_api_key_here
+  SUPABASE_URL=your_supabase_url
+  SUPABASE_ANON_KEY=your_supabase_anon_key
+  ```
+
+- **Domínio Personalizado (Opcional):**
+  - No Netlify, vá para Site settings → Domain management
+  - Adicione seu domínio personalizado
+
+## 🛠️ Tecnologias Utilizadas
 
 - `CONFIGURACAO.md` - Instruções detalhadas de configuração
 
