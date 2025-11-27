@@ -226,6 +226,62 @@ Sempre que você fizer push para a branch `master` no GitHub:
 
 ---
 
+## 🧭 GUIA VISUAL - CAMINHOS EXATOS NO NETLIFY
+
+### 📍 Navegação Passo a Passo:
+
+#### 1. **Entrar no Site Específico**:
+```
+Dashboard do Netlify → Clicar no nome do seu site (leos-cake)
+```
+
+#### 2. **Acessar Configurações**:
+```
+Página do Site → Clicar em "Site settings" (ícone de engrenagem no topo)
+```
+
+#### 3. **Ir para Build & Deploy**:
+```
+Site settings → Menu lateral esquerdo → "Build & deploy"
+```
+
+#### 4. **Alterar Build Settings**:
+```
+Build & deploy → Seção "Build settings" → Campos editáveis
+```
+
+### 🎯 CONFIGURAÇÕES QUE PRECISAM SER ALTERADAS:
+
+**Localização exata**: `Site settings` → `Build & deploy` → `Build settings`
+
+| Campo | Valor Atual (PROVAVELMENTE ERRADO) | Valor Correto |
+|-------|-----------------------------------|---------------|
+| **Build command** | `npm run build` ou vazio | `echo 'No build step required'` |
+| **Publish directory** | `build` ou `dist` | `.` (apenas um ponto) |
+| **Branch to deploy** | `main` ou outra | `master` |
+
+### 📋 Checklist Visual:
+
+- [ ] Entrou no site correto (leos-cake)
+- [ ] Clicou em "Site settings" (engrenagem)
+- [ ] No menu lateral: "Build & deploy"
+- [ ] Na seção "Build settings":
+  - [ ] Build command: `echo 'No build step required'`
+  - [ ] Publish directory: `.`
+  - [ ] Branch: `master`
+- [ ] Clicou em "Save" (botão azul)
+
+### 🚨 Se Ainda Não Encontrar:
+
+**URL direta no navegador**:
+```
+https://app.netlify.com/sites/[nome-do-seu-site]/settings/build
+```
+
+Substitua `[nome-do-seu-site]` pelo nome que o Netlify deu ao seu site.
+
+---
+
 ## 📞 Suporte
 
 Se encontrar problemas:
