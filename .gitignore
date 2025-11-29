@@ -1,4 +1,11 @@
 node_modules/
 .netlify/
 .env
+.env.local
+.env.production
 package-lock.json
+yarn.lock
+config.json
+*.log
+.DS_Store
+Thumbs.db

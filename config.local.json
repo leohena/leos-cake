@@ -1,0 +1,14 @@
+{
+  "supabase": {
+    "url": "https://qzuccgbxddzpbotxvjug.supabase.co",
+    "anonKey": "SUA_CHAVE_ANONIMA_AQUI"
+  },
+  "brevo": {
+    "apiKey": "SUA_CHAVE_BREVO_AQUI"
+  },
+  "app": {
+    "name": "Leo's Cake",
+    "version": "1.0.0",
+    "environment": "development"
+  }
+}
