@@ -1,186 +1,153 @@
 // supabase.js - Configuração e utilitários do Supabase
-
 let supabaseClient = null;
-let supabaseConfig = null;
-
-// supabase.js - Configuração e utilitários do Supabase
-
-let supabaseClient = null;
-let supabaseConfig = null;
-
-async function loadSupabaseConfig() {
-	try {
-		console.log('🔧 Carregando configurações do Supabase...');
-
-		// Carregar da função Netlify (que detecta ambiente automaticamente)
-		try {
-			const response = await fetch('/.netlify/functions/config');
-			console.log('📡 Resposta da função config:', response.status);
-
-			if (response.ok) {
-				const config = await response.json();
-				console.log('📦 Config recebido da função:', config);
-
-				if (config && config.supabase && config.supabase.url && config.supabase.anonKey) {
-					supabaseConfig = {
-						URL: config.supabase.url,
-						ANON_KEY: config.supabase.anonKey
-					};
-					console.log('✅ Configurações carregadas da função Netlify');
-					return supabaseConfig;
-				} else {
-					console.warn('⚠️ Config da função inválida:', config);
-				}
-			} else {
-				const errorText = await response.text();
-				console.warn('⚠️ Função config falhou:', response.status, errorText);
-			}
-		} catch (fetchError) {
-			console.warn('⚠️ Erro ao buscar função config:', fetchError.message);
-		}
-
-		// Fallback: configurações hardcoded (apenas para desenvolvimento)
-		console.warn('⚠️ Usando configurações de fallback hardcoded');
-		supabaseConfig = {
-			URL: 'https://qzuccgbxddzpbotxvjug.supabase.co',
-			ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6dWNjZ2J4ZGR6cGJvdHh2anVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxODE1NTQsImV4cCI6MjA3Nzc1NzU1NH0.jMtCOeyS3rLLanJzeWv0j1cYQFnFUBjZmnwMe5aUNk4'
-		};
-		console.log('📋 Fallback ativado');
-
-	} catch (error) {
-		console.error('❌ Erro geral ao carregar config:', error);
-		// Configuração de emergência
-		supabaseConfig = {
-			URL: 'https://qzuccgbxddzpbotxvjug.supabase.co',
-			ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6dWNjZ2J4ZGR6cGJvdHh2anVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxODE1NTQsImV4cCI6MjA3Nzc1NzU1NH0.jMtCOeyS3rLLanJzeWv0j1cYQFnFUBjZmnwMe5aUNk4'
-		};
-	}
-
-	return supabaseConfig;
-}
 
 async function initializeSupabase() {
-	try {
-		console.log('🔌 Inicializando Supabase...');
+	if (supabaseClient) {
+		console.log('🔌 Cliente Supabase já inicializado.');
+		return supabaseClient;
+	}
 
-		// Carregar configurações primeiro
-		if (!supabaseConfig) {
-			await loadSupabaseConfig();
+	console.log('🔧 Tentando carregar configurações do Supabase...');
+
+	try {
+		// 1. Tentar buscar configuração da função Netlify
+		let config = null;
+		try {
+			const response = await fetch('/.netlify/functions/config');
+			if (response.ok) {
+				config = await response.json();
+			}
+		} catch (error) {
+			console.warn('⚠️ Função Netlify não disponível, tentando modo offline...');
 		}
 
-		// Aguardar a biblioteca Supabase estar carregada
+		// 2. Se não conseguiu da função Netlify, tentar config.local.json
+		if (!config || !config.supabase?.url || !config.supabase?.anonKey) {
+			try {
+				const localConfigResponse = await fetch('./config.local.json');
+				if (localConfigResponse.ok) {
+					const localConfig = await localConfigResponse.json();
+					if (localConfig.supabase?.url && localConfig.supabase?.anonKey &&
+						!localConfig.supabase.anonKey.includes('SUA_CHAVE')) {
+						config = localConfig;
+						console.log('✅ Configurações carregadas do config.local.json');
+					}
+				}
+			} catch (error) {
+				console.warn('⚠️ config.local.json não disponível');
+			}
+		}
+
+		// 3. Se ainda não tem config válida, usar modo OFFLINE com dados mockados
+		if (!config || !config.supabase?.url || !config.supabase?.anonKey ||
+			config.supabase.anonKey.includes('SUA_CHAVE') || config.supabase.anonKey.includes('example')) {
+
+			console.warn('⚠️ Configuração não encontrada ou inválida. Usando MODO OFFLINE para testes.');
+
+			// Criar cliente mockado
+			supabaseClient = {
+				from: (table) => ({
+					select: () => ({
+						eq: () => ({
+							single: async () => ({ data: null, error: null }),
+							order: () => ({ data: [], error: null }),
+							limit: () => ({ data: [], error: null })
+						}),
+						order: () => ({
+							limit: () => ({ data: [], error: null })
+						}),
+						limit: () => ({ data: [], error: null })
+					}),
+					insert: () => ({
+						select: () => ({ data: { id: Date.now() }, error: null })
+					}),
+					update: () => ({
+						eq: () => ({ data: { id: 1 }, error: null })
+					}),
+					delete: () => ({
+						eq: () => ({ data: null, error: null })
+					})
+				}),
+				auth: {
+					signInWithPassword: async () => ({ data: { user: { id: 1, email: 'admin@test.com' } }, error: null }),
+					signOut: async () => ({ error: null }),
+					onAuthStateChange: (callback) => {
+						// Simular usuário logado
+						setTimeout(() => callback('SIGNED_IN', { user: { id: 1, email: 'admin@test.com' } }), 100);
+						return { data: { subscription: { unsubscribe: () => {} } } };
+					}
+				}
+			};
+
+			window.supabaseClient = supabaseClient;
+			console.log('🎭 MODO OFFLINE ativado - Usando dados mockados para testes');
+			return supabaseClient;
+		}
+
+		if (!config.supabase?.url || !config.supabase?.anonKey) {
+			throw new Error('Configuração recebida é inválida.');
+		}
+
+		console.log('✅ Configurações carregadas com sucesso.');
+		const { url, anonKey } = config.supabase;
+
+		// 2. Aguardar a biblioteca Supabase estar disponível no window.
 		let attempts = 0;
 		while (!window.supabase && attempts < 50) {
 			await new Promise(resolve => setTimeout(resolve, 100));
 			attempts++;
 		}
-
 		if (!window.supabase) {
-			console.error('❌ Biblioteca Supabase não carregou');
-			window.supabaseClient = null;
-			return null;
+			throw new Error('A biblioteca global do Supabase (window.supabase) não carregou a tempo.');
 		}
 
-		// Criar cliente Supabase com configurações carregadas
-		supabaseClient = window.supabase.createClient(
-			supabaseConfig.URL,
-			supabaseConfig.ANON_KEY,
-			{
-				auth: {
-					autoRefreshToken: true,
-					persistSession: true
-				},
-				global: {
-					headers: {
-						'X-Client-Info': 'leos-cake-app'
-					}
-				},
-				db: {
-					schema: 'public'
-				},
-				realtime: {
-					params: {
-						eventsPerSecond: 10
-					}
-				}
-			}
-		);
+		// 3. Criar e testar o cliente Supabase.
+		supabaseClient = window.supabase.createClient(url, anonKey, {
+			auth: {
+				autoRefreshToken: true,
+				persistSession: true,
+			},
+			global: { headers: { 'X-Client-Info': 'leos-cake-app' } },
+		});
 
-		if (!supabaseClient) {
-			console.error('❌ Erro ao criar cliente Supabase');
-			return null;
+		const { error } = await supabaseClient.from('usuarios').select('id').limit(1);
+		if (error) {
+			console.warn(`⚠️ Conexão com Supabase estabelecida, mas com um aviso: ${error.message}`);
+		} else {
+			console.log('✅ Conexão com Supabase verificada com sucesso.');
 		}
 
-		// Testar conexão
-		try {
-			const { data, error } = await supabaseClient
-				.from('usuarios')
-				.select('id')
-				.limit(1);
-
-			if (error) {
-				console.warn('⚠️ Aviso ao conectar:', error.message);
-				// Não falhar totalmente, apenas avisar
-			} else {
-				console.log('✅ Conexão com Supabase estabelecida com sucesso');
-			}
-		} catch (testError) {
-			console.warn('⚠️ Erro ao testar conexão:', testError.message);
-		}
-
-		// Guardar globalmente
+		// 4. Disponibilizar o cliente globalmente e retornar.
 		window.supabaseClient = supabaseClient;
-
 		return supabaseClient;
+
 	} catch (error) {
-		console.error('❌ Erro ao inicializar Supabase:', error);
+		console.error('❌ Erro crítico ao inicializar o Supabase:', error.message);
+		// Em caso de falha, exibe uma mensagem clara para o usuário final.
+		const body = document.querySelector('body');
+		if (body) {
+			body.innerHTML = '<div style="font-family: sans-serif; text-align: center; padding: 40px;"><h1>Erro de Configuração</h1><p>O sistema não pôde ser iniciado. Verifique se as variáveis de ambiente no servidor estão configuradas corretamente e tente novamente.</p></div>';
+		}
 		window.supabaseClient = null;
 		return null;
 	}
 }
 
-// Verificar conexão
-async function testSupabaseConnection() {
-	try {
-		if (!supabaseClient) {
-			return {
-				success: false,
-				message: 'Cliente Supabase não inicializado'
-			};
-		}
-
-		const { data, error } = await supabaseClient
-			.from('usuarios')
-			.select('id')
-			.limit(1);
-
-		if (error) {
-			return {
-				success: false,
-				message: `Erro: ${error.message}`
-			};
-		}
-
-		return {
-			success: true,
-			message: 'Conexão com Supabase OK'
-		};
-	} catch (error) {
-		return {
-			success: false,
-			message: `Erro na conexão: ${error.message}`
-		};
+// Função para obter o cliente Supabase já inicializado.
+function getSupabaseClient() {
+	if (!supabaseClient) {
+		console.warn("getSupabaseClient chamado antes da inicialização. Considere usar 'await initializeSupabase()' primeiro.");
 	}
+	return supabaseClient;
 }
 
-// Inicializar quando o documento estiver pronto
+// Inicializa o Supabase quando o DOM está pronto.
 if (document.readyState === 'loading') {
 	document.addEventListener('DOMContentLoaded', initializeSupabase);
 } else {
 	initializeSupabase();
 }
 
-// Exportar para uso global
+// Exportar funções para o escopo global para acesso em outros scripts.
 window.initializeSupabase = initializeSupabase;
-window.getSupabaseClient = () => supabaseClient;
-window.testSupabaseConnection = testSupabaseConnection;
+window.getSupabaseClient = getSupabaseClient;

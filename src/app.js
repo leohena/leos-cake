@@ -1,3 +1,11 @@
+// Função de sanitização para prevenir XSS
+function sanitizeHTML(str) {
+	if (!str) return '';
+	const temp = document.createElement('div');
+	temp.textContent = str;
+	return temp.innerHTML;
+}
+
 // Modal de edição do usuário logado
 // Modal de edição do usuário logado (dados reais)
 window.showEditUserModal = async function() {
@@ -304,15 +312,15 @@ class DashboardApp {
 		this.configuracoes = [];
 		this.entregas = []; // Adicionado para evitar erro de undefined
 		this.initialized = false;
-		const storedLang = localStorage.getItem('lang');
+		const storedLang = sessionStorage.getItem('lang');
 		if (storedLang === 'pt-BR' || storedLang === 'en-US') {
 			this.currentLang = storedLang;
 		} else if (storedLang === 'pt') {
 			this.currentLang = 'pt-BR';
-			localStorage.setItem('lang', 'pt-BR');
+			sessionStorage.setItem('lang', 'pt-BR');
 		} else {
 			this.currentLang = 'en-US';
-			localStorage.setItem('lang', 'en-US');
+			sessionStorage.setItem('lang', 'en-US');
 		}
 		const activeLang = typeof window.getCurrentLang === 'function' ? window.getCurrentLang() : null;
 		if (typeof window.setLang === 'function' && activeLang !== this.currentLang) {
@@ -455,7 +463,18 @@ class DashboardApp {
 	}
 	async loadData() {
 		if (!this.supabase) {
-			console.warn('⚠️ Supabase não disponível');
+			console.warn('⚠️ Supabase não disponível - sistema funcionando sem dados (modo offline)');
+			// Inicializar arrays vazios para modo offline
+			this.clients = [];
+			this.products = [];
+			this.orders = [];
+			this.despesas = [];
+			this.receitas = [];
+			this.stock = [];
+			this.configuracoes = [];
+			this.entregas = [];
+			this.initialized = false;
+			console.log('✅ Sistema inicializado sem dados (modo offline)');
 			return;
 		}
 		try {
@@ -936,7 +955,8 @@ class DashboardApp {
 	updateWelcomeMessage() {
 		const welcomeText = document.querySelector('.welcome-text');
 		if (welcomeText) {
-			welcomeText.innerHTML = `${this.t('dashboard.bem_vindo')}, <strong>${this.currentUser.nome}</strong>!`;
+			const safeName = sanitizeHTML(this.currentUser.nome || 'Usuário');
+			welcomeText.innerHTML = `${this.t('dashboard.bem_vindo')}, <strong>${safeName}</strong>!`;
 		}
 	}
 	setupEventListeners() {
@@ -981,7 +1001,7 @@ class DashboardApp {
 			wrapper.addEventListener('click', () => {
 				const lang = wrapper.getAttribute('data-lang') === 'pt' ? 'pt-BR' : 'en-US';
 				this.currentLang = lang;
-				localStorage.setItem('lang', lang);
+				sessionStorage.setItem('lang', lang);
 				flagWrappers.forEach(fw => fw.style.opacity = '0.6');
 				wrapper.style.opacity = '1';
 				if (typeof window.setLang === 'function') {
@@ -1038,7 +1058,8 @@ class DashboardApp {
 	}
 	formatDate(dateString) {
 		if (!dateString) return '';
-		const date = new Date(dateString + 'T00:00:00');
+		const dateStr = dateString.includes('T') ? dateString.split('T')[0] : dateString;
+		const date = new Date(dateStr + 'T00:00:00');
 		const lang = this.currentLang === 'pt-BR' ? 'pt-BR' : 'en-US';
 		return date.toLocaleDateString(lang, { day: '2-digit', month: 'long', year: 'numeric' });
 	}
@@ -3422,7 +3443,7 @@ class DashboardApp {
 		}
 		// Formatar data
 		const dataCriacao = order.created_at ? new Date(order.created_at).toLocaleString('pt-BR') : 'N/A';
-		const dataEntrega = order.data_entrega ? new Date(order.data_entrega).toLocaleString('pt-BR') : 'N/A';
+		const dataEntrega = this.formatDate(order.data_entrega);
 		// Conteúdo do modal
 		modal.innerHTML = `
 			<div class="modal-content-wrapper" onclick="event.stopPropagation()" style="max-width: 800px; width: 100%; padding: 1.5rem;">
@@ -3908,6 +3929,24 @@ class DashboardApp {
 		if (document.getElementById('entregas-hoje')) {
 			this.updateFollowUpEntregas();
 		}
+		// Re-renderizar produtos para atualizar traduções
+		if (this.activeSection === 'pedidos') {
+			this.renderPedidosPage();
+		}
+		if (this.isVendasOnline) {
+			this.renderVendasOnlinePage();
+		}
+		// Atualizar lista de pedidos se estiver visível
+		if (document.getElementById('pedidos-status-list')) {
+			this.loadPedidosStatusList();
+		}
+		// Fechar modais abertos para forçar reabertura com novo idioma
+		const openModals = document.querySelectorAll('.modal-overlay:not(.hidden)');
+		openModals.forEach(modal => {
+			if (modal.id !== 'modal-loading') { // Não fechar modal de loading
+				closeModal(modal.id);
+			}
+		});
 	}
 	// PÁGINA DE PEDIDOS - VENDA PRESENCIAL
 	renderPedidosPage() {
@@ -4234,31 +4273,68 @@ class DashboardApp {
 			document.body.appendChild(tooltip);
 		}
 		document.querySelectorAll('.card-produto').forEach(card => {
-			card.addEventListener('mouseenter', function(e) {
-				const descricao = card.getAttribute('data-descricao');
-				if (descricao && descricao.trim()) {
-					tooltip.textContent = translateProductDescription(descricao);
-					tooltip.classList.remove('hidden');
+			// Click para abrir modal detalhado
+			card.addEventListener('click', (e) => {
+				// Evitar se clicou em botão
+				if (e.target.closest('button')) return;
+				const produtoId = card.querySelector('button[data-action="adicionar-carrinho"]')?.getAttribute('data-id');
+				if (produtoId) {
+					this.openProductDetailModal(produtoId);
 				}
-			});
-			card.addEventListener('mousemove', function(e) {
-				if (!tooltip.classList.contains('hidden')) {
-					const tooltipWidth = 200; // Largura aproximada do tooltip
-					const screenWidth = window.innerWidth;
-					const cursorX = e.clientX;
-					// Se o cursor estiver próximo do lado direito (menos de 250px do fim), posiciona à esquerda
-					if (cursorX + tooltipWidth + 50 > screenWidth) {
-						tooltip.style.left = (cursorX - tooltipWidth - 18) + 'px';
-					} else {
-						tooltip.style.left = (cursorX + 18) + 'px';
-					}
-					tooltip.style.top = (e.clientY + 18) + 'px';
-				}
-			});
-			card.addEventListener('mouseleave', function() {
-				tooltip.classList.add('hidden');
 			});
 		});
+	}
+	openProductDetailModal(produtoId) {
+		const produto = this.products.find(p => p.id == produtoId);
+		if (!produto) return;
+		let fotos = [];
+		if (produto.fotos) {
+			try { fotos = JSON.parse(produto.fotos); } catch {}
+		}
+		const modal = this.createModal('modal-produto-detalhe', '', false);
+		// Aumentar a largura do modal para caber melhor o conteúdo
+		modal.querySelector('.modal-content-wrapper').style.maxWidth = '900px';
+		modal.querySelector('.modal-content-wrapper').style.width = '120vw';
+		modal.querySelector('.modal-content-wrapper').innerHTML = `
+			<div style="display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.7rem;">
+				<span style="width: 50px; height: 50px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.7rem;"><i class="fas fa-cookie-bite"></i></span>
+				<span style="font-size: 1.35rem; font-weight: 700; color: #333;">${translateProductName(produto.nome)}</span>
+				<button onclick="closeModal('modal-produto-detalhe')" style="margin-left:auto; background:none; border:none; font-size:1.3rem; color:#888; cursor:pointer;">&times;</button>
+			</div>
+			<div style="border-bottom:1px solid #eee; margin-bottom:1rem;"></div>
+			<div style="display: flex; flex-direction: column; gap: 1rem;">
+				<!-- Carrossel de Fotos -->
+				<div style="position: relative; width: 100%; height: 300px; border-radius: 10px; overflow: hidden; background: #f0f0f0;">
+					<div id="produto-detalhe-carousel" data-current="0" style="display: flex; width: 100%; height: 100%; transition: transform 0.3s ease;">
+						${fotos.length > 0 ? 
+							fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 100%; object-fit: contain; background: #f8f9fa;">`).join('') :
+							`<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #666;">${t('vendas_online.sem_imagem')}</div>`
+						}
+					</div>
+					${fotos.length > 1 ? `
+						<button onclick="window.dashboardApp.prevProdutoPhotoDetalhe()" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer;">‹</button>
+						<button onclick="window.dashboardApp.nextProdutoPhotoDetalhe()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer;">›</button>
+					` : ''}
+				</div>
+				<!-- Descrição -->
+				<div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+					<h4 style="margin: 0 0 0.5rem 0; color: #333;">${t('vendas_online.descricao')}</h4>
+					<p style="margin: 0; color: #666; line-height: 1.5;">${translateProductDescription(produto.descricao || t('vendas_online.sem_descricao'))}</p>
+				</div>
+				<!-- Preço e Status -->
+				<div style="display: flex; justify-content: space-between; align-items: center;">
+					<div>
+						<span style="font-size: 1.5rem; font-weight: 700; color: #ff6b9d;">${this.formatCurrency(produto.preco)}</span>
+						<div style="margin-top: 0.25rem;">
+							<span style="background: ${produto.status_produto === 'pronta_entrega' ? '#28a745' : '#ff6b9d'}; color: white; padding: 0.3rem 0.6rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">${produto.status_produto === 'pronta_entrega' ? t('vendas_online.pronta_entrega') : t('vendas_online.sob_encomenda')}</span>
+						</div>
+					</div>
+					<button onclick="window.dashboardApp.adicionarVendasAoCarrinho('${produto.id}', ${produto.preco}); closeModal('modal-produto-detalhe');" style="background: linear-gradient(135deg, #ff6b9d, #ffa726); color: white; border: none; border-radius: 8px; padding: 0.8rem 1.5rem; font-size: 1rem; font-weight: 700; cursor: pointer;">${t('vendas_online.adicionar_carrinho')}</button>
+				</div>
+			</div>
+		`;
+		document.getElementById('modals-container').appendChild(modal);
+		modal.classList.add('show');
 	}
 	setupPedidosEventDelegation() {
 		const container = document.getElementById('pedidos-container');
@@ -4907,16 +4983,14 @@ class DashboardApp {
 					</div>
 					<!-- Cliente -->
 					${clienteHTML}
-					<!-- Idioma para E-mails (apenas vendas online) -->
-					${isVendasOnline ? `
+					<!-- Idioma para E-mails -->
 					<div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 1rem; border-radius: 10px; color: white;">
 						<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">Which language do you prefer for emails? / Qual idioma você prefere para os e-mails?</h4>
-						<select id="finalizar-idioma" required style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem;">
-							<option value="pt" ${clienteSelecionado?.idioma === 'pt' || !clienteSelecionado?.idioma ? 'selected' : ''}>Português</option>
-							<option value="en" ${clienteSelecionado?.idioma === 'en' ? 'selected' : ''}>English</option>
+						<select id="finalizar-idioma" style="width: 100%; padding: 0.6rem; border: none; border-radius: 6px; font-size: 1rem;">
+							<option value="pt" selected>Português</option>
+							<option value="en">English</option>
 						</select>
 					</div>
-					` : ''}
 					<!-- Pagamento -->
 					<div style="background: linear-gradient(135deg, #f093fb, #f5576c); padding: 1rem; border-radius: 10px; color: white;">
 						<h4 style="margin: 0 0 0.75rem 0; font-size: 1.05rem;">${t('finalizar.forma_pagamento')}</h4>
@@ -5052,7 +5126,8 @@ class DashboardApp {
 					cliente = window.dashboardApp.clients.find(c => c.id == clienteId);
 				}
 				if (cliente && cliente.endereco) {
-					enderecoCadastroDisplay.innerHTML = `<strong>Endereço cadastrado:</strong><br>${cliente.endereco}`;
+					const safeEndereco = sanitizeHTML(cliente.endereco);
+					enderecoCadastroDisplay.innerHTML = `<strong>Endereço cadastrado:</strong><br>${safeEndereco}`;
 					enderecoCadastroDisplay.style.display = 'block';
 				} else {
 					enderecoCadastroDisplay.innerHTML = '<em>Cliente sem endereço cadastrado</em>';
@@ -5132,6 +5207,7 @@ class DashboardApp {
 					}
 					dataEntrega = document.getElementById('finalizar-data-entrega').value;
 				}
+				console.log('📦 Finalizando pedido online - Tipo entrega:', tipoEntrega, 'Data entrega:', dataEntrega);
 				await this.finalizarPedidoOnline(clienteSelecionado, tipoEntrega, dataEntrega, enderecoEntrega, formaPagamento);
 			} else {
 				await this.finalizarVendaPresencial();
@@ -5185,12 +5261,21 @@ class DashboardApp {
 		const dataStr = hoje.toISOString().slice(0,10).replace(/-/g, '');
 		const randomNum = Math.floor(Math.random() * 9000) + 1000;
 		const numeroPedido = `PED-${dataStr}-${randomNum}`;
+		// Capturar idioma selecionado
+		const idiomaSelecionado = document.getElementById('finalizar-idioma')?.value || 'pt';
 		// Data de entrega
 		let dataEntrega = hoje.toISOString().slice(0,10);
 		let horarioEntrega = null;
 		if (tipoEntrega === 'entrega') {
-			dataEntrega = document.getElementById('finalizar-data-entrega').value || dataEntrega;
+			const dataSelecionada = document.getElementById('finalizar-data-entrega').value;
+			dataEntrega = dataSelecionada ? dataSelecionada + 'T00:00:00' : dataEntrega + 'T00:00:00';
 			horarioEntrega = document.getElementById('finalizar-horario-entrega').value || null;
+			if (!horarioEntrega) {
+				alert('Selecione um horário de entrega.');
+				return;
+			}
+		} else {
+			dataEntrega = dataEntrega + 'T00:00:00';
 		}
 		const pedidoData = {
 			numero_pedido: numeroPedido,
@@ -5204,7 +5289,7 @@ class DashboardApp {
 			status,
 			forma_pagamento: formaPagamento,
 			observacoes: '',
-			idioma: cliente?.idioma || 'pt'
+			idioma: idiomaSelecionado
 		};
 		// Salvar pedido
 		const pedidoSalvo = await this.saveToSupabaseInsert('pedidos', pedidoData);
@@ -5231,6 +5316,10 @@ class DashboardApp {
 					created_at: new Date().toISOString()
 				};
 				await this.saveToSupabaseInsert('entregas', entregaData);
+			}
+			// Atualizar idioma do cliente se diferente
+			if (cliente && idiomaSelecionado !== (cliente.idioma || 'pt')) {
+				await this.supabase.from('clientes').update({ idioma: idiomaSelecionado }).eq('id', cliente.id);
 			}
 			// Registrar custos automaticamente dos produtos vendidos
 			await this.registrarCustosProdutosVendidos(pedidoSalvo.id, produtos);
@@ -7236,6 +7325,18 @@ class DashboardApp {
 			horariosDisponiveis = fallbacks[tipoDia] || fallbacks.dias_semana;
 			console.log('⚠️ Usando fallback - configuração não encontrada ou inválida:', horariosDisponiveis);
 		}
+		// Filtrar horários passados se for hoje
+		const hoje = new Date().toISOString().split('T')[0];
+		if (dataSelecionada === hoje) {
+			const agora = new Date();
+			const horaAtual = agora.getHours() * 100 + agora.getMinutes();
+			horariosDisponiveis = horariosDisponiveis.filter(h => {
+				const [hora, min] = h.split(':').map(Number);
+				const horaHorario = hora * 100 + min;
+				return horaHorario > horaAtual;
+			});
+			console.log('⏰ Filtrados horários passados para hoje:', horariosDisponiveis);
+		}
 		// Adicionar opções, mas filtrar horários já agendados
 		const horariosFiltrados = [];
 		for (const horario of horariosDisponiveis) {
@@ -7250,11 +7351,11 @@ class DashboardApp {
 				console.error('Erro ao verificar entregas existentes:', error);
 				// Em caso de erro, assumir disponível
 				horariosFiltrados.push(horario);
-			} else if (!entregasExistentes || entregasExistentes.length === 0) {
-				// Horário disponível
+			} else if (!entregasExistentes || entregasExistentes.length < 3) {
+				// Horário disponível (até 3 entregas permitidas)
 				horariosFiltrados.push(horario);
 			} else {
-				console.log(`⏰ Horário ${horario} já ocupado para ${dataSelecionada}`);
+				console.log(`⏰ Horário ${horario} já ocupado (3+ entregas) para ${dataSelecionada}`);
 			}
 		}
 		// Adicionar opções disponíveis
@@ -9232,6 +9333,13 @@ openAddDespesaModal() {
 			const idiomaSelecionado = document.getElementById('finalizar-idioma')?.value || cliente?.idioma || 'pt';
 			console.log(`📧 Idioma selecionado no modal: ${idiomaSelecionado}`);
 			
+			// Capturar horário de entrega
+			const horarioEntrega = document.getElementById('finalizar-horario-entrega').value;
+			if (!horarioEntrega) {
+				alert('Selecione um horário de entrega.');
+				return;
+			}
+			
 			const pedidoData = {
 				numero_pedido: numeroPedido,
 				cliente_id: clienteId,
@@ -9239,7 +9347,8 @@ openAddDespesaModal() {
 				valor_total: total,
 				valor_pago: valor_pago,
 				status: status,
-				data_entrega: dataEntrega || new Date().toISOString().split('T')[0],
+				data_entrega: dataEntrega ? dataEntrega + 'T00:00:00' : new Date().toISOString().split('T')[0] + 'T00:00:00',
+				hora_entrega: horarioEntrega,
 				observacoes: observacoes,
 				idioma: idiomaSelecionado
 			};
@@ -9283,8 +9392,8 @@ openAddDespesaModal() {
 					console.log('📦 Criando entrega para pedido online:', pedido.id);
 					const entregaData = {
 						pedido_id: pedido.id,
-						data_entrega: dataEntrega || new Date().toISOString().split('T')[0],
-						hora_entrega: null, // Pedidos online não têm horário específico
+						data_entrega: dataEntrega || (new Date().toISOString().split('T')[0] + 'T00:00:00'),
+						hora_entrega: horarioEntrega,
 						endereco_entrega: enderecoEntrega,
 						status: 'agendada',
 						created_at: new Date().toISOString()
@@ -9400,7 +9509,7 @@ openAddDespesaModal() {
 	// CACHE DE VALIDAÇÃO DE CLIENTE (10 minutos)
 	getValidacaoClienteCache() {
 		try {
-			const cache = localStorage.getItem('cliente_validacao_cache');
+			const cache = sessionStorage.getItem('cliente_validacao_cache');
 			if (!cache) return null;
 			const data = JSON.parse(cache);
 			const agora = Date.now();
@@ -9408,14 +9517,14 @@ openAddDespesaModal() {
 			// Verificar se não passou 10 minutos (600000 ms)
 			if (tempoDecorrido > 600000) {
 				console.log('⏰ Cache de validação expirado, removendo');
-				localStorage.removeItem('cliente_validacao_cache');
+				sessionStorage.removeItem('cliente_validacao_cache');
 				return null;
 			}
 			console.log(`✅ Cache válido: ${Math.round(tempoDecorrido / 1000)}s restantes`);
 			return data;
 		} catch (error) {
 			console.error('Erro ao ler cache de validação:', error);
-			localStorage.removeItem('cliente_validacao_cache');
+			sessionStorage.removeItem('cliente_validacao_cache');
 			return null;
 		}
 	}
@@ -9425,7 +9534,7 @@ openAddDespesaModal() {
 				cliente: cliente,
 				timestamp: Date.now()
 			};
-			localStorage.setItem('cliente_validacao_cache', JSON.stringify(data));
+			sessionStorage.setItem('cliente_validacao_cache', JSON.stringify(data));
 			console.log('💾 Validação de cliente armazenada em cache (10 min)');
 		} catch (error) {
 			console.error('Erro ao salvar cache de validação:', error);
@@ -9433,7 +9542,7 @@ openAddDespesaModal() {
 	}
 	clearValidacaoClienteCache() {
 		try {
-			localStorage.removeItem('cliente_validacao_cache');
+			sessionStorage.removeItem('cliente_validacao_cache');
 			console.log('🗑️ Cache de validação removido');
 		} catch (error) {
 			console.error('Erro ao remover cache de validação:', error);
@@ -9721,15 +9830,49 @@ openAddDespesaModal() {
 			console.error(`❌ Erro ao enviar email: ${result.error}`);
 		}
 	}
+	prevProdutoPhotoDetalhe() {
+		const carousel = document.getElementById('produto-detalhe-carousel');
+		if (!carousel) return;
+		let current = parseInt(carousel.getAttribute('data-current')) || 0;
+		const total = carousel.children.length;
+		current = (current - 1 + total) % total;
+		carousel.setAttribute('data-current', current);
+		carousel.style.transform = `translateX(-${current * 100}%)`;
+	}
+	nextProdutoPhotoDetalhe() {
+		const carousel = document.getElementById('produto-detalhe-carousel');
+		if (!carousel) return;
+		let current = parseInt(carousel.getAttribute('data-current')) || 0;
+		const total = carousel.children.length;
+		current = (current + 1) % total;
+		carousel.setAttribute('data-current', current);
+		carousel.style.transform = `translateX(-${current * 100}%)`;
+	}
 }
 
 // INICIALIZAÇÃO
 document.addEventListener('DOMContentLoaded', async () => {
 	try {
+		// Aguardar inicialização do authSystem
+		let authAttempts = 0;
+		while (!window.authSystem?.isInitialized && authAttempts < 50) {
+			console.log('⏳ Aguardando inicialização do authSystem...');
+			await new Promise(resolve => setTimeout(resolve, 100));
+			authAttempts++;
+		}
+
+		if (!window.authSystem?.isInitialized) {
+			console.error('❌ authSystem não inicializado após 5 segundos');
+			return;
+		}
+
 		const app = new DashboardApp();
 		const initialized = await app.initialize();
 		if (initialized) {
 			window.dashboardApp = app;
+			console.log('✅ DashboardApp inicializado com sucesso');
+		} else {
+			console.error('❌ Falha na inicialização do DashboardApp');
 		}
 	} catch (error) {
 		console.error('Erro ao inicializar aplicação:', error);
@@ -9739,7 +9882,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Estes métodos são adicionados à classe DashboardApp
 DashboardApp.prototype.getValidacaoClienteCache = function() {
 	try {
-		const cache = localStorage.getItem('cliente_validacao_cache');
+		const cache = sessionStorage.getItem('cliente_validacao_cache');
 		if (!cache) return null;
 		const data = JSON.parse(cache);
 		const agora = Date.now();
@@ -9747,14 +9890,14 @@ DashboardApp.prototype.getValidacaoClienteCache = function() {
 		// Verificar se não passou 10 minutos (600000 ms)
 		if (tempoDecorrido > 600000) {
 			console.log('⏰ Cache de validação expirado, removendo');
-			localStorage.removeItem('cliente_validacao_cache');
+			sessionStorage.removeItem('cliente_validacao_cache');
 			return null;
 		}
 		console.log(`✅ Cache válido: ${Math.round(tempoDecorrido / 1000)}s restantes`);
 		return data;
 	} catch (error) {
 		console.error('Erro ao ler cache de validação:', error);
-		localStorage.removeItem('cliente_validacao_cache');
+		sessionStorage.removeItem('cliente_validacao_cache');
 		return null;
 	}
 };
@@ -9764,7 +9907,7 @@ DashboardApp.prototype.setValidacaoClienteCache = function(cliente) {
 			cliente: cliente,
 			timestamp: Date.now()
 		};
-		localStorage.setItem('cliente_validacao_cache', JSON.stringify(data));
+		sessionStorage.setItem('cliente_validacao_cache', JSON.stringify(data));
 		console.log('💾 Validação de cliente armazenada em cache (10 min)');
 	} catch (error) {
 		console.error('Erro ao salvar cache de validação:', error);
@@ -9772,7 +9915,7 @@ DashboardApp.prototype.setValidacaoClienteCache = function(cliente) {
 };
 DashboardApp.prototype.clearValidacaoClienteCache = function() {
 	try {
-		localStorage.removeItem('cliente_validacao_cache');
+		sessionStorage.removeItem('cliente_validacao_cache');
 		console.log('🗑️ Cache de validação removido');
 	} catch (error) {
 		console.error('Erro ao remover cache de validação:', error);
@@ -10322,4 +10465,134 @@ DashboardApp.prototype.copiarBannerEmailHTML = function(orderId, statusKey) {
 		navigator.clipboard.writeText(html).then(() => {
 				alert('Banner HTML copiado! Cole diretamente no corpo do e-mail.');
 		});
+};
+
+// Função para carregar dados mockados quando offline
+DashboardApp.prototype.loadMockData = function() {
+	console.log('🎭 Carregando dados mockados para testes...');
+
+	// Dados mockados de clientes
+	this.clients = [
+		{
+			id: 1,
+			nome: 'João Silva',
+			telefone: '(11) 99999-9999',
+			email: 'joao@email.com',
+			endereco: 'Rua das Flores, 123 - São Paulo/SP',
+			canal: 'whatsapp',
+			created_at: new Date().toISOString()
+		},
+		{
+			id: 2,
+			nome: 'Maria Santos',
+			telefone: '(11) 88888-8888',
+			email: 'maria@email.com',
+			endereco: 'Av. Paulista, 456 - São Paulo/SP',
+			canal: 'instagram',
+			created_at: new Date().toISOString()
+		}
+	];
+
+	// Dados mockados de produtos
+	this.stock = [
+		{
+			id: 1,
+			nome: 'Chocolate Cake',
+			preco: 45.00,
+			status_produto: 'ativo',
+			quantidade: 10
+		},
+		{
+			id: 2,
+			nome: 'Strawberry Pie',
+			preco: 35.00,
+			status_produto: 'ativo',
+			quantidade: 5
+		},
+		{
+			id: 3,
+			nome: 'Cupcake',
+			preco: 8.00,
+			status_produto: 'ativo',
+			quantidade: 20
+		}
+	];
+
+	// Dados mockados de pedidos
+	this.orders = [
+		{
+			id: 1,
+			numero_pedido: '001',
+			cliente_nome: 'João Silva',
+			cliente_id: 1,
+			status: 'confirmado',
+			valor_total: 45.00,
+			valor_pago: 22.50,
+			forma_pagamento: 'dinheiro',
+			data_entrega: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 dias no futuro
+			itens: [
+				{ produto_nome: 'Chocolate Cake', quantidade: 1, preco: 45.00 }
+			],
+			created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() // 1 dia no passado
+		},
+		{
+			id: 2,
+			numero_pedido: '002',
+			cliente_nome: 'Maria Santos',
+			cliente_id: 2,
+			status: 'producao',
+			valor_total: 35.00,
+			valor_pago: 35.00,
+			forma_pagamento: 'cartao',
+			data_entrega: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 dias no futuro
+			itens: [
+				{ produto_nome: 'Strawberry Pie', quantidade: 1, preco: 35.00 }
+			],
+			created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() // 2 dias no passado
+		}
+	];
+
+	// Dados mockados de entregas
+	this.entregas = [
+		{
+			id: 1,
+			pedido_id: 1,
+			cliente_nome: 'João Silva',
+			endereco: 'Rua das Flores, 123 - São Paulo/SP',
+			data_entrega: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+			status: 'pendente',
+			observacoes: 'Entregar até 14h'
+		}
+	];
+
+	// Dados mockados de despesas/receitas
+	this.despesas = [
+		{
+			id: 1,
+			descricao: 'Compra de ingredientes',
+			valor: 150.00,
+			data: new Date().toISOString(),
+			categoria: 'ingredientes'
+		}
+	];
+
+	this.receitas = [
+		{
+			id: 1,
+			pedido_id: 1,
+			valor: 22.50,
+			data: new Date().toISOString(),
+			forma_pagamento: 'dinheiro'
+		},
+		{
+			id: 2,
+			pedido_id: 2,
+			valor: 35.00,
+			data: new Date().toISOString(),
+			forma_pagamento: 'cartao'
+		}
+	];
+
+	console.log('✅ Dados mockados carregados com sucesso!');
+	console.log(`📊 ${this.clients.length} clientes, ${this.stock.length} produtos, ${this.orders.length} pedidos`);
 };

@@ -14,6 +14,11 @@
   framework = "#static"
   autoLaunch = false
 
+[dev.environment]
+  SUPABASE_URL = "https://qzuccgbxddzpbotxvjug.supabase.co"
+  SUPABASE_ANON_KEY = "SUA_CHAVE_ANONIMA_AQUI"
+  BREVO_API_KEY = "SUA_CHAVE_BREVO_AQUI"
+
 [[headers]]
   for = "/*"
   [headers.values]
@@ -21,3 +26,11 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Redirecionamento para Single Page Application (SPA)
+# Isso garante que todas as rotas sejam direcionadas para o index.html,
+# permitindo que o roteamento do lado do cliente funcione.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

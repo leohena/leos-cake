@@ -1,406 +1,128 @@
-# Leo's Cake - Sistema de Pré-Vendas Completo
+# Leo's Cake - Sistema de Pré-Vendas
 
-Sistema profissional de gerenciamento de pré-vendas com banco de dados, autenticação, geração de recibos e suporte multilingual.
+![Leo's Cake Logo](images/logo-png.png)
 
-## 🚀 Como Iniciar o Sistema
+Sistema de gerenciamento de pré-vendas para pequenas confeitarias, construído com HTML, CSS e JavaScript puro. O sistema utiliza Supabase para o backend de banco de dados e autenticação, e Netlify para o deploy e funções serverless.
 
-### Opção 1: Servidor Simples (Recomendado - MAIS ESTÁVEL)
+## ✨ Funcionalidades
+
+- **🔐 Autenticação:** Sistema de login seguro conectado ao Supabase.
+- **📊 Dashboard:** Visão geral de pedidos, clientes e produtos.
+- **🧁 Gestão de Produtos:** Cadastro de produtos com nome, imagem e controle de estoque.
+- **👥 Gestão de Clientes:** Cadastro de informações de contato e endereço dos clientes.
+- **📋 Gestão de Pedidos:** Criação e acompanhamento de pedidos com status.
+- **🚚 Agenda de Entregas:** Visualização diária dos pedidos a serem entregues.
+- **📄 Recibos:** Geração de recibos para os pedidos.
+- **🌍 Multilingual:** Suporte para Português e Inglês.
+- **📱 PWA (Progressive Web App):** Pode ser "instalado" em dispositivos móveis para uma experiência de aplicativo nativo e funcionamento offline.
+
+## 🚀 Tecnologias Utilizadas
+
+- **Frontend:** HTML5, CSS3, JavaScript (ES6+)
+- **Backend (BaaS):** [Supabase](https://supabase.com/) (PostgreSQL Database, Auth)
+- **Hospedagem & Deploy:** [Netlify](https://www.netlify.com/)
+- **Funções Serverless:** Netlify Functions (Node.js)
+- **Envio de Email:** [Brevo](https://www.brevo.com/) (utilizado através de uma Netlify Function)
+
+## ⚙️ Como Configurar e Rodar o Projeto
+
+### Pré-requisitos
+
+- [Node.js](https://nodejs.org/) (versão 18 ou superior)
+- Uma conta no [Supabase](https://supabase.com/)
+- Uma conta no [Brevo](https://www.brevo.com/) para o serviço de email
+
+### 1. Clone o Repositório
+
 ```bash
-# Execute o arquivo start-server.bat (Windows)
-# ou use o comando:
-node server.js
+git clone https://github.com/leohena/leos-cake.git
+cd leos-cake
 ```
 
-**Acesse:** `http://localhost:8080`
+### 2. Instale as Dependências
 
-### Opção 2: Netlify Dev (Para desenvolvimento avançado)
+Este projeto usa a CLI da Netlify para desenvolvimento local.
+
 ```bash
-npx netlify dev --port 3000
+npm install
 ```
 
-**Acesse:** `http://localhost:3000`
+### 3. Configure as Variáveis de Ambiente
 
-## 📧 Como Testar o Sistema de Emails
+Para rodar o projeto localmente, a CLI da Netlify precisa das mesmas variáveis de ambiente que serão usadas em produção.
 
-1. **Acesse o dashboard** e faça login
-2. **Selecione um pedido** existente
-3. **Mude o status** para "Confirmado"
-4. **Abra o Console** do navegador (F12 → Console)
-5. **Procure pelas mensagens** que começam com `📧`
+Crie um arquivo chamado `.env` na raiz do projeto e adicione as seguintes variáveis:
 
-### Logs Esperados:
-```
-📧 handleStatusEmailTriggers chamado: orderId=123, newStatus=confirmado
-📧 Status normalizado: confirmado
-📧 Email já enviado para confirmado? false
-📧 Verificando se status requer email: confirmado
-📧 Status requer email? true
-📧 Processando status confirmado
-📧 Agendando email para confirmado
-📧 scheduleStatusEmail chamado: orderId=123, statusKey=confirmado, delayMs=0
-📧 Executando trigger imediatamente
-📧 enviarEmailStatus chamado: orderId=123, status=confirmado
-📧 Enviando email para cliente@email.com - Status: confirmado
+```env
+# URL do seu projeto Supabase
+SUPABASE_URL=https://<seu-projeto-id>.supabase.co
+
+# Chave anônima (public) do seu projeto Supabase
+SUPABASE_ANON_KEY=<sua-chave-anon-publica>
+
+# Chave de API do Brevo para envio de emails
+BREVO_API_KEY=<sua-chave-da-api-do-brevo>
 ```
 
-## ✨ Funcionalidades Principais
+**Importante:** Nunca suba o arquivo `.env` para o seu repositório Git. Ele já está incluído no `.gitignore`.
 
+### 4. Rode o Projeto Localmente
 
+Use o comando da Netlify para iniciar o servidor de desenvolvimento. Isso irá servir seus arquivos estáticos e também as funções da pasta `netlify/functions`.
 
-### 🔐 Sistema de Autenticação### 📊 Dashboard
+```bash
+npm run dev
+```
 
-- Login com validação no banco de dados Supabase- Visão geral dos números do negócio
-
-- Gestão de sessão com expiração automática- Estatísticas de produtos, clientes, pedidos e entregas
-
-- Controle de acesso baseado em níveis- Lista de entregas do dia
-
-
-
-### 📊 Dashboard Profissional### 🧁 Gestão de Produtos
-
-- Estatísticas em tempo real- Cadastro de produtos com imagens
-
-- Gestão completa de Clientes, Produtos, Pedidos, Estoque e Entregas- Controle automático de estoque
-
-- Interface responsiva (Desktop, Tablet, Mobile)- Alertas quando estoque está baixo (≤ 5 unidades)
-
-- Filtros avançados e busca em tempo real- Busca por nome ou descrição
-
-
-
-### 🌍 Sistema Multilingual### 👥 Gestão de Clientes
-
-- Suporte completo para Português e Inglês- Cadastro completo de clientes
-
-- Troca de idioma em tempo real- Informações de contato e endereço
-
-- Formatação regional de moeda e datas- Busca por nome, telefone ou endereço
-
-
-
-### 📄 Geração de Recibos### 📋 Sistema de Pedidos
-
-- PDFs automáticos com resumo detalhado- Criação de pedidos com múltiplos produtos
-
-- Controle de pagamentos parciais- Controle de pagamento (valor pago vs valor total)
-
-- Envio automático por email- Cálculo automático de saldo restante
-
-- Status automático (Pendente/Pago/Entregue)
-
-### 💾 Banco de Dados Robusto- Verificação automática de estoque
-
-- Supabase PostgreSQL com 8 tabelas relacionadas
-
-- Cache offline para funcionamento sem internet### 🚚 Agendamento de Entregas
-
-- Triggers de auditoria e backup automático- Horários pré-definidos (8h às 18h)
-
-- Controle de disponibilidade por data/horário
-
-## 🚀 Tecnologias Utilizadas- Agenda visual por dia
-
-- Informações completas para entrega
-
-### Frontend
-
-- HTML5 Semântico### 📄 Sistema de Recibos
-
-- CSS3 com Grid e Flexbox- Geração automática de recibos profissionais
-
-- JavaScript ES6+ (Vanilla)- Download em PDF
-
-- PWA (Progressive Web App)- Envio automático por email para clientes
-
-- Template personalizável com dados da empresa
-
-### Backend & Banco
-
-- Supabase (PostgreSQL)### ⚙️ Configurações Avançadas
-
-- Realtime subscriptions- Dados da empresa personalizáveis
-
-- Authentication & Authorization- Integração com EmailJS para envio de emails
-
-- Backup e restauração de dados
-
-### Integrações
-
-- EmailJS para envio de emails## 📱 Otimizado para Celular
-
-- jsPDF para geração de recibos
-
-- Font Awesome para íconesA aplicação foi desenvolvida com foco em dispositivos móveis:
-
-- Google Fonts (Inter)- Interface responsiva
-
-- Navegação por abas na parte inferior
-
-## 📁 Estrutura do Projeto- PWA (Progressive Web App) - funciona como app nativo
-
-- Funciona offline após primeiro carregamento
-
-### Arquivos Principais- Pode ser instalada na tela inicial do celular
-
-- `index.html` - Página de login
-
-- `dashboard.html` - Interface principal do sistema
+O site estará disponível em `http://localhost:8888` (ou outra porta, se a 8888 estiver em uso).
 
 ## 🚀 Deploy em Produção
 
-### Netlify (Recomendado)
+O deploy é feito via Netlify e é acionado a cada `push` na branch `main` (ou `master`).
 
-1. **Conecte seu repositório GitHub ao Netlify:**
-   - Acesse [netlify.com](https://netlify.com)
-   - Clique em "New site from Git"
-   - Conecte sua conta GitHub
-   - Selecione o repositório `leos-cake`
+1.  **Conecte seu Repositório:** No painel da Netlify, importe seu repositório do GitHub.
+2.  **Configurações de Build:**
+    - **Build command:** Deixe em branco ou use `echo "No build step"`.
+    - **Publish directory:** `.` (raiz do projeto).
+    - **Functions directory:** `netlify/functions`.
+3.  **Configure as Variáveis de Ambiente na Netlify:**
+    - Vá para `Site settings` > `Build & deploy` > `Environment`.
+    - Adicione as mesmas variáveis do seu arquivo `.env` (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `BREVO_API_KEY`).
 
-2. **Configure as variáveis de ambiente:**
-   - Vá para Site settings → Environment variables
-   - Adicione a variável: `BREVO_API_KEY` com sua chave API do Brevo
-   - Adicione outras variáveis necessárias (Supabase URL, etc.)
+A Netlify fará o deploy automático do seu site e das funções serverless.
 
-3. **Deploy automático:**
-   - O Netlify fará deploy automático a cada push na branch `master`
-   - O site ficará disponível em uma URL como `https://amazing-site.netlify.app`
+## 🔒 Segurança
 
-### Configuração de Produção
+### Configurações Críticas
+- **Chaves de API:** Nunca commite chaves de API no código. Use variáveis de ambiente no Netlify.
+- **Senhas:** As senhas são armazenadas com hash base64 simples. Para produção, considere migrar para hash seguro (ex: bcrypt) no backend.
+- **Armazenamento Local:** Dados sensíveis não devem ser armazenados em localStorage. Use sessionStorage para dados temporários.
+- **CORS:** As funções serverless permitem CORS de qualquer origem. Restrinja para domínios específicos em produção.
+- **Validação:** Sempre valide e sanitize inputs do usuário para prevenir XSS e injeções.
 
-- **Variáveis de Ambiente Necessárias:**
-  ```
-  BREVO_API_KEY=your_brevo_api_key_here
-  SUPABASE_URL=your_supabase_url
-  SUPABASE_ANON_KEY=your_supabase_anon_key
-  ```
+### Verificações de Segurança
+Execute os testes básicos em `test.js` para validar funcionalidades críticas.
 
-- **Domínio Personalizado (Opcional):**
-  - No Netlify, vá para Site settings → Domain management
-  - Adicione seu domínio personalizado
+### Problemas Conhecidos
+- Hash de senha fraco (base64).
+- Possível exposição de dados em localStorage/sessionStorage via XSS.
 
-## 🛠️ Tecnologias Utilizadas
+## 📁 Estrutura do Projeto
 
-- `CONFIGURACAO.md` - Instruções detalhadas de configuração
-
-- **HTML5** - Estrutura da aplicação
-
-### Scripts JavaScript- **CSS3** - Estilização responsiva com gradientes e animações
-
-- `js/auth-system.js` - Sistema de autenticação e configuração- **JavaScript Vanilla** - Lógica da aplicação (sem dependências)
-
-- `js/data-manager.js` - Gerenciamento completo de dados- **LocalStorage** - Armazenamento local dos dados
-
-- `js/dashboard-app.js` - Aplicação do dashboard- **PWA** - Service Worker para funcionamento offline
-
-- `js/login-app.js` - Aplicação da tela de login
-
-- `js/i18n.js` - Sistema de internacionalização## 📦 Como Usar
-
-- `js/receipt-system.js` - Geração de recibos e emails
-
-### Instalação
-
-### Banco de Dados1. Baixe todos os arquivos para uma pasta
-
-- `database/schema.sql` - Estrutura completa das tabelas2. Abra o arquivo `index.html` em um navegador web
-
-3. Para usar no celular: acesse via navegador e adicione à tela inicial
-
-### Estilos e Assets
-
-- `css/styles.css` - Estilos principais### Primeiros Passos
-
-- `images/` - Logos e imagens do sistema
-
-- `manifest.json` - Configuração PWA#### 1. Cadastrar Produtos
-
-- `sw.js` - Service Worker- Vá na aba "Produtos"
-
-- Clique em "+ Adicionar Produto"
-
-## 🔧 Configuração Rápida- Preencha: nome, descrição, preço, quantidade em estoque
-
-- Adicione uma foto (opcional)
-
-1. **Configurar Supabase:**- Salve
-
-   - Criar projeto no [Supabase](https://supabase.com)
-
-   - Executar `database/schema.sql`#### 2. Cadastrar Clientes
-
-   - Atualizar credenciais em `js/auth-system.js`- Vá na aba "Clientes"
-
-- Clique em "+ Adicionar Cliente"
-
-2. **Configurar EmailJS:**- Preencha: nome, telefone, endereço
-
-   - Criar conta no [EmailJS](https://emailjs.com)- Email é opcional
-
-   - Configurar template de email- Salve
-
-   - Atualizar credenciais em `js/auth-system.js`
-
-#### 3. Fazer Pedidos
-
-3. **Testar:**- Vá na aba "Pedidos"
-
-   - Abrir `index.html` em servidor local- Clique em "+ Novo Pedido"
-
-   - Login: `admin` / `admin`- Selecione o cliente
-
-- Adicione produtos (clique em "+ Adicionar Produto")
-
-## 📱 PWA - Progressive Web App- Defina quantidade para cada produto
-
-- Informe quanto foi pago
-
-O sistema pode ser instalado como aplicativo no celular:- Escolha data e horário de entrega
-
-- Funciona offline com cache- Adicione observações se necessário
-
-- Interface otimizada para mobile- Salve
-
-- Notificações push (futuro)
-
-#### 4. Gerenciar Entregas
-
-## 🛡️ Segurança- Vá na aba "Entregas"
-
-- Selecione uma data no filtro
-
-- Autenticação com JWT tokens- Veja todas as entregas agendadas por horário
-
-- Sanitização de dados de entrada- Informações completas para facilitar a entrega
-
-- Validação no frontend e backend
-
-- Controle de sessão com timeout#### 5. Configurar Sistema
-
-- Clique no ícone ⚙️ no header
-
-## 📈 Performance- Configure dados da empresa
-
-- Configure EmailJS para envio de recibos (veja arquivo EMAILJS_SETUP.md)
-
-- Carregamento inicial: ~2-3 segundos- Salve as configurações
-
-- Cache inteligente para dados frequentes
-
-- Lazy loading de componentes#### 6. Gerar e Enviar Recibos
-
-- Otimizado para dispositivos móveis- Na lista de pedidos, clique em "📄 Recibo"
-
-- Visualize o recibo gerado
-
-## 🎯 Como Usar- Baixe em PDF ou envie por email para o cliente
-
-
-
-1. **Login:** Use `admin` / `admin` para primeiro acesso### Recursos Avançados
-
-2. **Clientes:** Cadastre clientes com idioma preferido
-
-3. **Produtos:** Adicione produtos e controle estoque#### Controle de Estoque
-
-4. **Pedidos:** Crie pedidos que geram recibos automaticamente- O estoque é automaticamente reduzido quando um pedido é criado
-
-5. **Entregas:** Organize e acompanhe entregas por data- Produtos com estoque ≤ 5 aparecem com alerta vermelho
-
-- Não é possível criar pedidos com quantidade maior que o estoque
-
-## 📞 Suporte
-
-#### Horários de Entrega
-
-Veja `CONFIGURACAO.md` para instruções detalhadas de configuração e uso.- Horários disponíveis: 8h, 9h, 10h, 11h, 14h, 15h, 16h, 17h, 18h
-
-- Apenas um pedido por horário/data
-
----- Horários ocupados não aparecem na seleção
-
-
-
-**Status:** ✅ Sistema completo e funcional  #### Status de Pedidos
-
-**Versão:** 2.0.0  - **Pendente**: Ainda há saldo a receber
-
-**Última atualização:** Novembro 2024- **Pago**: Valor total já foi pago
-- **Entregue**: Pedido foi entregue (pode ser marcado manualmente)
-
-## 💾 Armazenamento de Dados
-
-Os dados são salvos localmente no navegador (LocalStorage):
-- **Vantagem**: Não precisa de internet, dados sempre disponíveis
-- **Cuidado**: Limpar cache do navegador apaga os dados
-
-### Backup e Restauração
-Para implementar backup/restauração, você pode:
-1. Adicionar botões de exportar/importar dados
-2. Salvar arquivos JSON com os dados
-3. Implementar sincronização com Google Drive ou similar
-
-## 🔧 Personalização
-
-### Horários de Entrega
-Edite a linha 8 do arquivo `js/app.js`:
-```javascript
-this.horariosDisponiveis = ['08:00', '09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
 ```
-
-### Cores e Tema
-Edite o arquivo `css/styles.css`:
-- Cor principal: `#ff6b9d` (rosa)
-- Cor secundária: `#ffa726` (laranja)
-- Cor de fundo: `#f5f7fa` (cinza claro)
-
-### Logo e Ícones
-Substitua os arquivos na pasta `images/`:
-- `icon-192.png` - Ícone 192x192px
-- `icon-512.png` - Ícone 512x512px
-
-## 📱 Instalação como App (PWA)
-
-### Android
-1. Abra no Chrome
-2. Toque no menu (⋮)
-3. Selecione "Adicionar à tela inicial"
-4. Confirme a instalação
-
-### iOS
-1. Abra no Safari
-2. Toque no botão de compartilhar
-3. Selecione "Adicionar à Tela de Início"
-4. Confirme a instalação
-
-## 🚀 Próximas Melhorias
-
-Sugestões para expansão do sistema:
-- Relatórios de vendas
-- Integração com WhatsApp para notificações
-- Múltiplos usuários/funcionários
-- Sincronização na nuvem
-- Impressão de pedidos
-- Controle financeiro completo
-- Integração com meios de pagamento
-
-## 🐛 Problemas Conhecidos
-
-- Dados são perdidos se o cache do navegador for limpo
-- Não há validação de CPF/CNPJ
-- Fotos são armazenadas em Base64 (podem ocupar muito espaço)
-
-## 📞 Suporte
-
-Para dúvidas ou melhorias:
-1. Verifique este README
-2. Teste as funcionalidades passo a passo
-3. Para personalizações, edite os arquivos conforme as instruções
-
-## 📄 Licença
-
-Este projeto é de código aberto e pode ser usado, modificado e distribuído livremente.
-
----
-
-**Desenvolvido com ❤️ para facilitar a gestão de pequenos negócios**
+.
+├── netlify/
+│   └── functions/
+│       ├── config.js       # Função que expõe as variáveis de ambiente do Supabase para o frontend de forma segura.
+│       └── send-email.js   # Função que envia emails transacionais usando a API do Brevo.
+├── src/
+│   ├── app.js            # Lógica principal da aplicação do dashboard.
+│   ├── auth.js           # Gerenciamento de autenticação com Supabase.
+│   ├── brevo-email-service.js # Classe do lado do cliente para chamar a função `send-email`.
+│   ├── i18n.js           # Lógica de internacionalização (traduções).
+│   └── supabase.js       # Inicialização e configuração do cliente Supabase no frontend.
+├── *.html              # Arquivos HTML principais (index.html, dashboard.html, etc.).
+├── styles.css          # Folha de estilos principal.
+├── netlify.toml        # Arquivo de configuração da Netlify (build, redirects, etc.).
+└── package.json        # Dependências e scripts do projeto.
+```

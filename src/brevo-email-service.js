@@ -1,52 +1,16 @@
 ﻿class BrevoEmailService {
     constructor() {
-        this.apiId = "04ab8c3f733d8cd137a312a8e90fb2a6";
-        this.apiSecret = "b08fd92706321d43582cda769d1b62c7";
-        this.tokenUrl = "https://api.sendpulse.com/oauth/access_token";
-        this.emailUrl = "https://api.sendpulse.com/smtp/emails";
-        this.accessToken = null;
-        this.tokenExpiry = null;
+        // As propriedades relacionadas ao SendPulse foram removidas para eliminar segredos e código morto.
     }
 
     getLogoUrl() {
         return "https://raw.githubusercontent.com/leohena/leos-cake/master/images/logo-png.png";
     }
 
-    async getAccessToken() {
-        if (this.accessToken && this.tokenExpiry && Date.now() < this.tokenExpiry) {
-            return this.accessToken;
-        }
-
+    async sendEmail({ to, subject, html }) {
         try {
-            const response = await fetch(this.tokenUrl, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    grant_type: "client_credentials",
-                    client_id: this.apiId,
-                    client_secret: this.apiSecret
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`Erro ao obter token: ${response.status}`);
-            }
-
-            const data = await response.json();
-            this.accessToken = data.access_token;
-            this.tokenExpiry = Date.now() + (data.expires_in * 1000) - 60000;
-            
-            return this.accessToken;
-        } catch (error) {
-            console.error("Erro ao obter token Brevo:", error);
-            throw error;
-        }
-    }
-
-    async sendEmail({ to, subject, html, from = "leoscakegta@gmail.com", fromName = "Leo's Cake" }) {
-        try {
+            // A lógica agora delega o envio de e-mail para uma função serverless da Netlify,
+            // que é a abordagem correta e segura para lidar com chaves de API.
             const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
             const currentPort = window.location.port || "80";
             const functionUrl = isLocal
@@ -77,10 +41,10 @@
             }
 
             const result = await response.json();
-            console.log(" Email enviado com sucesso via Brevo:", result);
+            console.log("Email enviado com sucesso via função Netlify (Brevo):", result);
             return { success: true, data: result };
         } catch (error) {
-            console.error(" Erro ao enviar email via Brevo:", error);
+            console.error("Erro ao enviar email via função Netlify:", error);
             return { success: false, error: error.message };
         }
     }
@@ -756,7 +720,10 @@
     formatDate(dateString) {
         if (!dateString) return '';
         try {
-            return new Date(dateString).toLocaleDateString('pt-BR');
+            // Parse date parts to avoid timezone issues
+            const parts = dateString.split('T')[0].split('-');
+            const date = new Date(parts[0], parts[1]-1, parts[2]);
+            return date.toLocaleDateString('pt-BR');
         } catch {
             return dateString;
         }

@@ -188,7 +188,7 @@ const translations = {
 		'feriados.adicionar': 'Adicionar',
 		'feriados.instrucao_lista': 'Clique no X para remover um feriado',
 
-		'vendas_online.titulo': 'Leó\'s Cake - Vendas Online',
+		'vendas_online.titulo': 'Leo\'s Cake - Vendas Online',
 		'vendas_online.filtrar': 'Filtrar:',
 		'vendas_online.todas_categorias': 'Todas Categorias',
 		'vendas_online.adicionar_cliente': 'Adicionar Cliente',
@@ -210,6 +210,7 @@ const translations = {
 		'vendas_online.cancelar': 'Cancelar',
 		'vendas_online.finalizar_pedido': 'Finalizar Pedido',
 		'vendas_online.cadastro_pedido': 'Cadastro de Pedido',
+		'vendas_online.descricao': 'Descrição',
 		'vendas_online.descricao_cadastro': 'Para completar seu pedido, precisamos de algumas informações:',
 		'vendas_online.placeholder_nome': 'Digite seu nome completo',
 		'vendas_online.filtrar_label': 'Filtrar:',
@@ -217,6 +218,7 @@ const translations = {
 		'vendas_online.total_label': 'Total:',
 		'vendas_online.nenhum_produto': 'Nenhum produto disponível para venda',
 		'vendas_online.sem_imagem': 'Sem imagem',
+		'vendas_online.sem_descricao': 'Sem descrição disponível',
 		'vendas_online.cliente_default': 'Cliente',
 		'vendas_online.tipo_usuario': 'cliente',
 
@@ -386,6 +388,18 @@ const translations = {
 		'produtos.brownie': 'Brownie',
 		'produtos.cupcake': 'Cupcake',
 		'produtos.cupcake': 'Cupcake',
+		'produtos.bolo_de_chocolate': 'Chocolate Cake',
+		'produtos.torta_de_morango': 'Strawberry Pie',
+		'produtos.bolo_de_baunilha': 'Vanilla Cake',
+		'produtos.bolo_de_abacaxi': 'Pineapple Cake',
+		'produtos.bolo_de_coco': 'Coconut Cake',
+		'produtos.doce_de_leite': 'Milk Sweet',
+		'produtos.pao_de_acucar': 'Sugar Bread',
+		'produtos.bolo_de_cafe': 'Coffee Cake',
+		'produtos.bolo_de_laranja': 'Orange Cake',
+		'produtos.bolo_de_uva': 'Grape Cake',
+		'produtos.bolo_de_banana': 'Banana Cake',
+		'produtos.torta_de_maca': 'Apple Pie',
 
 		// Traduções de produtos
 		'produtos.pao_de_mel': 'Pão de Mel',
@@ -398,6 +412,18 @@ const translations = {
 		'produtos.brownie': 'Brownie',
 		'produtos.cupcake': 'Cupcake',
 		'produtos.cupcake': 'Cupcake',
+		'produtos.bolo_de_chocolate': 'Bolo de Chocolate',
+		'produtos.torta_de_morango': 'Torta de Morango',
+		'produtos.bolo_de_baunilha': 'Bolo de Baunilha',
+		'produtos.bolo_de_abacaxi': 'Bolo de Abacaxi',
+		'produtos.bolo_de_coco': 'Bolo de Coco',
+		'produtos.doce_de_leite': 'Doce de Leite',
+		'produtos.pao_de_acucar': 'Pão de Açúcar',
+		'produtos.bolo_de_cafe': 'Bolo de Café',
+		'produtos.bolo_de_laranja': 'Bolo de Laranja',
+		'produtos.bolo_de_uva': 'Bolo de Uva',
+		'produtos.bolo_de_banana': 'Bolo de Banana',
+		'produtos.torta_de_maca': 'Torta de Maçã',
 		'finalizar.endereco_entrega': 'Delivery Address:',
 		'finalizar.usar_endereco_cadastro': 'Use registered address',
 		'finalizar.novo_endereco': 'New address',
@@ -534,6 +560,7 @@ const translations = {
 		'vendas_online.cancelar': 'Cancel',
 		'vendas_online.finalizar_pedido': 'Complete Order',
 		'vendas_online.cadastro_pedido': 'Order Registration',
+		'vendas_online.descricao': 'Description',
 		'vendas_online.descricao_cadastro': 'To complete your order, we need some information:',
 		'vendas_online.placeholder_nome': 'Enter your full name',
 		'vendas_online.filtrar_label': 'Filter:',
@@ -541,6 +568,7 @@ const translations = {
 		'vendas_online.total_label': 'Total:',
 		'vendas_online.nenhum_produto': 'No products available for sale',
 		'vendas_online.sem_imagem': 'No image',
+		'vendas_online.sem_descricao': 'No description available',
 		'vendas_online.cliente_default': 'Client',
 		'vendas_online.tipo_usuario': 'client',
 
@@ -621,20 +649,20 @@ const translations = {
 };
 
 function getCurrentLang() {
-	const stored = localStorage.getItem('lang');
+	const stored = sessionStorage.getItem('lang');
 	if (stored === 'pt-BR' || stored === 'pt') {
 		if (stored === 'pt') {
-			localStorage.setItem('lang', 'pt-BR');
+			sessionStorage.setItem('lang', 'pt-BR');
 		}
 		return 'pt-BR';
 	}
 	if (stored === 'en-US' || stored === 'en') {
 		if (stored === 'en') {
-			localStorage.setItem('lang', 'en-US');
+			sessionStorage.setItem('lang', 'en-US');
 		}
 		return 'en-US';
 	}
-	localStorage.setItem('lang', 'en-US');
+	sessionStorage.setItem('lang', 'en-US');
 	return 'en-US';
 }
 
@@ -648,16 +676,20 @@ function translateProductName(productName) {
 	// Mapeamento inteligente baseado em padrões comuns
 	const normalizedName = productName.toLowerCase().trim();
 	
-	// Mapeamentos diretos para produtos conhecidos
+	// Mapeamentos diretos para produtos conhecidos (inglês -> português)
 	const directMappings = {
-		'pão de mel': 'produtos.pao_de_mel',
-		'honey cake': 'produtos.honey_cake',
-		'bolo de cenoura': 'produtos.bolo_de_cenoura',
-		'carrot cake': 'produtos.carrot_cake',
-		'torta de limão': 'produtos.torta_de_limao',
-		'lemon pie': 'produtos.lemon_pie',
+		'honey cake': 'produtos.pao_de_mel',
+		'carrot cake': 'produtos.bolo_de_cenoura',
+		'lemon pie': 'produtos.torta_de_limao',
 		'brownie': 'produtos.brownie',
 		'cupcake': 'produtos.cupcake',
+		'chocolate cake': 'produtos.bolo_de_chocolate',
+		'strawberry pie': 'produtos.torta_de_morango',
+		'vanilla cake': 'produtos.bolo_de_baunilha',
+		'pineapple cake': 'produtos.bolo_de_abacaxi',
+		'coconut cake': 'produtos.bolo_de_coco',
+		'milk sweet': 'produtos.doce_de_leite',
+		'sugar bread': 'produtos.pao_de_acucar',
 	};
 	
 	// Verificar mapeamento direto
@@ -668,59 +700,67 @@ function translateProductName(productName) {
 	
 	// Para produtos não mapeados, tentar tradução automática baseada em padrões
 	const currentLang = getCurrentLang();
-	if (currentLang === 'en-US') {
+	if (currentLang === 'pt-BR') {
 		// Primeiro, detectar frases compostas comuns
 		const compoundTranslations = {
-			'pão de mel': 'Honey Cake',
-			'bolo de cenoura': 'Carrot Cake',
-			'torta de limão': 'Lemon Pie',
-			'bolo de chocolate': 'Chocolate Cake',
-			'torta de morango': 'Strawberry Pie',
-			'doce de leite': 'Milk Sweet',
-			'pão de açúcar': 'Sugar Bread',
+			'honey cake': 'Pão de Mel',
+			'carrot cake': 'Bolo de Cenoura',
+			'lemon pie': 'Torta de Limão',
+			'chocolate cake': 'Bolo de Chocolate',
+			'strawberry pie': 'Torta de Morango',
+			'milk sweet': 'Doce de Leite',
+			'sugar bread': 'Pão de Açúcar',
+			'vanilla cake': 'Bolo de Baunilha',
+			'pineapple cake': 'Bolo de Abacaxi',
+			'coconut cake': 'Bolo de Coco',
+			'coffee cake': 'Bolo de Café',
+			'orange cake': 'Bolo de Laranja',
+			'grape cake': 'Bolo de Uva',
+			'banana cake': 'Bolo de Banana',
+			'apple pie': 'Torta de Maçã',
 		};
 		
 		// Verificar frases compostas primeiro
-		for (const [pt, en] of Object.entries(compoundTranslations)) {
-			if (normalizedName.includes(pt)) {
-				return en;
+		for (const [en, pt] of Object.entries(compoundTranslations)) {
+			if (normalizedName.includes(en)) {
+				return pt;
 			}
 		}
 		
 		// Traduções palavra por palavra para casos não cobertos
 		const wordTranslations = {
-			'pão': 'bread',
-			'bolo': 'cake',
-			'torta': 'pie',
-			'doce': 'sweet',
-			'cenoura': 'carrot',
-			'limão': 'lemon',
-			'mel': 'honey',
+			'bread': 'pão',
+			'cake': 'bolo',
+			'pie': 'torta',
+			'sweet': 'doce',
+			'carrot': 'cenoura',
+			'lemon': 'limão',
+			'honey': 'mel',
 			'chocolate': 'chocolate',
-			'baunilha': 'vanilla',
-			'morango': 'strawberry',
-			'abacaxi': 'pineapple',
-			'coco': 'coconut',
-			'leite': 'milk',
-			'açúcar': 'sugar',
-			'café': 'coffee',
-			'laranja': 'orange',
-			'uva': 'grape',
+			'vanilla': 'baunilha',
+			'strawberry': 'morango',
+			'pineapple': 'abacaxi',
+			'coconut': 'coco',
+			'milk': 'leite',
+			'sugar': 'açúcar',
+			'coffee': 'café',
+			'orange': 'laranja',
+			'grape': 'uva',
 			'banana': 'banana',
-			'maçã': 'apple',
+			'apple': 'maçã',
 		};
 		
 		// Aplicar traduções palavra por palavra
 		let translated = productName;
-		Object.entries(wordTranslations).forEach(([pt, en]) => {
-			const regex = new RegExp(`\\b${pt}\\b`, 'gi');
-			translated = translated.replace(regex, en);
+		Object.entries(wordTranslations).forEach(([en, pt]) => {
+			const regex = new RegExp(`\\b${en}\\b`, 'gi');
+			translated = translated.replace(regex, pt);
 		});
 		
-		// Remover palavras de ligação comuns que não fazem sentido em inglês
-		translated = translated.replace(/\bde\b/gi, ''); // remover "de"
-		translated = translated.replace(/\bcom\b/gi, 'with'); // "com" -> "with"
-		translated = translated.replace(/\be\b/gi, 'and'); // "e" -> "and"
+		// Ajustar preposições e conectores
+		translated = translated.replace(/\bof\b/gi, 'de'); // "of" -> "de"
+		translated = translated.replace(/\bwith\b/gi, 'com'); // "with" -> "com"
+		translated = translated.replace(/\band\b/gi, 'e'); // "and" -> "e"
 		
 		// Limpar espaços extras
 		translated = translated.replace(/\s+/g, ' ').trim();
@@ -736,45 +776,45 @@ function translateProductName(productName) {
 function translateProductDescription(description) {
 	if (!description) return '';
 	
-	// Mapeamento de descrições comuns
+	// Mapeamento de descrições comuns (inglês -> português)
 	const descriptionMappings = {
-		'pão': 'bread',
-		'bolo': 'cake',
-		'torta': 'pie',
-		'doce': 'sweet',
-		'cenoura': 'carrot',
-		'limão': 'lemon',
-		'mel': 'honey',
+		'bread': 'pão',
+		'cake': 'bolo',
+		'pie': 'torta',
+		'sweet': 'doce',
+		'carrot': 'cenoura',
+		'lemon': 'limão',
+		'honey': 'mel',
 		'chocolate': 'chocolate',
-		'baunilha': 'vanilla',
-		'morango': 'strawberry',
-		'abacaxi': 'pineapple',
-		'coco': 'coconut',
-		'leite': 'milk',
-		'açúcar': 'sugar',
-		'café': 'coffee',
-		'laranja': 'orange',
-		'uva': 'grape',
+		'vanilla': 'baunilha',
+		'strawberry': 'morango',
+		'pineapple': 'abacaxi',
+		'coconut': 'coco',
+		'milk': 'leite',
+		'sugar': 'açúcar',
+		'coffee': 'café',
+		'orange': 'laranja',
+		'grape': 'uva',
 		'banana': 'banana',
-		'maçã': 'apple',
-		'delicioso': 'delicious',
-		'saboroso': 'tasty',
-		'feito': 'made',
-		'com': 'with',
-		'e': 'and',
-		'de': 'of',
-		'fresco': 'fresh',
-		'caseiro': 'homemade',
-		'tradicional': 'traditional',
-		'especial': 'special',
+		'apple': 'maçã',
+		'delicious': 'delicioso',
+		'tasty': 'saboroso',
+		'made': 'feito',
+		'with': 'com',
+		'and': 'e',
+		'of': 'de',
+		'fresh': 'fresco',
+		'homemade': 'caseiro',
+		'traditional': 'tradicional',
+		'special': 'especial',
 	};
 	
 	const currentLang = getCurrentLang();
-	if (currentLang === 'en-US') {
+	if (currentLang === 'pt-BR') {
 		let translated = description;
-		Object.entries(descriptionMappings).forEach(([pt, en]) => {
-			const regex = new RegExp(`\\b${pt}\\b`, 'gi');
-			translated = translated.replace(regex, en);
+		Object.entries(descriptionMappings).forEach(([en, pt]) => {
+			const regex = new RegExp(`\\b${en}\\b`, 'gi');
+			translated = translated.replace(regex, pt);
 		});
 		
 		// Capitalizar primeira letra
@@ -793,7 +833,7 @@ function applyTranslations() {
 
 function setLang(lang) {
 	if (translations[lang]) {
-		localStorage.setItem('lang', lang);
+		sessionStorage.setItem('lang', lang);
 		applyTranslations();
 		console.log('🌍 Idioma alterado para:', lang);
 		

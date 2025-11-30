@@ -20,6 +20,18 @@ class AuthSystem {
 
 			if (!this.supabaseClient) {
 				console.warn('⚠️ Supabase não inicializado, usando modo local');
+				// Criar usuário mockado para testes
+				this.currentUser = {
+					id: 1,
+					nome: 'Administrador',
+					email: 'admin@test.com',
+					perfil: 'admin',
+					senha_padrao: false
+				};
+				sessionStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+				this.isInitialized = true;
+				console.log('🎭 MODO OFFLINE: Usuário administrador mockado criado');
+				return true;
 			} else {
 				console.log('✅ Supabase conectado com sucesso');
 			}
@@ -55,9 +67,8 @@ class AuthSystem {
 					.eq('email', email)
 					.single();
 				const hashDigitado = btoa(senha);
-				console.log('[LOGIN LOCAL] Email:', email, '| Senha digitada:', senha, '| Hash digitado:', hashDigitado, '| Hash salvo:', usuario?.password_hash);
+				// Removido console.log de senhas por segurança
 				const comparacao = usuario?.password_hash === hashDigitado;
-				console.log('[LOGIN LOCAL] Comparação:', comparacao);
 				if (!error && usuario && usuario.password_hash && comparacao) {
 					const user = {
 						id: usuario.id,

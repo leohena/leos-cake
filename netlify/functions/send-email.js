@@ -64,6 +64,7 @@ exports.handler = async (event) => {
 	try {
 		const { to, subject, html } = JSON.parse(event.body);
 
+		// Validação e sanitização
 		if (!to || !subject || !html) {
 			return {
 				statusCode: 400,
@@ -71,7 +72,20 @@ exports.handler = async (event) => {
 			};
 		}
 
-		const result = await sendEmail(to, subject, html);
+		// Validar email
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		if (!emailRegex.test(to)) {
+			return {
+				statusCode: 400,
+				body: JSON.stringify({ error: 'Invalid email address' })
+			};
+		}
+
+		// Sanitizar subject e html (remover scripts)
+		const sanitizedSubject = subject.replace(/<script[^>]*>.*?<\/script>/gi, '');
+		const sanitizedHtml = html.replace(/<script[^>]*>.*?<\/script>/gi, '');
+
+		const result = await sendEmail(to, sanitizedSubject, sanitizedHtml);
 
 		return {
 			statusCode: result.success ? 200 : 500,

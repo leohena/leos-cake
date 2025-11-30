@@ -3,7 +3,18 @@
   "version": "1.0.0",
   "description": "Sistema de Pré-Vendas Leo's Cake",
   "scripts": {
-    "dev": "netlify dev"
+    "dev": "netlify dev",
+    "start": "netlify dev",
+    "setup": "node setup-env.js",
+    "test": "jest",
+    "test:manual": "node test-manual.js",
+    "test:watch": "jest --watch"
   },
-  "dependencies": {}
+  "devDependencies": {
+    "jest": "^30.2.0",
+    "jest-environment-jsdom": "^30.2.0",
+    "jest-fetch-mock": "^3.0.3",
+    "jsdom": "^27.2.0",
+    "netlify-cli": "^17.22.1"
+  }
 }
