@@ -3,6 +3,13 @@ const EMAIL_URL = 'https://api.brevo.com/v3/smtp/email';
 
 async function sendEmail(to, subject, html) {
 	try {
+		console.log('=== DEBUG SENDEMAIL ===');
+		console.log('BREVO_API_KEY exists:', !!BREVO_API_KEY);
+		console.log('BREVO_API_KEY length:', BREVO_API_KEY ? BREVO_API_KEY.length : 'undefined');
+		console.log('BREVO_API_KEY starts with:', BREVO_API_KEY ? BREVO_API_KEY.substring(0, 10) + '...' : 'undefined');
+		console.log('All env vars with BREVO:', Object.keys(process.env).filter(key => key.includes('BREVO')));
+		console.log('All env vars:', Object.keys(process.env));
+
 		const response = await fetch(EMAIL_URL, {
 			method: 'POST',
 			headers: {
@@ -38,6 +45,11 @@ async function sendEmail(to, subject, html) {
 }
 
 exports.handler = async (event) => {
+	console.log('=== DEBUG HANDLER ===');
+	console.log('Event method:', event.httpMethod);
+	console.log('BREVO_API_KEY in handler:', !!process.env.BREVO_API_KEY);
+	console.log('BREVO_API_KEY value in handler:', process.env.BREVO_API_KEY ? process.env.BREVO_API_KEY.substring(0, 10) + '...' : 'undefined');
+
 	if (event.httpMethod === 'OPTIONS') {
 		return {
 			statusCode: 200,
