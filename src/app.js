@@ -1171,7 +1171,6 @@ class DashboardApp {
 	}
 	async triggerRecebimentoEmail(orderId) {
 		console.log(`📧 triggerRecebimentoEmail chamado: orderId=${orderId}`);
-		console.log(`📧 DEBUG: Iniciando processo de envio de email de recebimento`);
 		if (!orderId) {
 			console.log(`📧 triggerRecebimentoEmail: orderId inválido`);
 			return;
@@ -1179,14 +1178,11 @@ class DashboardApp {
 
 		// Aguardar um pouco para garantir que os scripts sejam carregados
 		await new Promise(resolve => setTimeout(resolve, 100));
-		console.log(`📧 DEBUG: Chamando enviarEmailStatus com status 'recebido'`);
 
 		try {
-			const result = await this.enviarEmailStatus(orderId, 'recebido');
-			console.log(`📧 DEBUG: Resultado do enviarEmailStatus:`, result);
+			await this.enviarEmailStatus(orderId, 'recebido');
 		} catch (error) {
 			console.warn('Erro ao enviar email de recebimento:', error);
-			console.log(`📧 DEBUG: Erro detalhado:`, error);
 		}
 	}
 	async handleStatusEmailTriggers(orderId, newStatus) {
@@ -9662,7 +9658,6 @@ openAddDespesaModal() {
 	// Função para enviar email via Gmail
 	async enviarEmailStatus(orderId, status) {
 		console.log(`📧 enviarEmailStatus chamado: orderId=${orderId}, status=${status}`);
-		console.log(`📧 DEBUG: Iniciando busca do pedido no Supabase`);
 		
 		// SEMPRE buscar do banco para garantir email_sent_steps atualizado
 		console.log(`📧 Buscando pedido atualizado no Supabase...`);
