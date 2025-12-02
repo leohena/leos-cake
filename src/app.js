@@ -5077,11 +5077,11 @@ class DashboardApp {
 				this.limparCarrinho();
 			});
 		}
-		// Inicializar horários disponíveis para a data padrão
+		// Inicializar horários disponíveis para a data padrão (sem mostrar alertas)
 		setTimeout(() => {
 			const dataInput = document.getElementById('finalizar-data-entrega');
 			if (dataInput && dataInput.value) {
-				this.updateHorariosDisponiveis(dataInput.value);
+				this.updateHorariosDisponiveis(dataInput.value, false);
 			}
 		}, 100);
 		// Event listener para o botão de fechar
@@ -7245,7 +7245,7 @@ class DashboardApp {
 				</span>
 			`).join('');
 	}
-	async updateHorariosDisponiveis(dataSelecionada) {
+	async updateHorariosDisponiveis(dataSelecionada, mostrarAlertas = true) {
 		console.log('🔄 updateHorariosDisponiveis chamada com:', dataSelecionada);
 		const select = document.getElementById('finalizar-horario-entrega');
 		console.log('📋 Select encontrado:', !!select);
@@ -7368,19 +7368,20 @@ class DashboardApp {
 		});
 		// Verificar se há horários disponíveis
 		if (horariosFiltrados.length === 0) {
-			// Nenhum horário disponível, mostrar aviso
-			const option = document.createElement('option');
-			option.value = '';
-			option.textContent = 'Nenhum horário disponível para esta data';
-			option.disabled = true;
-			select.appendChild(option);
-			alert('⚠️ Nenhum horário disponível para a data selecionada. Escolha outra data.');
-			// Resetar para amanhã
-			const tomorrow = new Date();
-			tomorrow.setDate(tomorrow.getDate() + 1);
-			document.getElementById('finalizar-data-entrega').value = tomorrow.toISOString().split('T')[0];
-			// Recarregar horários para amanhã
-			this.updateHorariosDisponiveis(tomorrow.toISOString().split('T')[0]);
+			console.warn('⚠️ Nenhum horário disponível para filtrar - isso pode indicar problemas de conectividade');
+			// Em vez de bloquear completamente, mostrar todos os horários disponíveis como fallback
+			console.log('🔄 Usando fallback: mostrando todos os horários disponíveis');
+			horariosDisponiveis.forEach(horario => {
+				const option = document.createElement('option');
+				option.value = horario;
+				const periodo = parseInt(horario.split(':')[0]) < 12 ? 'AM' : 'PM';
+				option.textContent = `${horario} - ${periodo}`;
+				select.appendChild(option);
+			});
+			// Só mostrar alerta se foi chamado pelo usuário (não automaticamente)
+			if (mostrarAlertas) {
+				alert('⚠️ Atenção: Alguns horários podem já estar ocupados. Verifique a disponibilidade.');
+			}
 		}
 		console.log('✅ Opções adicionadas, total:', select.options.length);
 	}
