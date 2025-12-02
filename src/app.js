@@ -356,14 +356,6 @@ class DashboardApp {
 			let supabaseAttempts = 0;
 			while (!window.supabaseClient && supabaseAttempts < 50) {
 				console.log('⏳ Aguardando inicialização do Supabase...');
-				// Tentar inicializar se ainda não foi feito
-				if (window.initializeSupabase && !window.supabaseClient) {
-					try {
-						await window.initializeSupabase();
-					} catch (error) {
-						console.warn('⚠️ Erro ao inicializar Supabase:', error);
-					}
-				}
 				await new Promise(resolve => setTimeout(resolve, 100));
 				supabaseAttempts++;
 			}

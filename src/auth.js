@@ -12,14 +12,6 @@ class AuthSystem {
 			// Aguardar inicialização do Supabase
 			let attempts = 0;
 			while (!window.supabaseClient && attempts < 50) {
-				// Tentar inicializar se ainda não foi feito
-				if (window.initializeSupabase && !window.supabaseClient) {
-					try {
-						await window.initializeSupabase();
-					} catch (error) {
-						console.warn('⚠️ Erro ao inicializar Supabase no auth:', error);
-					}
-				}
 				await new Promise(resolve => setTimeout(resolve, 100));
 				attempts++;
 			}

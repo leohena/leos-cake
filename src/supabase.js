@@ -253,11 +253,16 @@ function getSupabaseClient() {
 // Inicializa o Supabase quando o DOM está pronto.
 if (document.readyState === 'loading') {
 	document.addEventListener('DOMContentLoaded', () => {
-		// Não inicializar automaticamente - deixar para os outros scripts chamarem quando necessário
-		console.log('🔧 Supabase pronto para inicialização');
+		// Inicializar automaticamente em background
+		initializeSupabase().catch(error => {
+			console.warn('⚠️ Erro na inicialização automática do Supabase:', error);
+		});
 	});
 } else {
-	console.log('🔧 Supabase pronto para inicialização');
+	// Já carregado, inicializar agora
+	initializeSupabase().catch(error => {
+		console.warn('⚠️ Erro na inicialização automática do Supabase:', error);
+	});
 }
 
 // Exportar funções para o escopo global para acesso em outros scripts.
