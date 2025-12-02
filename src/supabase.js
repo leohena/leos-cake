@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // supabase.js - Configuração e utilitários do Supabase
 let supabaseClient = null;
 
@@ -123,22 +122,6 @@ if (document.readyState === 'loading') {
 window.initializeSupabase = initializeSupabase;
 window.getSupabaseClient = () => supabaseClient;
 window.testSupabaseConnection = testSupabaseConnection;
-=======
-// supabase.js - Configuração e utilitários do Supabase
-let supabaseClient = null;
-
-async function initializeSupabase() {
-	if (supabaseClient) {
-		console.log('🔌 Cliente Supabase já inicializado.');
-		return supabaseClient;
-	}
-
-	console.log('🔧 Tentando carregar configurações do Supabase...');
-
-	try {
-		// 1. Tentar buscar configuração da função Netlify
-		let config = null;
-		try {
 			const response = await fetch('/.netlify/functions/config');
 			if (response.ok) {
 				config = await response.json();
@@ -277,4 +260,3 @@ if (document.readyState === 'loading') {
 // Exportar funções para o escopo global para acesso em outros scripts.
 window.initializeSupabase = initializeSupabase;
 window.getSupabaseClient = getSupabaseClient;
->>>>>>> a42efb58a8a1c68ff567c5d4168d42d1af9a65f5
