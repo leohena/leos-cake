@@ -1171,6 +1171,7 @@ class DashboardApp {
 	}
 	async triggerRecebimentoEmail(orderId) {
 		console.log(`📧 triggerRecebimentoEmail chamado: orderId=${orderId}`);
+		console.log(`📧 DEBUG: Iniciando processo de envio de email de recebimento`);
 		if (!orderId) {
 			console.log(`📧 triggerRecebimentoEmail: orderId inválido`);
 			return;
@@ -1178,11 +1179,14 @@ class DashboardApp {
 
 		// Aguardar um pouco para garantir que os scripts sejam carregados
 		await new Promise(resolve => setTimeout(resolve, 100));
+		console.log(`📧 DEBUG: Chamando enviarEmailStatus com status 'recebido'`);
 
 		try {
-			await this.enviarEmailStatus(orderId, 'recebido');
+			const result = await this.enviarEmailStatus(orderId, 'recebido');
+			console.log(`📧 DEBUG: Resultado do enviarEmailStatus:`, result);
 		} catch (error) {
 			console.warn('Erro ao enviar email de recebimento:', error);
+			console.log(`📧 DEBUG: Erro detalhado:`, error);
 		}
 	}
 	async handleStatusEmailTriggers(orderId, newStatus) {
@@ -3973,7 +3977,7 @@ class DashboardApp {
 								</div>
 								<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
 									<div id="market-carousel-${id}" data-current="0" style="display: flex; transition: transform 0.3s ease;">
-										${fotos.length > 0 ? fotos.map(foto => `<img loading="lazy" data-src="${foto}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;" alt="${translateProductName(produto.nome)}">`).join('') : `<div style="width: 100%; height: 100%; background: #f8f9fa; display: flex; align-items: center; justify-content: center; color: #666;">${t('vendas_online.sem_imagem')}</div>`}
+										${fotos.length > 0 ? fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;" alt="${translateProductName(produto.nome)}">`).join('') : `<div style="width: 100%; height: 100%; background: #f8f9fa; display: flex; align-items: center; justify-content: center; color: #666;">${t('vendas_online.sem_imagem')}</div>`}
 									</div>
 									${fotos.length > 1 ? `
 										<button data-action="prev-produto-photo" data-id="${id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
@@ -4104,7 +4108,7 @@ class DashboardApp {
 								<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
 									<div id="online-carousel-${produto.id}" data-current="0" style="display: flex; width: 100%; height: 100%; transition: transform 0.3s ease;">
 										${fotos.length > 0 ? 
-											fotos.map(foto => `<img loading="lazy" data-src="${foto}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;" alt="${translateProductName(produto.nome)}">`).join('') :
+											fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;" alt="${translateProductName(produto.nome)}">`).join('') :
 											`<div style="width: 100%; height: 100%; background: #f8f9fa; display: flex; align-items: center; justify-content: center; color: #666;">${t('vendas_online.sem_imagem')}</div>`
 										}
 									</div>
@@ -6195,7 +6199,7 @@ class DashboardApp {
 							</div>
 							<div style="position: relative; width: 220px; height: 220px; border-radius: 10px; overflow: hidden; background: #f0f0f0; margin-bottom: 0.7rem;">
 								<div id="carousel-${p.id}" data-current="0" style="display: flex; transition: transform 0.3s ease;">
-									${fotos.map(foto => `<img loading="lazy" src="${foto}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;">`).join('')}
+									${fotos.map(foto => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;">`).join('')}
 								</div>
 								${fotos.length > 1 ? `
 									<button data-action="prev-photo" data-id="${p.id}" data-total="${fotos.length}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
@@ -9658,6 +9662,7 @@ openAddDespesaModal() {
 	// Função para enviar email via Gmail
 	async enviarEmailStatus(orderId, status) {
 		console.log(`📧 enviarEmailStatus chamado: orderId=${orderId}, status=${status}`);
+		console.log(`📧 DEBUG: Iniciando busca do pedido no Supabase`);
 		
 		// SEMPRE buscar do banco para garantir email_sent_steps atualizado
 		console.log(`📧 Buscando pedido atualizado no Supabase...`);
