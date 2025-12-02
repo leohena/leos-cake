@@ -784,8 +784,7 @@ class DashboardApp {
 	}
 	updateProductImages() {
 		console.log('🖼️ Iniciando updateProductImages() com', this.products?.length || 0, 'produtos');
-		const placeholder = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
-		const buildImage = (foto, nome) => `<img loading="lazy" decoding="async" fetchpriority="low" data-src="${foto}" src="${placeholder}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;" alt="${translateProductName(nome)}">`;
+		const buildImage = (foto, nome) => `<img src="${foto}" style="min-width: 100%; height: 220px; object-fit: contain; background: #f8f9fa;" alt="${translateProductName(nome)}">`;
 		const renderInto = (id, fotos, nome) => {
 			const el = document.getElementById(id);
 			if (!el) {
@@ -814,7 +813,6 @@ class DashboardApp {
 				this.ensureCarouselControls(onlineCarousel.parentElement, 'online', produto.id, fotos.length);
 			}
 		});
-		this.lazyLoadProductImages();
 	}
 	ensureCarouselControls(container, context, produtoId, total) {
 		if (!container || total <= 1) {
@@ -829,39 +827,6 @@ class DashboardApp {
 			<button data-action="${prevAction}" data-id="${produtoId}" data-total="${total}" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">‹</button>
 			<button data-action="${nextAction}" data-id="${produtoId}" data-total="${total}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer;">›</button>
 		`);
-	}
-	lazyLoadProductImages() {
-		const images = document.querySelectorAll('img[data-src]');
-		if (images.length === 0) {
-			return;
-		}
-		if (!('IntersectionObserver' in window)) {
-			images.forEach(img => {
-				const dataSrc = img.getAttribute('data-src');
-				if (dataSrc) {
-					img.src = dataSrc;
-					img.removeAttribute('data-src');
-				}
-			});
-			return;
-		}
-		if (!this.productImageObserver) {
-			this.productImageObserver = new IntersectionObserver((entries, observer) => {
-				entries.forEach(entry => {
-					if (entry.isIntersecting) {
-						const target = entry.target;
-						const dataSrc = target.getAttribute('data-src');
-						if (dataSrc) {
-							target.src = dataSrc;
-							target.removeAttribute('data-src');
-						}
-						observer.unobserve(target);
-					}
-				});
-			}, { rootMargin: '500px' });
-		}
-		const observer = this.productImageObserver;
-		images.forEach(img => observer.observe(img));
 	}
 	setupUI() {
 		// Modo vendas online: mostrar apenas produtos
@@ -4031,7 +3996,6 @@ class DashboardApp {
 			`;
 		}
 		container.innerHTML = topBar + produtosHtml;
-		this.lazyLoadProductImages();
 		// Tooltip
 		this.setupProductTooltip();
 		// Dropdown evento
@@ -4165,7 +4129,6 @@ class DashboardApp {
 			`;
 		}
 		container.innerHTML = topBar + produtosHtml;
-		this.lazyLoadProductImages();
 		// Tooltip (mesmo da página de pedidos)
 		this.setupProductTooltip();
 		// Eventos do dropdown de categoria
