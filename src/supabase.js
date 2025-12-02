@@ -252,9 +252,12 @@ function getSupabaseClient() {
 
 // Inicializa o Supabase quando o DOM está pronto.
 if (document.readyState === 'loading') {
-	document.addEventListener('DOMContentLoaded', initializeSupabase);
+	document.addEventListener('DOMContentLoaded', () => {
+		// Não inicializar automaticamente - deixar para os outros scripts chamarem quando necessário
+		console.log('🔧 Supabase pronto para inicialização');
+	});
 } else {
-	initializeSupabase();
+	console.log('🔧 Supabase pronto para inicialização');
 }
 
 // Exportar funções para o escopo global para acesso em outros scripts.
