@@ -33,11 +33,11 @@ async function initializeSupabase() {
 			anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6dWNjZ2J4ZGR6cGJvdHh2anVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxODE1NTQsImV4cCI6MjA3Nzc1NzU1NH0.jMtCOeyS3rLLanJzeWv0j1cYQFnFUBjZmnwMe5aUNk4'
 		};
 	} else {
-		// Usar Netlify Functions para produção
-		console.log('🌐 Usando Netlify - carregando configuração segura');
+		// Usar Vercel API para produção
+		console.log('🌐 Usando Vercel - carregando configuração segura');
 
 		try {
-			const response = await fetch('/.netlify/functions/config');
+			const response = await fetch('/api/config');
 			if (response.ok) {
 				const netlifyConfig = await response.json();
 				config = {
@@ -49,7 +49,7 @@ async function initializeSupabase() {
 				throw new Error('Função config falhou');
 			}
 		} catch (error) {
-			console.error('❌ Erro ao carregar config do Netlify:', error);
+			console.error('❌ Erro ao carregar config do Vercel:', error);
 			// Fallback para desenvolvimento local
 			config = {
 				url: 'https://qzuccgbxddzpbotxvjug.supabase.co',

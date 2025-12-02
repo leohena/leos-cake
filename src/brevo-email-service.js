@@ -9,13 +9,13 @@
 
     async sendEmail({ to, subject, html }) {
         try {
-            // A lógica agora delega o envio de e-mail para uma função serverless da Netlify,
+            // A lógica agora delega o envio de e-mail para uma função serverless da Vercel,
             // que é a abordagem correta e segura para lidar com chaves de API.
             const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
             const currentPort = window.location.port || "80";
             const functionUrl = isLocal
-                ? `http://localhost:${currentPort}/.netlify/functions/send-email`
-                : "/.netlify/functions/send-email";
+                ? `http://localhost:${currentPort}/api/send-email`
+                : "/api/send-email";
 
             const response = await fetch(functionUrl, {
                 method: "POST",
@@ -41,10 +41,10 @@
             }
 
             const result = await response.json();
-            console.log("Email enviado com sucesso via função Netlify (Brevo):", result);
+            console.log("Email enviado com sucesso via função Vercel (Brevo):", result);
             return { success: true, data: result };
         } catch (error) {
-            console.error("Erro ao enviar email via função Netlify:", error);
+            console.error("Erro ao enviar email via função Vercel:", error);
             return { success: false, error: error.message };
         }
     }

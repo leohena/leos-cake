@@ -334,6 +334,39 @@ class DashboardApp {
 		this.isVendasOnline = window.location.pathname.includes('vendas-online.html') || document.body.classList.contains('vendas-online');
 		this.automatedEmailTimers = {};
 	}
+	showAlert(messageKey, replacements = {}) {
+		const message = t(messageKey) || messageKey;
+		let finalMessage = message;
+		Object.entries(replacements).forEach(([key, value]) => {
+			finalMessage = finalMessage.replace(`{${key}}`, value);
+		});
+		const alertContainer = document.getElementById('alert-container');
+		if (!alertContainer) {
+			alert(finalMessage);
+			return;
+		}
+		const alertDiv = document.createElement('div');
+		alertDiv.style.cssText = `
+			position: fixed;
+			top: 20px;
+			right: 20px;
+			background: linear-gradient(135deg, #667eea, #764ba2);
+			color: white;
+			padding: 1rem 1.5rem;
+			border-radius: 8px;
+			box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+			z-index: 10000;
+			max-width: 300px;
+			animation: slideIn 0.3s ease;
+			font-size: 0.95rem;
+		`;
+		alertDiv.textContent = finalMessage;
+		alertContainer.appendChild(alertDiv);
+		setTimeout(() => {
+			alertDiv.style.animation = 'slideOut 0.3s ease';
+			setTimeout(() => alertDiv.remove(), 300);
+		}, 3000);
+	}
 	async initialize() {
 		try {
 			console.log('🚀 Inicializando Dashboard...', this.isVendasOnline ? '(Modo Vendas Online)' : '(Modo Dashboard)');

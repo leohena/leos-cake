@@ -24,6 +24,33 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <style>
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+        #alert-container {
+            position: fixed;
+            top: 0;
+            right: 0;
+            z-index: 10000;
+            pointer-events: none;
+        }
         .user-dropdown-item {
             cursor: pointer;
             transition: background 0.2s;
@@ -176,6 +203,8 @@
     </style>
 </head>
 <body class="vendas-online">
+    <div id="alert-container"></div>
+    
     <!-- Header -->
     <header class="header">
         <div class="header-logo">
