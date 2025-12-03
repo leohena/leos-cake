@@ -486,7 +486,7 @@ class DashboardApp {
 			// Renderizar página de vendas online se necessário
 			if (this.isVendasOnline) {
 				console.log('🛒 Renderizando página de vendas online...');
-				setTimeout(() => this.renderVendasOnlinePage(), 1000);
+				setTimeout(() => this.renderVendasOnlinePage());
 			}
 			return true;
 		} catch (error) {
@@ -565,49 +565,46 @@ class DashboardApp {
 						this.products = produtosBasicos || [];
 						// Carregar fotos separadamente apenas se houver produtos
 						if (this.products.length > 0) {
-							// Carregar fotos com atraso maior
-							const delay = this.isVendasOnline ? 2000 : 3000; // Delay ainda maior
-							setTimeout(async () => {
-								try {
-									// Carregar fotos em lotes de 1 produto por vez para evitar timeout
-									const loteSize = 1; // Apenas 1 por vez para máxima segurança
-									for (let i = 0; i < this.products.length; i += loteSize) {
-										const lote = this.products.slice(i, i + loteSize);
-										const { data: fotosData, error: fotosError } = await this.supabase
-											.from('produtos')
-											.select('id, fotos')
-											.in('id', lote.map(p => p.id))
-											.single(); // Usar .single() para lote de 1
-										if (fotosError) {
-											console.error('❌ Erro ao carregar fotos do lote:', lote.map(p => p.id), fotosError);
-											// Continuar sem as fotos ao invés de parar tudo
-											continue;
-										}
-										if (fotosData) {
-											const produto = this.products.find(p => p.id === fotosData.id);
-											if (produto) {
-												produto.fotos = fotosData.fotos;
-												console.log(`✅ Foto carregada para produto: ${produto.nome}`);
-											}
-										}
-										// Pausa maior entre lotes para evitar sobrecarga do servidor
-										await new Promise(resolve => setTimeout(resolve, 500)); // 500ms entre cada foto
+							// Carregar fotos imediatamente sem atraso
+							try {
+								// Carregar fotos em lotes de 1 produto por vez para evitar timeout
+								const loteSize = 1; // Apenas 1 por vez para máxima segurança
+								for (let i = 0; i < this.products.length; i += loteSize) {
+									const lote = this.products.slice(i, i + loteSize);
+									const { data: fotosData, error: fotosError } = await this.supabase
+										.from('produtos')
+										.select('id, fotos')
+										.in('id', lote.map(p => p.id))
+										.single(); // Usar .single() para lote de 1
+									if (fotosError) {
+										console.error('❌ Erro ao carregar fotos do lote:', lote.map(p => p.id), fotosError);
+										// Continuar sem as fotos ao invés de parar tudo
+										continue;
 									}
-									console.log('📦 Fotos carregadas em lotes menores');
-									// Atualizar apenas a seção ativa se ela mostrar produtos
-									if (this.activeSection === 'produtos' || this.activeSection === 'pedidos' || this.isVendasOnline) {
-										// Em vez de re-renderizar completamente, apenas atualizar as imagens
-										this.updateProductImages();
-										// Para vendas online, também re-renderizar a página para garantir que tudo apareça
-										if (this.isVendasOnline) {
-											console.log('🔄 Re-renderizando página de vendas online após carregamento de fotos');
-											await this.renderVendasOnlinePage();
+									if (fotosData) {
+										const produto = this.products.find(p => p.id === fotosData.id);
+										if (produto) {
+											produto.fotos = fotosData.fotos;
+											console.log(`✅ Foto carregada para produto: ${produto.nome}`);
 										}
 									}
-								} catch (error) {
-									console.warn('⚠️ Erro ao carregar fotos:', error);
+									// Pausa mínima entre lotes para evitar sobrecarga do servidor
+									await new Promise(resolve => setTimeout(resolve, 100)); // 100ms entre cada foto
 								}
-							}, delay); // Atraso maior para garantir que produtos básicos já carregaram
+								console.log('📦 Fotos carregadas em lotes menores');
+								// Atualizar apenas a seção ativa se ela mostrar produtos
+								if (this.activeSection === 'produtos' || this.activeSection === 'pedidos' || this.isVendasOnline) {
+									// Em vez de re-renderizar completamente, apenas atualizar as imagens
+									this.updateProductImages();
+									// Para vendas online, também re-renderizar a página para garantir que tudo apareça
+									if (this.isVendasOnline) {
+										console.log('🔄 Re-renderizando página de vendas online após carregamento de fotos');
+										await this.renderVendasOnlinePage();
+									}
+								}
+							} catch (error) {
+								console.warn('⚠️ Erro ao carregar fotos:', error);
+							}
 						}
 					}
 				}
