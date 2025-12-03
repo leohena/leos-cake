@@ -4054,36 +4054,6 @@ class DashboardApp {
 	async renderVendasOnlinePage() {
 		console.log('🎨 Iniciando renderVendasOnlinePage()');
 		console.log('📊 Produtos disponíveis:', this.products?.length || 0);
-		console.log('📊 Primeiro produto:', this.products?.[0]);
-		
-		// Garantir que as fotos estejam carregadas antes de renderizar
-		if (this.products && this.products.length > 0) {
-			console.log('📷 Carregando fotos dos produtos...');
-			try {
-				const fotosNaoCarregadas = this.products.filter(p => !p.fotos);
-				if (fotosNaoCarregadas.length > 0) {
-					console.log(`⏳ Carregando fotos de ${fotosNaoCarregadas.length} produtos...`);
-					for (const produto of fotosNaoCarregadas) {
-						try {
-							const { data, error } = await this.supabase
-								.from('produtos')
-								.select('fotos')
-								.eq('id', produto.id)
-								.single();
-							if (!error && data) {
-								produto.fotos = data.fotos;
-								console.log(`✅ Fotos carregadas para ${produto.nome}`);
-							}
-						} catch (e) {
-							console.warn(`⚠️ Erro ao carregar fotos de ${produto.nome}:`, e);
-						}
-					}
-				}
-			} catch (error) {
-				console.warn('⚠️ Erro ao verificar fotos:', error);
-			}
-		}
-		
 		const container = document.getElementById('vendas-online-container');
 		console.log('📦 Container encontrado:', !!container);
 		if (!container) {
